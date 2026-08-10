@@ -37,6 +37,13 @@ This glossary maps business terminology to schema entities for classification, r
 - **Related rules:** EC_R001
 - **Notes:** Must not contribute to revenue.
 
+
+### open_order
+- **Definition:** An order in a pre-fulfillment state (pending or confirmed).
+- **Tables/columns:** `orders.status`
+- **Related rules:** EC_FB012
+- **Notes:** Opposite of completed_order; used for open/in-progress order reporting.
+
 ### completed_order
 - **Definition:** An order treated as fulfilled for reporting.
 - **Tables/columns:** `orders.status`, `orders.completed_at`
@@ -58,6 +65,14 @@ This glossary maps business terminology to schema entities for classification, r
 - **Tables/columns:** `customers.last_purchase_at`, `customers.customer_id`
 - **Related rules:** EC_R009
 - **Notes:** Default window is 90 days; conflicts with 30-day variant (EC_CR006).
+
+
+### customer_email
+- **Definition:** Access control rule restricting visibility of customer email addresses.
+- **Tables/columns:** `customers.email`
+- **Related rules:** EC_FB016
+- **Scope:** Role-based (finance_analyst, support_analyst, etc.)
+- **Notes:** Example of field-level access restriction where entire column is hidden from specific roles.
 
 ### customer_count
 - **Definition:** Count of distinct external customers.
