@@ -1,0 +1,103 @@
+{
+  "version": "relationships_v0.1.0",
+  "domain": "ecommerce",
+  "relationships": [
+    {
+      "from_table": "customers",
+      "from_column": "region_id",
+      "to_table": "regions",
+      "to_column": "region_id",
+      "cardinality": "many_to_one",
+      "description": "Each customer belongs to one region."
+    },
+    {
+      "from_table": "orders",
+      "from_column": "customer_id",
+      "to_table": "customers",
+      "to_column": "customer_id",
+      "cardinality": "many_to_one",
+      "description": "Each order is placed by one customer."
+    },
+    {
+      "from_table": "orders",
+      "from_column": "region_id",
+      "to_table": "regions",
+      "to_column": "region_id",
+      "cardinality": "many_to_one",
+      "description": "Each order is associated with one region."
+    },
+    {
+      "from_table": "order_items",
+      "from_column": "order_id",
+      "to_table": "orders",
+      "to_column": "order_id",
+      "cardinality": "many_to_one",
+      "description": "Each line item belongs to one order."
+    },
+    {
+      "from_table": "order_items",
+      "from_column": "product_id",
+      "to_table": "products",
+      "to_column": "product_id",
+      "cardinality": "many_to_one",
+      "description": "Each line item references one product."
+    },
+    {
+      "from_table": "payments",
+      "from_column": "order_id",
+      "to_table": "orders",
+      "to_column": "order_id",
+      "cardinality": "many_to_one",
+      "description": "Each payment settles one order; an order may have multiple payments."
+    },
+    {
+      "from_table": "refunds",
+      "from_column": "order_id",
+      "to_table": "orders",
+      "to_column": "order_id",
+      "cardinality": "many_to_one",
+      "description": "Each refund is tied to one order."
+    },
+    {
+      "from_table": "refunds",
+      "from_column": "payment_id",
+      "to_table": "payments",
+      "to_column": "payment_id",
+      "cardinality": "many_to_one",
+      "description": "Each refund reverses one payment when payment_id is set."
+    }
+  ],
+  "recommended_joins": [
+    {
+      "name": "orders_to_payments_default",
+      "left_table": "orders",
+      "right_table": "payments",
+      "join_keys": [{"left": "order_id", "right": "order_id"}],
+      "description": "Default join for order payment totals."
+    },
+    {
+      "name": "orders_to_payments_by_transaction",
+      "left_table": "orders",
+      "right_table": "payments",
+      "join_keys": [
+        {"left": "order_id", "right": "order_id"},
+        {"left": "transaction_id", "right": "transaction_id"}
+      ],
+      "description": "Preferred join when matching gateway transaction IDs (see join_correction rules)."
+    },
+    {
+      "name": "orders_to_order_items",
+      "left_table": "orders",
+      "right_table": "order_items",
+      "join_keys": [{"left": "order_id", "right": "order_id"}],
+      "description": "Expand orders to line-item detail."
+    },
+    {
+      "name": "orders_to_refunds",
+      "left_table": "orders",
+      "right_table": "refunds",
+      "join_keys": [{"left": "order_id", "right": "order_id"}],
+      "description": "Link orders to refund amounts for net revenue."
+    }
+  ]
+}

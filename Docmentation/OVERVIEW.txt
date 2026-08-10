@@ -1,0 +1,390 @@
+Project: Business Feedback and Rule Intelligence Engine
+1. Project objective
+Build a standalone, domain-independent ML-assisted service that converts unstructured user feedback into structured, reviewable business-rule suggestions.
+The service should determine:
+What type of feedback was submitted
+Whether it contains an actionable business rule
+Which business concept the rule affects
+What conditions or calculations it introduces
+Whether it duplicates or conflicts with an existing rule
+Whether additional clarification is required
+Where the suggestion should be routed for human review
+The system must never activate or modify business rules automatically.
+
+2. Example
+Input
+{
+  "feedback_id": "fb_1024",
+  "feedback_text": "Revenue should exclude cancelled orders and test transactions.",
+  "context": {
+    "available_tables": ["orders", "payments"],
+    "available_columns": [
+      "orders.status",
+      "orders.is_test",
+      "payments.amount"
+    ]
+  }
+}
+
+Expected output
+{
+  "feedback_id": "fb_1024",
+  "feedback_type": "business_rule_correction",
+  "rule_category": "metric_definition",
+  "is_actionable": true,
+  "business_term": "revenue",
+  "operations": [
+    {
+      "action": "exclude",
+      "field": "orders.status",
+      "operator": "=",
+      "value": "cancelled"
+    },
+    {
+      "action": "exclude",
+      "field": "orders.is_test",
+      "operator": "=",
+      "value": true
+    }
+  ],
+  "affected_entities": {
+    "tables": ["orders"],
+    "columns": ["orders.status", "orders.is_test"]
+  },
+  "possible_duplicates": [],
+  "possible_conflicts": [],
+  "confidence": 0.91,
+  "requires_human_review": true,
+  "review_reason": "The existing revenue definition may require modification"
+}
+
+
+3. Supported feedback categories
+Category
+Example
+Metric definition
+“Net revenue must subtract successful refunds.”
+Filter rule
+“Internal users should not be included.”
+Status mapping
+“Closed and resolved both mean completed.”
+Time rule
+“Monthly reporting follows the financial month.”
+Join correction
+“Payments should be joined using transaction ID.”
+Column meaning
+“created_at is not the completion date.”
+Entity definition
+“An active customer is someone who purchased within 90 days.”
+Data-quality issue
+“Customer IDs are duplicated.”
+Calculation correction
+“Use distinct customers, not total transactions.”
+Expected-result correction
+“The correct total is ₹4.2 lakh.”
+Access or scope rule
+“Managers can only view their assigned region.”
+Non-rule feedback
+“The dashboard is loading slowly.”
+Unclear feedback
+“This result doesn’t look right.”
+Irrelevant or spam
+Content unrelated to business data or rules
+
+
+4. System flow
+flowchart TD
+    A["Raw feedback"] --> B["Classification"]
+    B --> C["Rule extraction"]
+    C --> D["Duplicate and conflict checks"]
+    D --> E["Structured suggestion"]
+    E --> F["Human review"]
+    F --> G["Approved or rejected"]
+
+
+5. Where will the project’s data come from?
+The initial data should come from four controlled sources.
+Source 1: Synthetic feedback dataset
+This should be the primary source for the first version.
+Create 500–1,000 labelled feedback examples covering all supported categories. The examples can be generated manually, programmatically and with an LLM, but they must be reviewed before being treated as ground truth.
+Example:
+{
+  "feedback_text": "Do not include cancelled orders in gross sales.",
+  "feedback_type": "business_rule_correction",
+  "rule_category": "filter_rule",
+  "business_term": "gross sales",
+  "operation": "exclude",
+  "conditions": [
+    {
+      "field": "orders.status",
+      "operator": "=",
+      "value": "cancelled"
+    }
+  ],
+  "is_actionable": true,
+  "requires_clarification": false
+}
+
+The dataset should include:
+Multiple phrasings of the same rule
+Short and detailed feedback
+Grammatical errors
+Hinglish and conversational English samples
+Several rules in one message
+Contradictory rules
+Duplicate and near-duplicate rules
+Ambiguous feedback
+Non-rule product feedback
+Missing context
+Incorrect table or column references
+Industry-specific terminology
+LLM-generated data must not be used as the only evaluation dataset. A manually reviewed test set must be maintained separately.
+Source 2: Synthetic business databases
+Create small databases for at least three business domains.
+E-commerce
+Tables could include:
+customers
+orders
+order_items
+products
+payments
+refunds
+regions
+Customer support
+Tables could include:
+customers
+tickets
+agents
+departments
+ticket_events
+satisfaction_scores
+SaaS subscriptions
+Tables could include:
+organizations
+users
+subscriptions
+plans
+invoices
+payments
+product_events
+These databases provide schema context for entity extraction without exposing real customer data.
+Source 3: Public datasets
+Public datasets may be used to make the synthetic business environments more realistic. Suitable sources include:
+Kaggle datasets with clear usage permissions
+UCI Machine Learning Repository
+Government open-data portals
+Public customer-support datasets
+Public e-commerce transaction datasets
+Open-source sample databases such as Northwind and Chinook
+Public datasets will usually not contain labelled “business feedback.” They should primarily provide tables, values, distributions and business context. The team will still need to create and label the associated feedback examples.
+Source 4: Reviewed pilot feedback
+If this project is later integrated into a real system, production learning data should come only from reviewed interactions:
+Original user feedback
+Context presented to the user
+Generated rule suggestion
+Reviewer correction
+Final approved or rejected outcome
+Duplicate/conflict decision
+Clarification response
+Model and dataset version
+Raw user feedback must not directly become training data. It should enter a review and anonymisation workflow first.
+
+6. Data-generation plan
+Create several domain packs. Each pack should contain:
+domain-pack/
+├── schema/
+│   ├── schema.json
+│   └── relationships.json
+├── rules/
+│   ├── active_rules.json
+│   └── conflicting_rules.json
+├── feedback/
+│   ├── train.jsonl
+│   ├── validation.jsonl
+│   └── test.jsonl
+└── documentation/
+    ├── business_glossary.md
+    └── annotation_guide.md
+
+Recommended initial distribution:
+Dataset
+Approximate size
+Purpose
+Training
+600 examples
+Model training
+Validation
+150 examples
+Model and threshold selection
+Test
+200 examples
+Final evaluation
+Conflict pairs
+150 pairs
+Conflict classification
+Duplicate pairs
+150 pairs
+Duplicate classification
+Ambiguous examples
+100 examples
+Clarification handling
+
+Paraphrases of the same underlying rule must remain in the same split. Otherwise, the model may appear accurate simply because it saw an almost identical statement during training.
+
+7. Required implementation stages
+Stage 1: Define the rule taxonomy
+Create precise definitions for:
+Feedback type
+Rule category
+Actionability
+Clarification requirement
+Rule operations
+Duplicate relationships
+Conflict relationships
+Review-routing outcome
+Deliverables:
+Taxonomy document
+Annotation guidelines
+Positive and negative examples
+Edge-case definitions
+Stage 2: Create domain packs and datasets
+Build the three synthetic business databases and corresponding business glossaries, existing rules and feedback examples.
+Every example must be labelled consistently.
+Deliverables:
+Synthetic databases
+Dataset-generation scripts
+Training, validation and test data
+Data-quality report
+Dataset licence and source register
+Stage 3: Build a deterministic baseline
+Before ML, implement a baseline using:
+Keywords and regular expressions
+Business-term dictionaries
+Entity-name matching
+Rule templates
+Synonym matching
+Embedding similarity
+Configurable thresholds
+The baseline provides a measurable comparison for the ML model.
+Stage 4: Train the classification model
+The model should predict:
+Feedback type
+Rule category
+Actionable or non-actionable
+Clarification required or not required
+Appropriate review route
+Start with:
+Logistic regression
+Naive Bayes
+Gradient-boosted trees
+Embedding-based classification
+A more complex model should only be selected if it produces a measurable improvement.
+Stage 5: Extract structured rule information
+Extract:
+Business term
+Metric or entity name
+Referenced tables and columns
+Operation: include, exclude, replace, map, add or subtract
+Conditions
+Status mappings
+Time-period logic
+Calculation definition
+Access or scope constraints
+Corrected expected result
+Confidence for each extracted field
+The engine must only return table or column references available in the supplied schema context. Unknown references must be flagged.
+Stage 6: Detect duplicates and conflicts
+Classify the relationship between a suggested rule and existing rules as:
+Exact duplicate
+Semantic duplicate
+Extension
+Modification
+Direct conflict
+Potential conflict
+Unrelated
+Example:
+{
+  "new_rule": "Refunded orders must not count as revenue.",
+  "existing_rule": "Revenue includes completed and refunded orders.",
+  "relationship": "direct_conflict",
+  "conflicting_attributes": ["included_statuses"],
+  "confidence": 0.92,
+  "recommended_action": "manual_review"
+}
+
+Stage 7: Add clarification handling
+When feedback is incomplete, the service should identify what information is missing and generate a structured clarification request.
+Example:
+{
+  "is_actionable": false,
+  "requires_clarification": true,
+  "missing_information": [
+    "Which report or metric is incorrect?",
+    "Which orders should be excluded?"
+  ],
+  "suggested_questions": [
+    "Does this correction apply to gross revenue, net revenue, or both?"
+  ]
+}
+
+The model should not invent the missing answer.
+Stage 8: Create standalone APIs
+Suggested endpoints:
+POST /v1/feedback/analyze
+POST /v1/feedback/batch-analyze
+POST /v1/rules/compare
+POST /v1/rules/check-duplicate
+POST /v1/rules/check-conflict
+POST /v1/evaluations/run
+GET  /v1/models/metrics
+GET  /v1/taxonomy
+GET  /health
+
+Stage 9: Build the review workflow
+Suggested lifecycle:
+RECEIVED
+  → CLASSIFIED
+  → SUGGESTED
+  → NEEDS_CLARIFICATION / UNDER_REVIEW
+  → APPROVED / REJECTED
+  → ARCHIVED
+
+Approval must remain a human-controlled action.
+Stage 10: Evaluation and documentation
+Report:
+Per-category precision, recall and F1
+Confusion matrix
+Actionability accuracy
+Clarification-detection accuracy
+Structured-field extraction accuracy
+Duplicate-detection precision and recall
+Conflict-detection precision and recall
+Confidence calibration
+False-positive rate
+Performance by domain
+Deterministic baseline versus ML results
+
+Acceptance criteria
+The project is complete when:
+It is a fresh standalone repository.
+It contains no product-specific or client-specific naming.
+It runs without access to an existing application.
+At least three domain packs are provided.
+The dataset has documented sources, labels and splits.
+Synthetic data generation is reproducible.
+The test dataset is manually reviewed.
+A deterministic baseline is compared against ML.
+Multiple corrections can be extracted from one message.
+Missing context is flagged rather than invented.
+Duplicate, modification and conflict cases are distinguished.
+Schema references are validated against supplied metadata.
+Every prediction includes confidence and supporting evidence.
+Low-confidence and sensitive rules require review.
+Feedback never activates a rule automatically.
+APIs support individual and batch processing.
+Unit, integration and model-evaluation tests are included.
+The complete service runs locally through Docker.
+API, dataset and integration documentation are complete.
+A neutral repository name could be rule-intelligence-engine, and the internal service name could be RIE.
+
+

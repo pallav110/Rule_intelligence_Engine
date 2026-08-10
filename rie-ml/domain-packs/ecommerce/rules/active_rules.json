@@ -1,0 +1,218 @@
+[
+  {
+    "rule_id": "EC_R001",
+    "rule_name": "Revenue excludes cancelled orders",
+    "rule_category": "metric_definition",
+    "business_term": "revenue",
+    "operation": "exclude",
+    "conditions": [
+      {"field": "orders.status", "operator": "equals", "value": "cancelled"}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.status"]
+    },
+    "description": "Cancelled orders must not contribute to revenue metrics."
+  },
+  {
+    "rule_id": "EC_R002",
+    "rule_name": "Revenue excludes test transactions",
+    "rule_category": "filter_rule",
+    "business_term": "revenue",
+    "operation": "exclude",
+    "conditions": [
+      {"field": "orders.is_test", "operator": "equals", "value": true}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.is_test"]
+    },
+    "description": "Sandbox and QA orders are excluded from production revenue."
+  },
+  {
+    "rule_id": "EC_R003",
+    "rule_name": "Net revenue subtracts successful refunds",
+    "rule_category": "metric_definition",
+    "business_term": "net_revenue",
+    "operation": "subtract",
+    "conditions": [
+      {"field": "refunds.status", "operator": "equals", "value": "successful"}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["refunds", "orders", "payments"],
+      "columns": ["refunds.status", "refunds.amount"]
+    },
+    "description": "Net revenue equals gross revenue minus successful refund amounts."
+  },
+  {
+    "rule_id": "EC_R004",
+    "rule_name": "Gross sales uses successful payments only",
+    "rule_category": "metric_definition",
+    "business_term": "gross_sales",
+    "operation": "include",
+    "conditions": [
+      {"field": "payments.status", "operator": "equals", "value": "successful"}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["payments"],
+      "columns": ["payments.status", "payments.amount"]
+    },
+    "description": "Only successful payment amounts count toward gross sales."
+  },
+  {
+    "rule_id": "EC_R005",
+    "rule_name": "Free shipping for orders above threshold",
+    "rule_category": "filter_rule",
+    "business_term": "free_shipping",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.total_amount", "operator": "greater_than", "value": 999}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": 999,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.total_amount"]
+    },
+    "description": "Orders with total amount above ₹999 qualify for free shipping."
+  },
+  {
+    "rule_id": "EC_R006",
+    "rule_name": "North region reporting scope",
+    "rule_category": "access_scope_rule",
+    "business_term": "regional_orders",
+    "operation": "restrict",
+    "conditions": [
+      {"field": "orders.region_id", "operator": "equals", "value": 1}
+    ],
+    "scope": "region:north",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders", "regions"],
+      "columns": ["orders.region_id", "regions.name"]
+    },
+    "description": "Regional managers see only orders in the North region."
+  },
+  {
+    "rule_id": "EC_R007",
+    "rule_name": "Shipped and delivered map to completed",
+    "rule_category": "status_mapping",
+    "business_term": "completed_order",
+    "operation": "map",
+    "conditions": [
+      {"field": "orders.status", "operator": "in", "value": ["shipped", "delivered"]}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.status"]
+    },
+    "description": "Both shipped and delivered statuses are treated as completed for reporting."
+  },
+  {
+    "rule_id": "EC_R008",
+    "rule_name": "Payments joined on transaction_id",
+    "rule_category": "join_correction",
+    "business_term": "payment_reconciliation",
+    "operation": "replace",
+    "conditions": [
+      {"field": "payments.transaction_id", "operator": "is_not_null", "value": null}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders", "payments"],
+      "columns": ["payments.transaction_id", "payments.order_id"]
+    },
+    "description": "Payment reconciliation must join orders and payments using transaction_id when available."
+  },
+  {
+    "rule_id": "EC_R009",
+    "rule_name": "Active customer 90-day window",
+    "rule_category": "entity_definition",
+    "business_term": "active_customer",
+    "operation": "include",
+    "conditions": [
+      {"field": "customers.last_purchase_at", "operator": "greater_than", "value": "90_days_ago"}
+    ],
+    "scope": "global",
+    "time_window": "90_days",
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["customers"],
+      "columns": ["customers.last_purchase_at"]
+    },
+    "description": "An active customer purchased within the last 90 days."
+  },
+  {
+    "rule_id": "EC_R010",
+    "rule_name": "Exclude internal customers from customer count",
+    "rule_category": "filter_rule",
+    "business_term": "customer_count",
+    "operation": "exclude",
+    "conditions": [
+      {"field": "customers.is_internal", "operator": "equals", "value": true}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["customers"],
+      "columns": ["customers.is_internal"]
+    },
+    "description": "Internal and employee accounts are excluded from external customer metrics."
+  },
+  {
+    "rule_id": "EC_R011",
+    "rule_name": "Monthly reporting uses calendar month",
+    "rule_category": "time_rule",
+    "business_term": "monthly_revenue",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.order_date", "operator": "is_not_null", "value": null}
+    ],
+    "scope": "global",
+    "time_window": "calendar_month",
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.order_date"]
+    },
+    "description": "Monthly revenue aggregates orders by calendar month of order_date."
+  },
+  {
+    "rule_id": "EC_R012",
+    "rule_name": "High discount orders excluded from revenue",
+    "rule_category": "filter_rule",
+    "business_term": "revenue",
+    "operation": "exclude",
+    "conditions": [
+      {"field": "orders.discount_pct", "operator": "greater_than", "value": 50}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": 50,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.discount_pct"]
+    },
+    "description": "Orders with discount above 50% are excluded from standard revenue calculations."
+  }
+]

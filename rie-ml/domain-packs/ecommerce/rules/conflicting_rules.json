@@ -1,0 +1,122 @@
+[
+  {
+    "rule_id": "EC_CR001",
+    "conflicts_with": "EC_R003",
+    "rule_name": "Revenue includes refunded orders",
+    "rule_category": "metric_definition",
+    "business_term": "revenue",
+    "operation": "include",
+    "conditions": [
+      {"field": "refunds.status", "operator": "equals", "value": "successful"}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["refunds", "orders"],
+      "columns": ["refunds.status", "refunds.amount"]
+    },
+    "conflict_type": "direct_conflict",
+    "description": "Contradicts EC_R003: counts refunded amounts toward revenue instead of subtracting them."
+  },
+  {
+    "rule_id": "EC_CR002",
+    "conflicts_with": "EC_R001",
+    "rule_name": "Revenue includes cancelled orders",
+    "rule_category": "metric_definition",
+    "business_term": "revenue",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.status", "operator": "equals", "value": "cancelled"}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.status"]
+    },
+    "conflict_type": "direct_conflict",
+    "description": "Contradicts EC_R001: cancelled orders contribute to revenue."
+  },
+  {
+    "rule_id": "EC_CR003",
+    "conflicts_with": "EC_R005",
+    "rule_name": "Free shipping threshold at 500",
+    "rule_category": "filter_rule",
+    "business_term": "free_shipping",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.total_amount", "operator": "greater_than", "value": 500}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": 500,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.total_amount"]
+    },
+    "conflict_type": "potential_conflict",
+    "description": "Threshold conflict with EC_R005: free shipping at ₹500 vs ₹999."
+  },
+  {
+    "rule_id": "EC_CR004",
+    "conflicts_with": "EC_R002",
+    "rule_name": "Test orders included in revenue",
+    "rule_category": "filter_rule",
+    "business_term": "revenue",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.is_test", "operator": "equals", "value": true}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.is_test"]
+    },
+    "conflict_type": "direct_conflict",
+    "description": "Contradicts EC_R002: test transactions count toward revenue."
+  },
+  {
+    "rule_id": "EC_CR005",
+    "conflicts_with": "EC_R012",
+    "rule_name": "High discount orders included in revenue",
+    "rule_category": "filter_rule",
+    "business_term": "revenue",
+    "operation": "include",
+    "conditions": [
+      {"field": "orders.discount_pct", "operator": "greater_than", "value": 50}
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": 50,
+    "affected_entities": {
+      "tables": ["orders"],
+      "columns": ["orders.discount_pct"]
+    },
+    "conflict_type": "direct_conflict",
+    "description": "Contradicts EC_R012: high-discount orders are included in revenue."
+  },
+  {
+    "rule_id": "EC_CR006",
+    "conflicts_with": "EC_R009",
+    "rule_name": "Active customer 30-day window",
+    "rule_category": "entity_definition",
+    "business_term": "active_customer",
+    "operation": "include",
+    "conditions": [
+      {"field": "customers.last_purchase_at", "operator": "greater_than", "value": "30_days_ago"}
+    ],
+    "scope": "global",
+    "time_window": "30_days",
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["customers"],
+      "columns": ["customers.last_purchase_at"]
+    },
+    "conflict_type": "potential_conflict",
+    "description": "Time-window conflict with EC_R009: 30-day vs 90-day active customer definition."
+  }
+]

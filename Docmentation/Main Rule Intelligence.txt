@@ -1,0 +1,40 @@
+2.3 Rule Intelligence Engine (RIE)
+The Rule Intelligence Engine (RIE) contains the core business logic of the system. It consists of multiple independent internal modules, each responsible for a single stage of the analysis pipeline. These modules execute sequentially within the same FastAPI application as part of the modular monolith architecture and communicate through internal interfaces rather than network calls. Each module produces structured outputs that are consumed by downstream modules, enabling traceability, independent evaluation, and simplified maintenance.
+2.3.1 Classification Module
+The Classification Module analyzes incoming feedback to determine:
+Feedback type 
+Rule category 
+Business domain 
+Actionability 
+Whether clarification is required 
+The classification results are passed to downstream modules together with calibrated classification probabilities and supporting evidence. These outputs are evaluated independently and are not combined into a single overall confidence score.
+2.3.2 Rule Extraction Module
+This module converts unstructured business feedback into one or more structured canonical business rules by extracting:
+• Business term
+• Operation
+• Structured conditions (field, operator, value)
+• Scope
+• Time window
+• Threshold values
+• Affected tables and columns
+• Schema references
+Extracted rule components are validated against the provided schema metadata before being included in the generated suggestion. Multiple independent rules may be extracted from a single feedback submission, with each extracted rule stored separately while maintaining traceability to the originating feedback and suggestion.
+2.3.3 Duplicate & Conflict Detection Module
+This module identifies duplicate and conflicting business rules using a two-stage comparison process. Candidate rules are first retrieved using semantic vector similarity through pgvector. Final duplicate and conflict decisions are then performed using structured rule comparison based on business term, operation, conditions, scope, time window, threshold values, and affected schema elements.
+The module identifies:
+• Exact duplicates
+• Semantic duplicates
+• Rule modifications
+• Logical conflicts
+• Contradictory conditions
+The module never modifies existing business rules. Duplicate and conflict findings are recorded separately and routed for human review when required.
+2.3.4 Clarification Module
+If feedback lacks sufficient information or contains ambiguous business intent, the Clarification Module generates structured clarification requests.
+The system never assumes or guesses missing business information. Clarification requests and user responses are stored separately from the original feedback. After clarification is received, a new analysis run is created using the original feedback together with the clarification response while preserving the original submission as an immutable record.
+
+2.3.5 Confidence & Evidence Module
+Each analysis stage produces its own calibrated probability, validation result, and supporting evidence. Classification, rule extraction, schema validation, duplicate detection, and conflict detection are evaluated independently rather than combined into a single overall confidence score.
+Schema validation is represented using pass/fail status together with validation coverage. Low-confidence predictions, schema validation failures, missing mandatory fields, sensitive rules, or detected conflicts are automatically routed for manual review regardless of confidence values.
+2.3.6 Review Routing Module
+The Review Routing Module determines how a generated suggestion should be handled after automated analysis. Routing decisions are based on classification results, extraction results, schema validation, duplicate detection, conflict detection, clarification requirements, and configurable review policies.
+This module only determines the review path. It does not approve, reject, create, activate, or modify business rules.

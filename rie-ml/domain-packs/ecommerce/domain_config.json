@@ -1,0 +1,25 @@
+{
+  "domain_pack_id": "ecommerce",
+  "version": "ecommerce_v0.1.0",
+  "display_name": "E-Commerce",
+  "description": "Synthetic e-commerce domain pack for RIE classification, extraction, and schema validation.",
+  "entities": [
+    "customers",
+    "orders",
+    "order_items",
+    "products",
+    "payments",
+    "refunds",
+    "regions"
+  ],
+  "taxonomy_ref": "taxonomy/labels.json",
+  "schema_ref": "schema/schema.json",
+  "relationships_ref": "schema/relationships.json",
+  "glossary_ref": "documentation/business_glossary.md",
+  "annotation_guide_ref": "documentation/annotation_guide.md",
+  "active_rules_ref": "rules/active_rules.json",
+  "conflicting_rules_ref": "rules/conflicting_rules.json",
+  "seed_feedback_ref": "feedback/seed.jsonl",
+  "annotation_version": "ann_v0.1.0",
+  "created_at": "2026-08-10"
+}

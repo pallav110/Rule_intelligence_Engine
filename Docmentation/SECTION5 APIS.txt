@@ -1,0 +1,421 @@
+Yes. This section is **much more mixed** than the Client/API/Persistence sections.
+
+If we divide **Section 5 only**, I would estimate:
+
+* **Backend: ~60–65%**
+* **AI/ML: ~35–40%**
+
+But that **doesn't mean you personally need to implement 40% of the API code**. The API layer belongs to Person 1; your AI/ML work is the processing that those APIs trigger.
+
+### Section 5 breakdown
+
+| Section                           | Backend |  AI/ML | Who owns it?             |
+| --------------------------------- | ------: | -----: | ------------------------ |
+| **5.1 Authentication**            | 🟢 100% |      — | Person 1                 |
+| **5.2 `/feedback/analyze`**       |  🟢 50% | 🔵 50% | **Shared interface**     |
+| **5.3 `/feedback/batch-analyze`** |  🟢 70% | 🔵 30% | Person 1 + your pipeline |
+| **5.4 Duplicate check**           |  🟢 30% | 🔵 70% | **You primarily**        |
+| **5.5 Conflict check**            |  🟢 30% | 🔵 70% | **You primarily**        |
+| **5.6 Get suggestion**            | 🟢 100% |      — | Person 1                 |
+| **5.7 Review**                    | 🟢 100% |      — | Person 1                 |
+| **5.8 Create rule**               | 🟢 100% |      — | Person 1                 |
+| **5.9 Activate rule**             | 🟢 100% |      — | Person 1                 |
+| **5.10 Background jobs**          |  🟢 60% | 🔵 40% | Shared                   |
+| **5.11 Train model**              |  🟢 30% | 🔵 70% | **You primarily**        |
+| **5.12 Generate dataset**         |  🟢 20% | 🔵 80% | **You primarily**        |
+| **5.13 Evaluation**               |  🟢 20% | 🔵 80% | **You primarily**        |
+| **5.14 pgvector index**           |  🟢 50% | 🔵 50% | Shared                   |
+| **5.15 Job status**               | 🟢 100% |      — | Person 1                 |
+| **5.16 Clarification**            |  🟢 50% | 🔵 50% | Shared                   |
+| **5.17 Taxonomy**                 |  🟢 50% | 🔵 50% | Shared                   |
+| **5.18 Health**                   | 🟢 100% |      — | Person 1                 |
+| **5.19 HTTP codes**               | 🟢 100% |      — | Person 1                 |
+| **5.20 API principles/logging**   | 🟢 100% |      — | Person 1                 |
+
+### The key distinction
+
+Think of an endpoint like:
+
+```text
+POST /v1/feedback/analyze
+```
+
+**Person 1 builds:**
+
+```text
+HTTP request
+      ↓
+Authentication
+      ↓
+Workspace validation
+      ↓
+Pydantic validation
+      ↓
+Call your ML pipeline
+      ↓
+Receive result
+      ↓
+Save to PostgreSQL
+      ↓
+Return JSON
+```
+
+**You build:**
+
+```text
+                    YOUR PART
+                       ↓
+              ┌─────────────────┐
+feedback ────►│ Classification  │
+              │                 │
+              │ Rule Extraction │
+              │                 │
+              │ Duplicate Check │
+              │                 │
+              │ Conflict Check  │
+              │                 │
+              │ Confidence      │
+              └────────┬────────┘
+                       ↓
+                 ML result
+```
+
+So **the API specification doesn't mean you're responsible for implementing all these endpoints.**
+
+---
+
+# The most important parts for YOU
+
+Looking specifically at this document, I would highlight these:
+
+### 🔵 Definitely AI/ML
+
+#### 5.4 Duplicate detection
+
+```text
+POST /v1/rules/check-duplicate
+```
+
+This is one of your core RIE intelligence components.
+
+You need to determine things like:
+
+```text
+New Rule
+   ↓
+Embedding / representation
+   ↓
+Similarity search
+   ↓
+Existing rules
+   ↓
+Similarity score
+   ↓
+Duplicate / Similar / Unrelated
+```
+
+---
+
+### 🔵 Definitely AI/ML
+
+#### 5.5 Conflict detection
+
+```text
+POST /v1/rules/check-conflict
+```
+
+This is also your territory.
+
+Example:
+
+Existing:
+
+> Orders above ₹1000 qualify for free shipping.
+
+New:
+
+> Orders above ₹1500 qualify for free shipping.
+
+The system needs to determine whether these rules are:
+
+```text
+DUPLICATE
+SIMILAR
+CONFLICTING
+COMPATIBLE
+```
+
+That's **Rule Intelligence**, not ordinary backend CRUD.
+
+---
+
+### 🔵 Definitely your territory
+
+#### 5.11 Model training
+
+```text
+POST /v1/jobs/train-model
+```
+
+Person 1 creates the endpoint and queues the job.
+
+**You determine what actually happens when that job executes.**
+
+For example:
+
+```text
+dataset DS_v2.1
+       ↓
+preprocessing
+       ↓
+tokenization
+       ↓
+DistilBERT
+       ↓
+training
+       ↓
+validation
+       ↓
+model artifact
+       ↓
+metrics
+```
+
+---
+
+### 🔵 Definitely your territory
+
+#### 5.12 Dataset generation
+
+This is **exactly what we're currently working on.**
+
+```text
+POST /v1/jobs/generate-dataset
+```
+
+The backend can trigger it.
+
+But:
+
+> synthetic feedback + manually reviewed examples + public datasets → final dataset
+
+is **your AI/ML/data responsibility**.
+
+That's why we're currently working on **Section 4: Dataset**.
+
+---
+
+### 🔵 Definitely your territory
+
+#### 5.13 Evaluation
+
+```text
+POST /v1/jobs/run-evaluation
+```
+
+Again:
+
+Person 1:
+
+```text
+API → Celery → worker → store result
+```
+
+You:
+
+```text
+test dataset
+     ↓
+ML pipeline
+     ↓
+predictions
+     ↓
+precision
+recall
+F1
+accuracy
+duplicate detection metrics
+conflict detection metrics
+extraction metrics
+     ↓
+evaluation result
+```
+
+---
+
+# 🟡 The interesting one: 5.14 pgvector
+
+```text
+POST /v1/jobs/update-embedding-index
+```
+
+This is **shared**.
+
+Person 1 handles the infrastructure:
+
+```text
+PostgreSQL
+pgvector
+Celery
+job
+index storage
+```
+
+You define what is being embedded and why:
+
+```text
+Business Rule
+      ↓
+Embedding model
+      ↓
+Vector
+      ↓
+pgvector
+      ↓
+similarity search
+```
+
+So:
+
+**Person 1 owns the plumbing.**
+
+**You own the semantic intelligence.**
+
+---
+
+# What about 5.2?
+
+This is probably the most important integration point between you two.
+
+```text
+POST /v1/feedback/analyze
+```
+
+The API itself is Person 1.
+
+But the response contains:
+
+```json
+{
+  "classification_result": "RULE_CHANGE",
+  "extraction_result": "COMPLETED",
+  "duplicate_status": "NONE",
+  "conflict_status": "NONE",
+  "clarification_required": false
+}
+```
+
+Those results come from **your ML pipeline**.
+
+So the architecture is:
+
+```text
+                 PERSON 1
+                    │
+POST /analyze ──────┤
+                    ↓
+             FastAPI endpoint
+                    │
+                    ↓
+              YOUR PIPELINE
+                    │
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+ classification extraction  duplicate/conflict
+       │            │            │
+       └────────────┼────────────┘
+                    ↓
+               ML result
+                    │
+                    ↓
+                 PERSON 1
+                    │
+              PostgreSQL
+                    │
+                    ↓
+              JSON response
+```
+
+---
+
+# So don't get scared by Section 5 😭
+
+When you read this:
+
+> `POST /v1/jobs/train-model`
+
+you might think:
+
+**"Oh shit, I have to build another FastAPI endpoint."**
+
+No.
+
+Your responsibility is roughly:
+
+> **What should happen when the backend asks my ML system to train a model?**
+
+Person 1's responsibility is:
+
+> **How does the API receive the request, authenticate it, create a job, put it in Celery, track it, and return the status?**
+
+Same thing for dataset generation.
+
+---
+
+## Your RIE boundary is basically this
+
+```text
+                  BACKEND — PERSON 1
+────────────────────────────────────────────
+FastAPI
+Authentication
+Authorization
+Workspace isolation
+Request validation
+API routing
+PostgreSQL
+CRUD
+Review APIs
+Rule APIs
+Celery
+Redis
+Job management
+Audit logging
+HTTP responses
+Health checks
+────────────────────────────────────────────
+                    ↕
+             INTEGRATION CONTRACT
+                    ↕
+────────────────────────────────────────────
+                    AI/ML — YOU
+Dataset
+Domain packs
+Taxonomy intelligence
+Classification
+Rule extraction
+Structured rule generation
+Confidence scoring
+Duplicate detection
+Conflict detection
+Model training
+Model evaluation
+Embeddings
+Semantic similarity
+ML thresholds
+ML versioning
+────────────────────────────────────────────
+```
+
+### And **Section 4 is currently almost entirely your side.**
+
+That's why I don't want you jumping into Section 5 implementation yet.
+
+We're doing:
+
+**Section 4 → Dataset/Data foundation → Domain Pack → taxonomy/labels → examples → ML pipeline**
+
+Then later we'll define **exactly what Person 1's backend needs from your pipeline** so the two sides connect cleanly.
+
+So if you're asking **"Am I accidentally doing backend work by doing Section 4?"** — **no.** You're currently doing the AI/ML/data foundation of RIE.
+

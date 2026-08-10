@@ -1,0 +1,309 @@
+{
+  "version": "schema_v0.1.0",
+  "domain": "ecommerce",
+  "tables": {
+    "customers": {
+      "description": "Registered buyers and account holders.",
+      "primary_key": "customer_id",
+      "columns": {
+        "customer_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique customer identifier.",
+          "business_meaning": "Primary key for a buyer account."
+        },
+        "email": {
+          "type": "string",
+          "nullable": false,
+          "description": "Customer email address.",
+          "business_meaning": "Contact and login identifier."
+        },
+        "full_name": {
+          "type": "string",
+          "nullable": true,
+          "description": "Customer display name.",
+          "business_meaning": "Human-readable customer name."
+        },
+        "region_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Foreign key to regions.region_id.",
+          "business_meaning": "Geographic region assigned to the customer."
+        },
+        "is_internal": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True for employees or test accounts.",
+          "business_meaning": "Flags internal users excluded from customer metrics."
+        },
+        "created_at": {
+          "type": "timestamp",
+          "nullable": false,
+          "description": "Account creation timestamp.",
+          "business_meaning": "When the customer record was created."
+        },
+        "last_purchase_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Most recent completed purchase date.",
+          "business_meaning": "Used to define active customer windows."
+        }
+      }
+    },
+    "orders": {
+      "description": "Purchase transactions placed by customers.",
+      "primary_key": "order_id",
+      "columns": {
+        "order_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique order identifier.",
+          "business_meaning": "Primary key for a purchase transaction."
+        },
+        "customer_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to customers.customer_id.",
+          "business_meaning": "Buyer who placed the order."
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Order lifecycle status.",
+          "business_meaning": "Determines whether an order counts toward revenue.",
+          "allowed_values": ["pending", "confirmed", "shipped", "delivered", "cancelled", "returned"]
+        },
+        "is_test": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True for sandbox or QA orders.",
+          "business_meaning": "Test transactions excluded from production metrics."
+        },
+        "order_date": {
+          "type": "timestamp",
+          "nullable": false,
+          "description": "When the order was placed.",
+          "business_meaning": "Primary date for time-based reporting."
+        },
+        "completed_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the order reached a terminal completed state.",
+          "business_meaning": "Completion date for revenue recognition."
+        },
+        "total_amount": {
+          "type": "decimal",
+          "nullable": false,
+          "description": "Order total in base currency.",
+          "business_meaning": "Gross order value before refunds."
+        },
+        "region_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Foreign key to regions.region_id.",
+          "business_meaning": "Region where the order was placed."
+        },
+        "discount_pct": {
+          "type": "decimal",
+          "nullable": true,
+          "description": "Order-level discount percentage.",
+          "business_meaning": "Used for high-discount exclusion rules."
+        }
+      }
+    },
+    "order_items": {
+      "description": "Line items belonging to an order.",
+      "primary_key": "order_item_id",
+      "columns": {
+        "order_item_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique line item identifier.",
+          "business_meaning": "Primary key for an order line."
+        },
+        "order_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to orders.order_id.",
+          "business_meaning": "Parent order for this line item."
+        },
+        "product_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to products.product_id.",
+          "business_meaning": "Product sold on this line."
+        },
+        "quantity": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Units purchased.",
+          "business_meaning": "Item count for quantity-based metrics."
+        },
+        "unit_price": {
+          "type": "decimal",
+          "nullable": false,
+          "description": "Price per unit at time of sale.",
+          "business_meaning": "Line revenue component before discounts."
+        },
+        "discount_pct": {
+          "type": "decimal",
+          "nullable": true,
+          "description": "Line-level discount percentage.",
+          "business_meaning": "Used for item-level discount filters."
+        }
+      }
+    },
+    "products": {
+      "description": "Sellable catalog items.",
+      "primary_key": "product_id",
+      "columns": {
+        "product_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique product identifier.",
+          "business_meaning": "Primary key for catalog items."
+        },
+        "name": {
+          "type": "string",
+          "nullable": false,
+          "description": "Product display name.",
+          "business_meaning": "Human-readable product label."
+        },
+        "category": {
+          "type": "string",
+          "nullable": true,
+          "description": "Product category slug.",
+          "business_meaning": "Grouping for category-level reporting."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "Whether the product is available for sale.",
+          "business_meaning": "Inactive products excluded from active catalog metrics."
+        },
+        "list_price": {
+          "type": "decimal",
+          "nullable": true,
+          "description": "Standard list price.",
+          "business_meaning": "Reference price before promotions."
+        }
+      }
+    },
+    "payments": {
+      "description": "Payment attempts and settlements for orders.",
+      "primary_key": "payment_id",
+      "columns": {
+        "payment_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique payment identifier.",
+          "business_meaning": "Primary key for a payment record."
+        },
+        "order_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to orders.order_id.",
+          "business_meaning": "Order being paid."
+        },
+        "amount": {
+          "type": "decimal",
+          "nullable": false,
+          "description": "Payment amount in base currency.",
+          "business_meaning": "Collected payment value for revenue calculations."
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Payment processing status.",
+          "business_meaning": "Only successful payments count toward revenue.",
+          "allowed_values": ["pending", "successful", "failed", "refunded"]
+        },
+        "transaction_id": {
+          "type": "string",
+          "nullable": true,
+          "description": "Gateway transaction reference.",
+          "business_meaning": "Preferred join key to external payment systems."
+        },
+        "payment_method": {
+          "type": "string",
+          "nullable": true,
+          "description": "Payment instrument type.",
+          "business_meaning": "Method used (card, UPI, wallet, etc.)."
+        },
+        "paid_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When payment succeeded.",
+          "business_meaning": "Payment recognition timestamp."
+        }
+      }
+    },
+    "refunds": {
+      "description": "Refund records linked to orders and payments.",
+      "primary_key": "refund_id",
+      "columns": {
+        "refund_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique refund identifier.",
+          "business_meaning": "Primary key for a refund transaction."
+        },
+        "order_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to orders.order_id.",
+          "business_meaning": "Order being refunded."
+        },
+        "payment_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Foreign key to payments.payment_id.",
+          "business_meaning": "Original payment being reversed."
+        },
+        "amount": {
+          "type": "decimal",
+          "nullable": false,
+          "description": "Refunded amount in base currency.",
+          "business_meaning": "Value subtracted from net revenue."
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Refund processing status.",
+          "business_meaning": "Only successful refunds reduce net revenue.",
+          "allowed_values": ["pending", "successful", "failed"]
+        },
+        "refund_date": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the refund was processed.",
+          "business_meaning": "Refund recognition date for reporting."
+        }
+      }
+    },
+    "regions": {
+      "description": "Geographic regions for scoping reports and access rules.",
+      "primary_key": "region_id",
+      "columns": {
+        "region_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique region identifier.",
+          "business_meaning": "Primary key for geographic scope."
+        },
+        "name": {
+          "type": "string",
+          "nullable": false,
+          "description": "Region display name.",
+          "business_meaning": "Human-readable region label (e.g. North, West)."
+        },
+        "country_code": {
+          "type": "string",
+          "nullable": true,
+          "description": "ISO country code.",
+          "business_meaning": "Country associated with the region."
+        }
+      }
+    }
+  }
+}

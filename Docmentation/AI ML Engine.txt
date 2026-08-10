@@ -1,0 +1,41 @@
+2.5 AI / ML Engine
+The AI / ML Engine provides intelligent analysis capabilities used by the Rule Intelligence Engine. It consists of three primary components that support business feedback classification, structured rule extraction, semantic candidate retrieval, and model evaluation. The deterministic baseline remains the reference implementation, while machine learning models are evaluated independently before being considered for production deployment.
+It consists of three primary components:
+2.5.1 Deterministic Baseline
+The deterministic baseline provides the reference implementation for system evaluation using:
+
+• Regular expressions
+• Keyword dictionaries
+• Business taxonomies
+• TF-IDF with Logistic Regression for classification
+• Rule templates
+• Structured rule normalization
+
+The deterministic baseline serves as the benchmark against which all machine learning models are evaluated and also acts as the fallback mechanism if machine learning inference is unavailable.
+
+
+2.5.2 Machine Learning Models
+The initial machine learning implementation evaluates DistilBERT as a candidate model for:
+
+• Feedback classification
+• Named Entity Recognition (NER)
+• Business rule extraction
+• Semantic candidate retrieval
+
+DistilBERT is treated as an initial machine learning candidate rather than the production model. Promotion to production requires measurable improvement over the deterministic baseline on a frozen evaluation dataset using predefined acceptance criteria.
+
+The machine learning pipeline maintains separate models for classification and rule extraction. Model artifacts, tokenizer versions, configuration, evaluation metrics, and dataset versions are version-controlled to ensure reproducibility and traceability.
+2.5.3 Evaluation Module
+The Evaluation Module measures model performance using independently evaluated metrics, including:
+
+• Precision
+• Recall
+• F1-score
+• Confusion Matrix
+• Confidence Calibration Error
+• Complete Rule Accuracy
+• Recall@K for semantic retrieval
+• Duplicate Detection Precision and Recall
+• Conflict Detection Precision and Recall
+
+Evaluation results are compared directly against the deterministic baseline using the same frozen evaluation dataset before any model is promoted for production use. Detailed evaluation methodology is described in a later section of this document.
