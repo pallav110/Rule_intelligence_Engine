@@ -1,5 +1,46 @@
 {
   "generated_at": "2026-08-11T10:08:51.452952Z",
+  "random_seed": 42,
+  "config_version": "v1",
+  "n_examples": 937,
+  "by_domain": {
+    "saas_subscription": 310,
+    "ecommerce": 312,
+    "customer_support": 315
+  },
+  "by_category": {
+    "metric_definition": 175,
+    "filter_rule": 170,
+    "status_mapping": 154,
+    "time_rule": 92,
+    "access_scope_rule": 92,
+    "entity_definition": 92,
+    "data_quality_issue": 66,
+    "join_correction": 61,
+    "calculation_correction": 35
+  },
+  "split_counts": {
+    "train": 600,
+    "validation": 153,
+    "test": 184
+  },
+  "n_rule_families": 31,
+  "n_duplicate_pairs": 150,
+  "n_conflict_pairs": 150,
+  "n_clarifications": 100,
+  "checksums": {
+    "generated_all.jsonl": "927a2cfaee1165d402c47e93cd11a47d19b4b44e56609623a7fb37ba06ba9d10",
+    "train.jsonl": "cee9f7363ec5ae791da0d913f40749e2502c4bb6b1094418006e48b1aa0c4344",
+    "validation.jsonl": "893450e5d0599e6ee4ff0e8571027f2b76245e300666416be42b7919d5acb5d8",
+    "test.jsonl": "abe11df856965b98127def72f14cb4c96d2bcd556cea4fa5b941a3d0ef3ef368",
+    "duplicate_pairs.jsonl": "90eee7a2cda40029197fa120f5d32fa9d147cbf78e6e4038bd2ab9a52dac507f",
+    "conflict_pairs.jsonl": "7268e5d98ef03228c1cb972de8c7d99108e6ea9d24288979193d1b5db95c4053",
+    "clarifications.jsonl": "f95bba10347cc443e2d78eb60c9af273f9b149fa6fc810efd19c8c5091cb5957",
+    "metadata.json": "9b15f5c692990a7f6e1ad92386682a3b676992dab58a74f4e64fe236020290b6"
+  }
+}
+{
+  "generated_at": "2026-08-11T10:08:51.452952Z",
   "n_examples": 937,
   "by_domain": {
     "saas_subscription": 310,
