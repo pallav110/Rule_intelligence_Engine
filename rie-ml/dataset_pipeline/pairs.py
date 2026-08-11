@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 from collections import defaultdict
 from itertools import combinations
+from .generator import condition_to_text
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / 'datasets' / 'generated' / 'v1'
@@ -19,57 +20,37 @@ def build_duplicate_pairs(all_examples, target_pairs, seed=42):
     groups = defaultdict(list)
     for e in all_examples:
         groups[e['rule_family_id']].append(e)
-    # build all possible unordered pairs within each family, shuffle, and
-    # take up to target_pairs. This lets us create many duplicate pairs when
-    # families have multiple paraphrases.
     candidates = []
     for fam, items in groups.items():
         if len(items) < 2:
             continue
-        # enumerate all unordered pairs
         for ia, ib in combinations(range(len(items)), 2):
             a = items[ia]
             b = items[ib]
+            if a['feedback_text'] == b['feedback_text']:
+                continue
             candidates.append({'a': a, 'b': b, 'label': 'semantic_duplicate'})
     rnd.shuffle(candidates)
     return candidates[:target_pairs]
 
 
-def _synthesize_conflict_variant(rule, pack_name, idx):
-    # make a small synthetic conflicting variant of `rule`
-    r = copy.deepcopy(rule)
-    base_id = r.get('rule_id', 'R')
-    r['rule_id'] = f"{base_id}_SYN_{idx}_{pack_name.upper()}"
-    # toggle a high-level operation if present
-    op = r.get('operation', '')
-    if op == 'exclude':
-        r['operation'] = 'include'
-    else:
-        r['operation'] = 'exclude'
-    # tweak conditions to create a real-appearing contradiction
-    for cond in r.get('conditions', []):
-        val = cond.get('value')
-        if isinstance(val, bool):
-            cond['value'] = not val
-        elif isinstance(val, (int, float)):
-            # nudge numeric thresholds
-            cond['value'] = val + 1
-        elif isinstance(val, list):
-            cond['value'] = list(reversed(val))
-        elif isinstance(val, str) and val.endswith('_ago'):
-            cond['value'] = '30_days_ago' if val != '30_days_ago' else '90_days_ago'
-        else:
-            # fallback: add a short negation marker
-            cond['value'] = f"NOT_{val}"
-    r['conflict_note'] = 'Synthetic conflicting variant'
-    return r
+def _is_conflict_pair(a, b):
+    if a.get('business_term') != b.get('business_term'):
+        return False
+    opposite_ops = {
+        ('exclude', 'include'),
+        ('include', 'exclude'),
+        ('map', 'replace'),
+        ('replace', 'map'),
+        ('restrict', 'include'),
+        ('include', 'restrict')
+    }
+    return (a.get('operation'), b.get('operation')) in opposite_ops
 
 
 def build_conflict_pairs(target_pairs, seed=42):
     rnd = random.Random(seed)
-    pairs = []
     candidates = []
-    # first use any explicit conflicts listed in domain packs
     for pack in PACKS_DIR.iterdir():
         if not pack.is_dir():
             continue
@@ -84,27 +65,64 @@ def build_conflict_pairs(target_pairs, seed=42):
             term = c.get('business_term')
             a = active_by_term.get(term)
             if a:
-                candidates.append({'domain': pack.name, 'rule_a': a, 'rule_b': c, 'conflict_note': c.get('conflict_note','')})
-        # synthesize additional conflicts from active rules in this pack
-        for i, a in enumerate(active):
-            # synthesize several variants per active rule to reach desired counts
-            for j in range(6):
-                b = _synthesize_conflict_variant(a, pack.name, f"{i}_{j}")
-                candidates.append({'domain': pack.name, 'rule_a': a, 'rule_b': b, 'conflict_note': b.get('conflict_note','')})
+                candidates.append({
+                    'domain': pack.name,
+                    'rule_a': a,
+                    'rule_b': c,
+                    'conflict_note': c.get('conflict_note', ''),
+                    'conflict_type': c.get('conflict_type', 'direct_conflict')
+                })
+        # add direct conflict candidates from active rules sharing the same business term
+        for ia, ib in combinations(range(len(active)), 2):
+            a = active[ia]
+            b = active[ib]
+            if _is_conflict_pair(a, b):
+                candidates.append({
+                    'domain': pack.name,
+                    'rule_a': a,
+                    'rule_b': b,
+                    'conflict_note': 'Derived from opposite operations on same business term',
+                    'conflict_type': 'direct_conflict'
+                })
     rnd.shuffle(candidates)
     return candidates[:target_pairs]
+
+CLARIFICATION_TEMPLATES = [
+    "What exactly should count as {term}?",
+    "I need clarification on how {term} is defined.",
+    "Should {cond} be included in {term}?",
+    "How should we treat {cond} when calculating {term}?",
+    "The business intent for {term} is unclear.",
+    "Please clarify the expected behavior for {term}.",
+    "It is unclear whether {cond} belongs in {term}."
+]
 
 
 def build_clarifications(all_examples, target, seed=42):
     rnd = random.Random(seed)
+    templates = CLARIFICATION_TEMPLATES
     picks = rnd.sample(all_examples, min(target, len(all_examples)))
     clarifs = []
     for e in picks:
-        c = dict(e)
-        c['requires_clarification'] = True
-        c['is_actionable'] = False
-        c['rules'] = []
-        c['clarification_reason'] = 'missing details: time_window/threshold/scope'
+        term = e.get('rules', [{}])[0].get('business_term', 'the metric') or 'the metric'
+        conds = e.get('rules', [{}])[0].get('conditions', [])
+        cond_text = ' and '.join(condition_to_text(c) for c in conds[:2]) if conds else 'the relevant condition'
+        template = rnd.choice(templates)
+        text = template.format(term=term.replace('_', ' '), cond=cond_text)
+        c = {
+            'feedback_id': e['feedback_id'],
+            'domain': e['domain'],
+            'feedback_text': text,
+            'feedback_type': 'unclear_feedback',
+            'rule_category': None,
+            'is_actionable': False,
+            'requires_clarification': True,
+            'rule_family_id': e['rule_family_id'],
+            'rules': [],
+            'annotation_version': 'gen_v1',
+            'source': 'synthetic_generator',
+            'clarification_reason': 'ambiguous business intent'
+        }
         clarifs.append(c)
     return clarifs
 
