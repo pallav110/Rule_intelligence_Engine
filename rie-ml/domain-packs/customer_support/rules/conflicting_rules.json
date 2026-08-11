@@ -1,0 +1,85 @@
+[
+  {
+    "rule_id": "CS_CR001",
+    "business_term": "ticket_backlog",
+    "rule_category": "filter_rule",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "tickets.is_internal",
+        "operator": "equals",
+        "value": true
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.is_internal", "tickets.status"]
+    }
+  },
+  {
+    "rule_id": "CS_CR002",
+    "business_term": "closed_ticket",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      {
+        "field": "tickets.status",
+        "operator": "equals",
+        "value": "resolved"
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.status"]
+    },
+    "conflict_note": "Conflicts with the active mapping that treats resolved and closed as equivalent final states."
+  },
+  {
+    "rule_id": "CS_CR003",
+    "business_term": "agent_access",
+    "rule_category": "access_scope_rule",
+    "operation": "restrict",
+    "conditions": [
+      {
+        "field": "agents.department_id",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["agents", "tickets", "departments"],
+      "columns": ["agents.department_id", "tickets.department_id"]
+    },
+    "conflict_note": "Conflicts with department-scoped access control by allowing unrestricted cross-department access."
+  },
+  {
+    "rule_id": "CS_CR004",
+    "business_term": "duplicate_ticket",
+    "rule_category": "data_quality_issue",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "tickets.duplicate_of_ticket_id",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.duplicate_of_ticket_id", "tickets.ticket_id"]
+    },
+    "conflict_note": "Conflicts with the active rule that excludes duplicate tickets from backlog metrics."
+  }
+]

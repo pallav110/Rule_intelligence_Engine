@@ -1,0 +1,460 @@
+{
+  "version": "schema_v0.1.0",
+  "domain": "customer_support",
+  "tables": {
+    "customers": {
+      "description": "Customers who contact support.",
+      "primary_key": "customer_id",
+      "columns": {
+        "customer_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique customer identifier.",
+          "business_meaning": "Primary key for a support customer."
+        },
+        "external_customer_ref": {
+          "type": "string",
+          "nullable": false,
+          "description": "External account reference from the source system.",
+          "business_meaning": "Stable business identifier across systems."
+        },
+        "full_name": {
+          "type": "string",
+          "nullable": true,
+          "description": "Customer display name.",
+          "business_meaning": "Human-readable customer name."
+        },
+        "email": {
+          "type": "string",
+          "nullable": true,
+          "description": "Primary customer email address.",
+          "business_meaning": "Contact channel used for support follow-up."
+        },
+        "customer_segment": {
+          "type": "string",
+          "nullable": true,
+          "description": "Commercial segment or account class.",
+          "business_meaning": "Used for support routing and reporting."
+        },
+        "country_code": {
+          "type": "string",
+          "nullable": true,
+          "description": "Two-letter country code.",
+          "business_meaning": "Geographic location for support scope."
+        },
+        "support_tier": {
+          "type": "string",
+          "nullable": false,
+          "description": "Support plan tier.",
+          "business_meaning": "Determines service level and routing priority.",
+          "allowed_values": ["free", "pro", "enterprise"]
+        },
+        "is_internal": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True for internal staff or sandbox accounts.",
+          "business_meaning": "Internal accounts are excluded from external support metrics."
+        },
+        "created_at": {
+          "type": "timestamp",
+          "nullable": false,
+          "description": "Customer account creation timestamp.",
+          "business_meaning": "When the support customer record was created."
+        },
+        "last_ticket_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Most recent support ticket activity for the customer.",
+          "business_meaning": "Used for recency and active-customer style metrics."
+        }
+      }
+    },
+    "departments": {
+      "description": "Support teams and functional queues.",
+      "primary_key": "department_id",
+      "columns": {
+        "department_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique department identifier.",
+          "business_meaning": "Primary key for a support department."
+        },
+        "name": {
+          "type": "string",
+          "nullable": false,
+          "description": "Department display name.",
+          "business_meaning": "Human-readable support team name."
+        },
+        "slug": {
+          "type": "string",
+          "nullable": false,
+          "description": "URL-safe department key.",
+          "business_meaning": "Normalized department identifier for routing."
+        },
+        "queue_name": {
+          "type": "string",
+          "nullable": true,
+          "description": "Ticket queue label.",
+          "business_meaning": "Operational queue used by support staff."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "Whether the department is active.",
+          "business_meaning": "Inactive departments should not receive new tickets."
+        },
+        "sla_response_minutes": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Target minutes for first response.",
+          "business_meaning": "Service-level target for first agent reply."
+        },
+        "sla_resolution_minutes": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Target minutes for resolution.",
+          "business_meaning": "Service-level target for full ticket resolution."
+        },
+        "routing_priority": {
+          "type": "string",
+          "nullable": true,
+          "description": "Default routing priority for the department.",
+          "business_meaning": "Used to prioritize work allocation.",
+          "allowed_values": ["standard", "high", "urgent"]
+        }
+      }
+    },
+    "agents": {
+      "description": "Support agents who handle tickets.",
+      "primary_key": "agent_id",
+      "columns": {
+        "agent_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique agent identifier.",
+          "business_meaning": "Primary key for a support agent."
+        },
+        "department_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to departments.department_id.",
+          "business_meaning": "Department assigned to the agent."
+        },
+        "full_name": {
+          "type": "string",
+          "nullable": false,
+          "description": "Agent full name.",
+          "business_meaning": "Human-readable support agent name."
+        },
+        "email": {
+          "type": "string",
+          "nullable": false,
+          "description": "Agent email address.",
+          "business_meaning": "Work contact for routing and access control."
+        },
+        "role": {
+          "type": "string",
+          "nullable": false,
+          "description": "Agent role in the support organization.",
+          "business_meaning": "Used for access and assignment rules.",
+          "allowed_values": ["agent", "senior_agent", "manager", "bot"]
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Employment or availability status.",
+          "business_meaning": "Determines whether an agent can receive tickets.",
+          "allowed_values": ["active", "inactive", "on_leave"]
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True if the agent is available for routing.",
+          "business_meaning": "Active agents can be assigned to tickets."
+        },
+        "timezone": {
+          "type": "string",
+          "nullable": true,
+          "description": "Agent timezone.",
+          "business_meaning": "Useful for shift-based routing and SLA calculations."
+        },
+        "hire_date": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Date the agent joined the team.",
+          "business_meaning": "Agent tenure and staffing analysis."
+        },
+        "last_login_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Most recent login timestamp.",
+          "business_meaning": "Operational activity for agent availability."
+        }
+      }
+    },
+    "tickets": {
+      "description": "Support tickets raised by customers.",
+      "primary_key": "ticket_id",
+      "columns": {
+        "ticket_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique ticket identifier.",
+          "business_meaning": "Primary key for a support ticket."
+        },
+        "customer_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to customers.customer_id.",
+          "business_meaning": "Customer who opened the ticket."
+        },
+        "department_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to departments.department_id.",
+          "business_meaning": "Department responsible for the ticket."
+        },
+        "assigned_agent_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Foreign key to agents.agent_id.",
+          "business_meaning": "Agent currently assigned to the ticket."
+        },
+        "duplicate_of_ticket_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Self-reference to the originating ticket for duplicates.",
+          "business_meaning": "Marks a ticket as a duplicate of another ticket."
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Current lifecycle status of the ticket.",
+          "business_meaning": "Controls backlog, closure, and escalation metrics.",
+          "allowed_values": ["open", "pending", "waiting_on_customer", "resolved", "closed", "escalated"]
+        },
+        "priority": {
+          "type": "string",
+          "nullable": false,
+          "description": "Ticket urgency level.",
+          "business_meaning": "Used for routing and SLA rules.",
+          "allowed_values": ["low", "medium", "high", "urgent"]
+        },
+        "channel": {
+          "type": "string",
+          "nullable": false,
+          "description": "Incoming support channel.",
+          "business_meaning": "How the customer contacted support.",
+          "allowed_values": ["email", "chat", "phone", "portal", "social"]
+        },
+        "issue_type": {
+          "type": "string",
+          "nullable": true,
+          "description": "Normalized issue classification.",
+          "business_meaning": "Used for routing and reporting."
+        },
+        "subject": {
+          "type": "string",
+          "nullable": false,
+          "description": "Ticket subject line.",
+          "business_meaning": "Short title for the support case."
+        },
+        "opened_at": {
+          "type": "timestamp",
+          "nullable": false,
+          "description": "When the ticket was created.",
+          "business_meaning": "Start time for SLA and resolution metrics."
+        },
+        "first_response_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Timestamp of the first agent reply.",
+          "business_meaning": "Used for first-response SLA calculations."
+        },
+        "last_agent_response_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "Most recent agent reply timestamp.",
+          "business_meaning": "Useful for responsiveness and recency metrics."
+        },
+        "resolved_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the ticket was resolved.",
+          "business_meaning": "Used for resolution metrics and status mapping."
+        },
+        "closed_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the ticket was closed.",
+          "business_meaning": "Terminal closure timestamp for support reporting."
+        },
+        "reopen_count": {
+          "type": "integer",
+          "nullable": false,
+          "description": "How many times the ticket was reopened.",
+          "business_meaning": "Used for first-contact-resolution and quality metrics."
+        },
+        "is_internal": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True if the ticket is internal or test traffic.",
+          "business_meaning": "Internal tickets are excluded from customer-facing metrics."
+        },
+        "is_duplicate": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True if the ticket is a duplicate of another case.",
+          "business_meaning": "Duplicate tickets are excluded from backlog metrics."
+        },
+        "sla_breach": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True if the ticket breached SLA.",
+          "business_meaning": "Used for SLA compliance reporting."
+        },
+        "satisfaction_sent_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the CSAT survey was sent.",
+          "business_meaning": "Supports satisfaction measurement timing."
+        }
+      }
+    },
+    "ticket_events": {
+      "description": "Audit log of support ticket lifecycle events.",
+      "primary_key": "event_id",
+      "columns": {
+        "event_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique ticket event identifier.",
+          "business_meaning": "Primary key for a ticket event."
+        },
+        "ticket_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to tickets.ticket_id.",
+          "business_meaning": "Ticket that produced this event."
+        },
+        "agent_id": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Foreign key to agents.agent_id.",
+          "business_meaning": "Agent associated with the event."
+        },
+        "event_type": {
+          "type": "string",
+          "nullable": false,
+          "description": "Type of ticket event.",
+          "business_meaning": "Lifecycle action captured for the ticket.",
+          "allowed_values": ["created", "status_changed", "assignee_changed", "note_added", "replied", "escalated", "reopened", "resolved"]
+        },
+        "old_status": {
+          "type": "string",
+          "nullable": true,
+          "description": "Previous ticket status.",
+          "business_meaning": "Used for status transition analysis."
+        },
+        "new_status": {
+          "type": "string",
+          "nullable": true,
+          "description": "Updated ticket status.",
+          "business_meaning": "Used for status transition analysis."
+        },
+        "event_timestamp": {
+          "type": "timestamp",
+          "nullable": false,
+          "description": "Timestamp of the event.",
+          "business_meaning": "Event timing for audit and SLA logic."
+        },
+        "is_internal_note": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True when the event is an internal note.",
+          "business_meaning": "Internal notes should not count as customer replies."
+        },
+        "channel": {
+          "type": "string",
+          "nullable": true,
+          "description": "Channel used for the event.",
+          "business_meaning": "Matches the support communication channel."
+        },
+        "event_payload": {
+          "type": "string",
+          "nullable": true,
+          "description": "Serialized event metadata.",
+          "business_meaning": "Optional JSON payload for event details."
+        }
+      }
+    },
+    "satisfaction_scores": {
+      "description": "Customer satisfaction feedback for closed support tickets.",
+      "primary_key": "score_id",
+      "columns": {
+        "score_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Unique satisfaction score identifier.",
+          "business_meaning": "Primary key for a satisfaction score row."
+        },
+        "ticket_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to tickets.ticket_id.",
+          "business_meaning": "Ticket being rated by the customer."
+        },
+        "customer_id": {
+          "type": "integer",
+          "nullable": false,
+          "description": "Foreign key to customers.customer_id.",
+          "business_meaning": "Customer who submitted the score."
+        },
+        "score": {
+          "type": "integer",
+          "nullable": false,
+          "description": "CSAT score value.",
+          "business_meaning": "Customer satisfaction rating on a small numeric scale."
+        },
+        "nps_score": {
+          "type": "integer",
+          "nullable": true,
+          "description": "Optional net promoter score.",
+          "business_meaning": "Secondary customer sentiment measurement."
+        },
+        "response_status": {
+          "type": "string",
+          "nullable": false,
+          "description": "Survey response status.",
+          "business_meaning": "Counts only received survey responses.",
+          "allowed_values": ["sent", "received", "skipped"]
+        },
+        "submitted_at": {
+          "type": "timestamp",
+          "nullable": true,
+          "description": "When the score was submitted.",
+          "business_meaning": "Survey response timestamp."
+        },
+        "survey_channel": {
+          "type": "string",
+          "nullable": true,
+          "description": "Channel used for the survey.",
+          "business_meaning": "How the CSAT/NPS survey was delivered.",
+          "allowed_values": ["email", "in_app", "chat"]
+        },
+        "comment": {
+          "type": "string",
+          "nullable": true,
+          "description": "Optional free-text feedback.",
+          "business_meaning": "Customer explanation for the score."
+        },
+        "is_positive": {
+          "type": "boolean",
+          "nullable": false,
+          "description": "True when the score is considered positive.",
+          "business_meaning": "Convenience flag for satisfaction summaries."
+        }
+      }
+    }
+  }
+}

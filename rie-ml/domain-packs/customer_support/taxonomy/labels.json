@@ -1,0 +1,93 @@
+{
+  "version": "taxonomy_v0.1.0",
+  "description": "Frozen snake_case taxonomy for RIE datasets and domain packs (authoritative: Docmentation/OVERVIEW.txt)",
+  "feedback_types": [
+    "business_rule_correction",
+    "non_rule_feedback",
+    "unclear_feedback",
+    "irrelevant_spam"
+  ],
+  "rule_categories": [
+    "metric_definition",
+    "filter_rule",
+    "status_mapping",
+    "time_rule",
+    "join_correction",
+    "column_meaning",
+    "entity_definition",
+    "data_quality_issue",
+    "calculation_correction",
+    "expected_result_correction",
+    "access_scope_rule"
+  ],
+  "operations": [
+    "exclude",
+    "include",
+    "restrict",
+    "map",
+    "replace",
+    "add",
+    "subtract"
+  ],
+  "operators": [
+    "equals",
+    "not_equals",
+    "greater_than",
+    "less_than",
+    "greater_than_or_equal",
+    "less_than_or_equal",
+    "in",
+    "not_in",
+    "contains",
+    "is_null",
+    "is_not_null"
+  ],
+  "duplicate_relationships": [
+    "exact_duplicate",
+    "semantic_duplicate",
+    "extension",
+    "modification",
+    "unrelated"
+  ],
+  "conflict_relationships": [
+    "direct_conflict",
+    "potential_conflict",
+    "no_conflict"
+  ],
+  "review_routes": [
+    "normal_review",
+    "high_priority_review",
+    "clarification_required",
+    "validation_failure",
+    "mandatory_manual_review"
+  ],
+  "ner_labels": [
+    "BUSINESS_TERM",
+    "OPERATION",
+    "FIELD",
+    "VALUE",
+    "SCOPE",
+    "TIME_WINDOW",
+    "THRESHOLD",
+    "TABLE",
+    "COLUMN"
+  ],
+  "feedback_type_to_rule_categories": {
+    "business_rule_correction": [
+      "metric_definition",
+      "filter_rule",
+      "status_mapping",
+      "time_rule",
+      "join_correction",
+      "column_meaning",
+      "entity_definition",
+      "data_quality_issue",
+      "calculation_correction",
+      "expected_result_correction",
+      "access_scope_rule"
+    ],
+    "non_rule_feedback": [],
+    "unclear_feedback": [],
+    "irrelevant_spam": []
+  }
+}

@@ -1,0 +1,183 @@
+[
+  {
+    "rule_id": "CS_R001",
+    "business_term": "ticket_backlog",
+    "rule_category": "filter_rule",
+    "operation": "exclude",
+    "conditions": [
+      {
+        "field": "tickets.is_internal",
+        "operator": "equals",
+        "value": true
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.is_internal", "tickets.status"]
+    }
+  },
+  {
+    "rule_id": "CS_R002",
+    "business_term": "first_response_time",
+    "rule_category": "time_rule",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "tickets.first_response_at",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "global",
+    "time_window": "from_opened_at",
+    "threshold": 30,
+    "affected_entities": {
+      "tables": ["tickets", "departments"],
+      "columns": ["tickets.opened_at", "tickets.first_response_at", "departments.sla_response_minutes"]
+    }
+  },
+  {
+    "rule_id": "CS_R003",
+    "business_term": "closed_ticket",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      {
+        "field": "tickets.status",
+        "operator": "in",
+        "value": ["resolved", "closed"]
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.status"]
+    }
+  },
+  {
+    "rule_id": "CS_R004",
+    "business_term": "agent_access",
+    "rule_category": "access_scope_rule",
+    "operation": "restrict",
+    "conditions": [
+      {
+        "field": "agents.department_id",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "department:assigned",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["agents", "tickets", "departments"],
+      "columns": ["agents.department_id", "tickets.department_id"]
+    }
+  },
+  {
+    "rule_id": "CS_R005",
+    "business_term": "customer_satisfaction",
+    "rule_category": "metric_definition",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "satisfaction_scores.response_status",
+        "operator": "equals",
+        "value": "received"
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["satisfaction_scores", "tickets"],
+      "columns": ["satisfaction_scores.score", "satisfaction_scores.response_status", "tickets.status"]
+    }
+  },
+  {
+    "rule_id": "CS_R006",
+    "business_term": "ticket_event",
+    "rule_category": "join_correction",
+    "operation": "replace",
+    "conditions": [
+      {
+        "field": "ticket_events.ticket_id",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["ticket_events", "tickets"],
+      "columns": ["ticket_events.ticket_id", "ticket_events.agent_id", "tickets.ticket_id"]
+    },
+    "join_note": "Join ticket_events to tickets on ticket_id, not subject or customer fields"
+  },
+  {
+    "rule_id": "CS_R007",
+    "business_term": "duplicate_ticket",
+    "rule_category": "data_quality_issue",
+    "operation": "exclude",
+    "conditions": [
+      {
+        "field": "tickets.duplicate_of_ticket_id",
+        "operator": "is_not_null",
+        "value": null
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.duplicate_of_ticket_id", "tickets.ticket_id"]
+    }
+  },
+  {
+    "rule_id": "CS_R008",
+    "business_term": "first_contact_resolution",
+    "rule_category": "calculation_correction",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "tickets.reopen_count",
+        "operator": "equals",
+        "value": 0
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["tickets"],
+      "columns": ["tickets.reopen_count", "tickets.status"]
+    }
+  },
+  {
+    "rule_id": "CS_R009",
+    "business_term": "department_queue",
+    "rule_category": "entity_definition",
+    "operation": "include",
+    "conditions": [
+      {
+        "field": "departments.is_active",
+        "operator": "equals",
+        "value": true
+      }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": {
+      "tables": ["departments", "tickets"],
+      "columns": ["departments.name", "tickets.department_id"]
+    }
+  }
+]

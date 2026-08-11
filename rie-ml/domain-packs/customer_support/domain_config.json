@@ -1,0 +1,24 @@
+{
+  "domain_pack_id": "customer_support",
+  "version": "customer_support_v0.1.0",
+  "display_name": "Customer Support",
+  "description": "Synthetic customer support domain pack for RIE classification, extraction, and schema validation.",
+  "entities": [
+    "customers",
+    "tickets",
+    "agents",
+    "departments",
+    "ticket_events",
+    "satisfaction_scores"
+  ],
+  "taxonomy_ref": "taxonomy/labels.json",
+  "schema_ref": "schema/schema.json",
+  "relationships_ref": "schema/relationships.json",
+  "glossary_ref": "documentation/business_glossary.md",
+  "annotation_guide_ref": "documentation/annotation_guide.md",
+  "active_rules_ref": "rules/active_rules.json",
+  "conflicting_rules_ref": "rules/conflicting_rules.json",
+  "seed_feedback_ref": "feedback/seed.jsonl",
+  "annotation_version": "ann_v0.1.0",
+  "created_at": "2026-08-11"
+}
