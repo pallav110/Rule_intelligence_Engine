@@ -3,7 +3,7 @@ from pathlib import Path
 from .generator import generate_dataset
 from .validator import validate_dataset
 from .splitter import split_by_family
-from . import pairs
+from . import pairs, stats
 from .validator import validate_pairs_and_splits
 
 CFG_PATH = Path(__file__).parent / 'config.json'
@@ -51,6 +51,9 @@ def run(small=False):
             print('-', e)
     else:
         print('No pair/split validation issues detected.')
+
+    print('Computing dataset quality stats...')
+    stats.compute()
 
 
 if __name__ == '__main__':
