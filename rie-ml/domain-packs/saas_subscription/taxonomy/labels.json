@@ -90,13 +90,4 @@
     "unclear_feedback": [],
     "irrelevant_spam": []
   }
-  ,
-  "category_intent_guidance": {
-    "filter_rule": "Use include/exclude operations to explicitly state which records to keep or remove (include/exclude).",
-    "data_quality_issue": "Flag or validate records; actions usually include validation, exclusion, or flagging for manual review (validation/exclude/flag).",
-    "metric_definition": "Define metrics as compositions over fields; operations typically include, exclude, or subtract values (include/exclude/subtract).",
-    "status_mapping": "Map or replace raw status values into canonical business statuses (map/replace)."
-  }
 }
-
-

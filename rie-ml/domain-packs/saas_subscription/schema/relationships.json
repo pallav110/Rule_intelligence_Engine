@@ -1,0 +1,21 @@
+{
+  "version": "relationships_v0.1.0",
+  "domain": "saas_subscription",
+  "relationships": [
+    { "from_table": "users", "from_column": "organization_id", "to_table": "organizations", "to_column": "organization_id", "cardinality": "many_to_one", "description": "Users belong to an organization." },
+    { "from_table": "subscriptions", "from_column": "organization_id", "to_table": "organizations", "to_column": "organization_id", "cardinality": "many_to_one", "description": "Subscriptions are owned by organizations." },
+    { "from_table": "subscriptions", "from_column": "user_id", "to_table": "users", "to_column": "user_id", "cardinality": "many_to_one", "description": "Optional owning user for per-user subscriptions." },
+    { "from_table": "subscriptions", "from_column": "plan_id", "to_table": "subscription_plans", "to_column": "plan_id", "cardinality": "many_to_one", "description": "Subscription references a plan." },
+    { "from_table": "invoices", "from_column": "subscription_id", "to_table": "subscriptions", "to_column": "subscription_id", "cardinality": "many_to_one", "description": "Invoices are generated for a subscription." },
+    { "from_table": "invoices", "from_column": "organization_id", "to_table": "organizations", "to_column": "organization_id", "cardinality": "many_to_one", "description": "Invoices bill an organization." },
+    { "from_table": "payments", "from_column": "invoice_id", "to_table": "invoices", "to_column": "invoice_id", "cardinality": "many_to_one", "description": "Payments are applied to invoices." },
+    { "from_table": "product_events", "from_column": "subscription_id", "to_table": "subscriptions", "to_column": "subscription_id", "cardinality": "many_to_one", "description": "Product events attach to subscriptions." },
+    { "from_table": "product_events", "from_column": "user_id", "to_table": "users", "to_column": "user_id", "cardinality": "many_to_one", "description": "Events may reference the acting user." }
+  ],
+  "recommended_joins": [
+    { "name": "subscriptions_to_plans", "left_table": "subscriptions", "right_table": "subscription_plans", "join_keys": [{"left":"plan_id","right":"plan_id"}], "description": "Join subscriptions to plan metadata." },
+    { "name": "invoices_to_payments", "left_table": "invoices", "right_table": "payments", "join_keys": [{"left":"invoice_id","right":"invoice_id"}], "description": "Aggregate payments against invoices." },
+    { "name": "subscriptions_to_organizations", "left_table": "subscriptions", "right_table": "organizations", "join_keys": [{"left":"organization_id","right":"organization_id"}], "description": "Link subscriptions to their owning organization." },
+    { "name": "product_events_to_subscriptions", "left_table": "product_events", "right_table": "subscriptions", "join_keys": [{"left":"subscription_id","right":"subscription_id"}], "description": "Join usage and lifecycle events to subscription headers." }
+  ]
+}

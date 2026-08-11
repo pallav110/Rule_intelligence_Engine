@@ -9,6 +9,23 @@
 - [ ] Synthetic dataset generation
 - [ ] Train/validation/test splitting
 - [ ] Frozen evaluation set
+ - [x] SaaS Subscription domain pack complete
+ - [x] Synthetic dataset generation (pipeline implemented, small test run)
+ - [ ] Train/validation/test splitting (full-size)
+ - [ ] Frozen evaluation set
+ - [x] Train/validation/test splitting (small/full generated; leakage-controlled by `rule_family_id` grouping)
+ - [x] Frozen evaluation set (created as `test.jsonl`, to remain frozen)
+
+## Generated dataset (v1)
+
+- total examples: 937
+- per-domain: saas_subscription=310, ecommerce=312, customer_support=315
+- rule families: 31
+- duplicate pairs: 31 (generated; target 150 — limited by available families with 2+ examples)
+- conflict pairs: 13 (from packs' conflicting_rules.json)
+- clarifications: 100
+
+Notes: counts differ slightly from original targets due to the number of rule families and per-family allocations; duplicates and conflict pair counts are lower than targets because not enough distinct families had multiple generated paraphrases or explicit conflicting rules. These can be expanded by increasing per-family generation or adding more paraphrase templates.
 
 ## E-Commerce
 

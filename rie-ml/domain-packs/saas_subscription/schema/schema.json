@@ -1,0 +1,109 @@
+{
+  "version": "schema_v0.1.0",
+  "domain": "saas_subscription",
+  "tables": {
+    "organizations": {
+      "description": "Customer organizations / accounts.",
+      "primary_key": "organization_id",
+      "columns": {
+        "organization_id": { "type": "integer", "nullable": false, "description": "Primary key for organization." },
+        "external_org_ref": { "type": "string", "nullable": true, "description": "External billing/account reference." },
+        "name": { "type": "string", "nullable": false, "description": "Organization display name." },
+        "industry": { "type": "string", "nullable": true, "description": "Industry vertical." },
+        "is_active": { "type": "boolean", "nullable": false, "description": "Active customer account flag." },
+        "created_at": { "type": "timestamp", "nullable": false, "description": "Account creation timestamp." }
+      }
+    },
+    "users": {
+      "description": "End users and billing contacts.",
+      "primary_key": "user_id",
+      "columns": {
+        "user_id": { "type": "integer", "nullable": false, "description": "Primary key for user." },
+        "organization_id": { "type": "integer", "nullable": true, "description": "FK to organizations.organization_id." },
+        "email": { "type": "string", "nullable": false, "description": "User email address." },
+        "full_name": { "type": "string", "nullable": true, "description": "User name." },
+        "role": { "type": "string", "nullable": false, "description": "User role (billing/admin/enduser).", "allowed_values": ["billing", "admin", "enduser"] },
+        "is_active": { "type": "boolean", "nullable": false, "description": "Active user account flag." },
+        "external_user_ref": { "type": "string", "nullable": true, "description": "External system user id." },
+        "created_at": { "type": "timestamp", "nullable": false, "description": "User creation timestamp." }
+      }
+    },
+    "subscription_plans": {
+      "description": "Catalog of subscription plans.",
+      "primary_key": "plan_id",
+      "columns": {
+        "plan_id": { "type": "integer", "nullable": false, "description": "Primary key for plan." },
+        "sku": { "type": "string", "nullable": false, "description": "Product SKU or plan code." },
+        "name": { "type": "string", "nullable": false, "description": "Plan display name." },
+        "billing_interval": { "type": "string", "nullable": false, "description": "Billing cadence.", "allowed_values": ["monthly", "yearly"] },
+        "price_cents": { "type": "integer", "nullable": false, "description": "Price in cents." },
+        "currency": { "type": "string", "nullable": false, "description": "Currency code, e.g., USD." },
+        "trial_days": { "type": "integer", "nullable": false, "description": "Trial period length in days." },
+        "is_active": { "type": "boolean", "nullable": false, "description": "Available for new subscriptions." }
+      }
+    },
+    "subscriptions": {
+      "description": "Subscription header for an organization or user.",
+      "primary_key": "subscription_id",
+      "columns": {
+        "subscription_id": { "type": "integer", "nullable": false, "description": "Primary key for subscription." },
+        "external_subscription_ref": { "type": "string", "nullable": true, "description": "External subscription id for de-duplication." },
+        "organization_id": { "type": "integer", "nullable": true, "description": "FK to organizations.organization_id." },
+        "user_id": { "type": "integer", "nullable": true, "description": "Optional owning user id." },
+        "plan_id": { "type": "integer", "nullable": false, "description": "FK to subscription_plans.plan_id." },
+        "status": { "type": "string", "nullable": false, "description": "Subscription lifecycle status.", "allowed_values": ["active", "cancelled", "trialing", "past_due", "paused"] },
+        "start_date": { "type": "timestamp", "nullable": false, "description": "Subscription start date." },
+        "current_period_start": { "type": "timestamp", "nullable": true, "description": "Billing period start." },
+        "current_period_end": { "type": "timestamp", "nullable": true, "description": "Billing period end." },
+        "cancel_at_period_end": { "type": "boolean", "nullable": false, "description": "Marker to cancel at end of period." },
+        "cancelled_at": { "type": "timestamp", "nullable": true, "description": "When the subscription was cancelled." },
+        "quantity": { "type": "integer", "nullable": false, "description": "Seats or units for the subscription." },
+        "prorated": { "type": "boolean", "nullable": false, "description": "True if last invoice included proration." }
+      }
+    },
+    "invoices": {
+      "description": "Billing invoices generated for subscriptions.",
+      "primary_key": "invoice_id",
+      "columns": {
+        "invoice_id": { "type": "integer", "nullable": false, "description": "Primary key for invoice." },
+        "subscription_id": { "type": "integer", "nullable": true, "description": "FK to subscriptions.subscription_id." },
+        "organization_id": { "type": "integer", "nullable": true, "description": "FK to organizations.organization_id." },
+        "invoice_date": { "type": "timestamp", "nullable": false, "description": "Invoice generation date." },
+        "due_date": { "type": "timestamp", "nullable": true, "description": "Payment due date." },
+        "paid_date": { "type": "timestamp", "nullable": true, "description": "When the invoice was paid." },
+        "status": { "type": "string", "nullable": false, "description": "Invoice lifecycle status.", "allowed_values": ["draft", "open", "paid", "void", "failed"] },
+        "amount_cents": { "type": "integer", "nullable": false, "description": "Invoice total in cents." },
+        "currency": { "type": "string", "nullable": false, "description": "Currency code." },
+        "external_invoice_ref": { "type": "string", "nullable": true, "description": "External invoice id for reconciliation." }
+      }
+    },
+    "payments": {
+      "description": "Payments associated to invoices.",
+      "primary_key": "payment_id",
+      "columns": {
+        "payment_id": { "type": "integer", "nullable": false, "description": "Primary key for payment." },
+        "invoice_id": { "type": "integer", "nullable": false, "description": "FK to invoices.invoice_id." },
+        "payment_date": { "type": "timestamp", "nullable": false, "description": "When payment was attempted." },
+        "amount_cents": { "type": "integer", "nullable": false, "description": "Payment amount in cents." },
+        "currency": { "type": "string", "nullable": false, "description": "Currency code." },
+        "payment_method": { "type": "string", "nullable": true, "description": "Method token (card, ach)." },
+        "status": { "type": "string", "nullable": false, "description": "Payment outcome.", "allowed_values": ["succeeded", "failed", "pending"] },
+        "failure_code": { "type": "string", "nullable": true, "description": "Provider failure code when failed." },
+        "external_payment_ref": { "type": "string", "nullable": true, "description": "External payment id." }
+      }
+    },
+    "product_events": {
+      "description": "Product usage or lifecycle events tied to subscriptions.",
+      "primary_key": "event_id",
+      "columns": {
+        "event_id": { "type": "integer", "nullable": false, "description": "Primary key for a product event." },
+        "subscription_id": { "type": "integer", "nullable": true, "description": "FK to subscriptions.subscription_id." },
+        "user_id": { "type": "integer", "nullable": true, "description": "FK to users.user_id." },
+        "event_type": { "type": "string", "nullable": false, "description": "Type of product event.", "allowed_values": ["usage", "upgrade", "downgrade", "cancellation", "trial_start", "trial_end"] },
+        "event_timestamp": { "type": "timestamp", "nullable": false, "description": "When the event occurred." },
+        "amount": { "type": "integer", "nullable": true, "description": "Numeric amount for usage events (in cents or units)." },
+        "metadata": { "type": "string", "nullable": true, "description": "Optional JSON payload." }
+      }
+    }
+  }
+}

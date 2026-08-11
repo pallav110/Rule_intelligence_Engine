@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-08-11T10:08:51.452952Z",
+  "n_examples": 937,
+  "by_domain": {
+    "saas_subscription": 310,
+    "ecommerce": 312,
+    "customer_support": 315
+  },
+  "by_category": {
+    "status_mapping": 154,
+    "time_rule": 92,
+    "join_correction": 61,
+    "metric_definition": 175,
+    "filter_rule": 170,
+    "access_scope_rule": 92,
+    "data_quality_issue": 66,
+    "entity_definition": 92,
+    "calculation_correction": 35
+  },
+  "n_rule_families": 31,
+  "n_duplicate_pairs": 31,
+  "n_conflict_pairs": 13,
+  "n_clarifications": 100
+}

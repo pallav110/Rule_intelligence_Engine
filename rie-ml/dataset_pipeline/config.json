@@ -1,0 +1,14 @@
+{
+  "random_seed": 42,
+  "version": "v1",
+  "targets": {
+    "train": 600,
+    "validation": 150,
+    "test": 200,
+    "duplicate_pairs": 150,
+    "conflict_pairs": 150,
+    "clarifications": 100
+  }
+  ,
+  "min_paraphrases_per_family": 6
+}

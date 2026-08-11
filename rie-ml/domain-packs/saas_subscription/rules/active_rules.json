@@ -1,0 +1,137 @@
+[
+  {
+    "rule_id": "SAAS_R001",
+    "business_term": "active_subscription",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      { "field": "subscriptions.status", "operator": "equals", "value": "active" },
+      { "field": "subscriptions.cancel_at_period_end", "operator": "equals", "value": false }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["subscriptions"], "columns": ["subscriptions.status", "subscriptions.cancel_at_period_end"] }
+  },
+  {
+    "rule_id": "SAAS_R002",
+    "business_term": "cancelled_subscription",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      { "field": "subscriptions.status", "operator": "equals", "value": "cancelled" }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["subscriptions"], "columns": ["subscriptions.status", "subscriptions.cancelled_at"] }
+  },
+  {
+    "rule_id": "SAAS_R003",
+    "business_term": "trial_subscription",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      { "field": "subscriptions.status", "operator": "equals", "value": "trialing" }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["subscriptions", "subscription_plans"], "columns": ["subscriptions.status", "subscription_plans.trial_days", "subscriptions.start_date"] }
+  },
+  {
+    "rule_id": "SAAS_R004",
+    "business_term": "recurring_revenue",
+    "rule_category": "metric_definition",
+    "operation": "include",
+    "conditions": [
+      { "field": "invoices.status", "operator": "equals", "value": "paid" },
+      { "field": "invoices.paid_date", "operator": "is_not_null", "value": null }
+    ],
+    "scope": "period:calendar_month",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["invoices", "subscriptions"], "columns": ["invoices.amount_cents", "invoices.status", "subscriptions.subscription_id"] }
+  },
+  {
+    "rule_id": "SAAS_R005",
+    "business_term": "failed_payment",
+    "rule_category": "data_quality_issue",
+    "operation": "include",
+    "conditions": [
+      { "field": "payments.status", "operator": "equals", "value": "failed" },
+      { "field": "payments.failure_code", "operator": "is_not_null", "value": null }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["payments", "invoices"], "columns": ["payments.status", "payments.failure_code", "invoices.invoice_id"] }
+  },
+  {
+    "rule_id": "SAAS_R006",
+    "business_term": "successful_payment",
+    "rule_category": "metric_definition",
+    "operation": "include",
+    "conditions": [
+      { "field": "payments.status", "operator": "equals", "value": "succeeded" }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["payments", "invoices"], "columns": ["payments.amount_cents", "payments.status", "invoices.amount_cents"] }
+  },
+  {
+    "rule_id": "SAAS_R007",
+    "business_term": "invoice_open",
+    "rule_category": "filter_rule",
+    "operation": "include",
+    "conditions": [
+      { "field": "invoices.status", "operator": "equals", "value": "open" },
+      { "field": "invoices.paid_date", "operator": "is_null", "value": null }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["invoices"], "columns": ["invoices.status", "invoices.paid_date"] }
+  },
+  {
+    "rule_id": "SAAS_R008",
+    "business_term": "subscription_renewal",
+    "rule_category": "time_rule",
+    "operation": "include",
+    "conditions": [
+      { "field": "subscriptions.current_period_end", "operator": "is_not_null", "value": null },
+      { "field": "subscriptions.cancel_at_period_end", "operator": "equals", "value": false }
+    ],
+    "scope": "rolling:30_days",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["subscriptions"], "columns": ["subscriptions.current_period_end", "subscriptions.cancel_at_period_end"] }
+  },
+  {
+    "rule_id": "SAAS_R009",
+    "business_term": "plan_change",
+    "rule_category": "entity_definition",
+    "operation": "include",
+    "conditions": [
+      { "field": "product_events.event_type", "operator": "in", "value": ["upgrade", "downgrade"] }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["product_events", "subscriptions"], "columns": ["product_events.event_type", "product_events.amount", "subscriptions.plan_id"] }
+  },
+  {
+    "rule_id": "SAAS_R010",
+    "business_term": "access_restriction",
+    "rule_category": "access_scope_rule",
+    "operation": "restrict",
+    "conditions": [
+      { "field": "users.role", "operator": "equals", "value": "billing" }
+    ],
+    "scope": "role:billing",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["users", "invoices", "payments"], "columns": ["users.role", "invoices.amount_cents"] }
+  }
+]

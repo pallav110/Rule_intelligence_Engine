@@ -1,0 +1,45 @@
+[
+  {
+    "rule_id": "SAAS_CR001",
+    "business_term": "active_subscription",
+    "rule_category": "status_mapping",
+    "operation": "map",
+    "conditions": [
+      { "field": "subscriptions.status", "operator": "equals", "value": "active" },
+      { "field": "subscriptions.cancel_at_period_end", "operator": "equals", "value": true }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["subscriptions"], "columns": ["subscriptions.status", "subscriptions.cancel_at_period_end"] },
+    "conflict_note": "Conflicts with the active rule which excludes subscriptions marked to cancel at period end from 'active' status."
+  },
+  {
+    "rule_id": "SAAS_CR002",
+    "business_term": "recurring_revenue",
+    "rule_category": "metric_definition",
+    "operation": "include",
+    "conditions": [
+      { "field": "invoices.status", "operator": "in", "value": ["open", "paid"] }
+    ],
+    "scope": "period:calendar_month",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["invoices"], "columns": ["invoices.status", "invoices.amount_cents"] },
+    "conflict_note": "Counts open invoices as recurring revenue, conflicting with the active definition that requires paid invoices only."
+  },
+  {
+    "rule_id": "SAAS_CR003",
+    "business_term": "failed_payment",
+    "rule_category": "data_quality_issue",
+    "operation": "include",
+    "conditions": [
+      { "field": "payments.status", "operator": "equals", "value": "pending" }
+    ],
+    "scope": "global",
+    "time_window": null,
+    "threshold": null,
+    "affected_entities": { "tables": ["payments"], "columns": ["payments.status"] },
+    "conflict_note": "Treats pending payments as failed for downstream reconciliation — conflicts with the active rule that only treats explicit failures as failed payments."
+  }
+]
