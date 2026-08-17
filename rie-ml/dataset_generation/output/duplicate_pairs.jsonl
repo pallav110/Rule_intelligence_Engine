@@ -1,0 +1,17 @@
+{"pair_id": "DP0001", "feedback_id_1": "EC_FB001", "feedback_id_2": "EC_FB002", "rule_family_id": "ecommerce_EC_R001", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0002", "feedback_id_1": "EC_FB003", "feedback_id_2": "EC_GEN0007", "rule_family_id": "ecommerce_EC_R002", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0003", "feedback_id_1": "EC_FB004", "feedback_id_2": "EC_FB020", "rule_family_id": "ecommerce_EC_R003", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0004", "feedback_id_1": "EC_FB005", "feedback_id_2": "EC_GEN0013", "rule_family_id": "ecommerce_EC_R004", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0005", "feedback_id_1": "EC_FB006", "feedback_id_2": "EC_GEN0016", "rule_family_id": "ecommerce_EC_R005", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0006", "feedback_id_1": "EC_FB007", "feedback_id_2": "EC_GEN0019", "rule_family_id": "ecommerce_EC_R005_conflict", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0007", "feedback_id_1": "EC_FB008", "feedback_id_2": "EC_FB021", "rule_family_id": "ecommerce_EC_R008", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0008", "feedback_id_1": "EC_FB009", "feedback_id_2": "EC_GEN0025", "rule_family_id": "ecommerce_EC_R009", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0009", "feedback_id_1": "EC_FB010", "feedback_id_2": "EC_GEN0028", "rule_family_id": "ecommerce_EC_R010", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0010", "feedback_id_1": "EC_FB011", "feedback_id_2": "EC_GEN0031", "rule_family_id": "ecommerce_EC_R011", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0011", "feedback_id_1": "EC_FB012", "feedback_id_2": "EC_GEN0034", "rule_family_id": "ecommerce_EC_R012", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0012", "feedback_id_1": "EC_FB013", "feedback_id_2": "EC_GEN0037", "rule_family_id": "ecommerce_DATA_001", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0013", "feedback_id_1": "EC_FB017", "feedback_id_2": "EC_GEN0040", "rule_family_id": "ecommerce_multi_001", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0014", "feedback_id_1": "EC_FB022", "feedback_id_2": "EC_GEN0052", "rule_family_id": "ecommerce_EC_R006", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0015", "feedback_id_1": "EC_GEN0008", "feedback_id_2": "EC_GEN0081", "rule_family_id": "ambiguous_customer_count_2832", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0016", "feedback_id_1": "EC_GEN0002", "feedback_id_2": "EC_GEN0005", "rule_family_id": "ecommerce_EC_R005_conflict_conflict", "relationship": "semantic_duplicate"}
+{"pair_id": "DP0017", "feedback_id_1": "EC_GEN0004", "feedback_id_2": "EC_GEN0008", "rule_family_id": "ecommerce_EC_R012_conflict", "relationship": "semantic_duplicate"}

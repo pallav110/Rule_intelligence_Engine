@@ -1,0 +1,2 @@
+{"pair_id": "CP0001", "feedback_id_1": "EC_FB006", "feedback_id_2": "EC_GEN0002", "rule_family_id_1": "ecommerce_EC_R005", "rule_family_id_2": "ecommerce_EC_R005_conflict_conflict", "relationship": "direct_conflict"}
+{"pair_id": "CP0002", "feedback_id_1": "EC_FB012", "feedback_id_2": "EC_GEN0004", "rule_family_id_1": "ecommerce_EC_R012", "rule_family_id_2": "ecommerce_EC_R012_conflict", "relationship": "direct_conflict"}

@@ -1,0 +1,105 @@
+{"feedback_id": "EC_FB014", "feedback_text": "How should we treat orders.status in [shipped, delivered] when calculating completed orders?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_FB019", "feedback_text": "Fix revenue calc", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_FB023", "feedback_text": "I expected ~500 completed orders for Jan but saw 450 — is the monthly_revenue calc wrong?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB025", "feedback_text": "Does orders.completed_at represent fulfillment date or revenue recognition date?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_GEN0001", "feedback_text": "Please check payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0002", "feedback_text": "Something's off with customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0003", "feedback_text": "Fix net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0004", "feedback_text": "Something's off with duplicate customer id.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0005", "feedback_text": "active customer calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0006", "feedback_text": "Something's off with net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0007", "feedback_text": "Please check customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0008", "feedback_text": "customer count calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0009", "feedback_text": "Fix duplicate customer id.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0010", "feedback_text": "Fix active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0011", "feedback_text": "Something's off with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0012", "feedback_text": "Can you look at net revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0013", "feedback_text": "regional orders calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0014", "feedback_text": "There's an issue with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0015", "feedback_text": "Can you look at revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0016", "feedback_text": "Can you look at duplicate customer id?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0017", "feedback_text": "Something's off with free shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0018", "feedback_text": "There's an issue with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0019", "feedback_text": "active customer calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0020", "feedback_text": "Something's off with customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0021", "feedback_text": "Fix active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0022", "feedback_text": "Fix customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0023", "feedback_text": "Fix customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0024", "feedback_text": "revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0025", "feedback_text": "Something's off with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0026", "feedback_text": "There's an issue with net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0027", "feedback_text": "There's an issue with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0028", "feedback_text": "Can you look at monthly revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0029", "feedback_text": "Please check payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0030", "feedback_text": "Can you look at payment reconciliation?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0031", "feedback_text": "Fix customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0032", "feedback_text": "Fix payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0033", "feedback_text": "There's an issue with active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0034", "feedback_text": "There's an issue with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0035", "feedback_text": "payment reconciliation calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0036", "feedback_text": "Fix regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0037", "feedback_text": "Fix regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0038", "feedback_text": "Fix revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0039", "feedback_text": "Please check active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0040", "feedback_text": "There's an issue with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0041", "feedback_text": "There's an issue with payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0042", "feedback_text": "Please check payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0043", "feedback_text": "duplicate customer id calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0044", "feedback_text": "There's an issue with payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0045", "feedback_text": "There's an issue with active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0046", "feedback_text": "Fix customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0047", "feedback_text": "Fix free shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0048", "feedback_text": "Something's off with gross sales.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0049", "feedback_text": "Fix revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0050", "feedback_text": "There's an issue with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0051", "feedback_text": "Can you look at monthly revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0052", "feedback_text": "Fix active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0053", "feedback_text": "Something's off with gross sales.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0054", "feedback_text": "Something's off with gross sales.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0055", "feedback_text": "Can you look at monthly revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0056", "feedback_text": "gross sales calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0057", "feedback_text": "Can you look at duplicate customer id?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0058", "feedback_text": "free shipping calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0059", "feedback_text": "Can you look at payment reconciliation?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0060", "feedback_text": "duplicate customer id calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0061", "feedback_text": "Please check monthly revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0062", "feedback_text": "Fix gross sales.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0063", "feedback_text": "Something's off with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0064", "feedback_text": "duplicate customer id calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0065", "feedback_text": "monthly revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0066", "feedback_text": "Please check duplicate customer id.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0067", "feedback_text": "Something's off with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0068", "feedback_text": "Can you look at revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0069", "feedback_text": "Can you look at revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0070", "feedback_text": "monthly revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0071", "feedback_text": "Can you look at monthly revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0072", "feedback_text": "revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0073", "feedback_text": "Can you look at duplicate customer id?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0074", "feedback_text": "Can you look at free shipping?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0075", "feedback_text": "Please check duplicate customer id.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0076", "feedback_text": "Fix duplicate customer id.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0077", "feedback_text": "Fix payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0078", "feedback_text": "There's an issue with customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0079", "feedback_text": "Can you look at duplicate customer id?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0080", "feedback_text": "Something's off with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0081", "feedback_text": "Fix customer count.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0082", "feedback_text": "Fix net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0083", "feedback_text": "Please check free shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0084", "feedback_text": "net revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0085", "feedback_text": "free shipping calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0086", "feedback_text": "Can you look at active customer?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0087", "feedback_text": "Something's off with monthly revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0088", "feedback_text": "There's an issue with payment reconciliation.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0089", "feedback_text": "Please check net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0090", "feedback_text": "Can you look at customer count?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0091", "feedback_text": "Can you look at free shipping?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0092", "feedback_text": "There's an issue with active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0093", "feedback_text": "Fix monthly revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0094", "feedback_text": "There's an issue with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0095", "feedback_text": "regional orders calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0096", "feedback_text": "Fix active customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0097", "feedback_text": "active customer calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0098", "feedback_text": "duplicate customer id calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0099", "feedback_text": "Please check free shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0100", "feedback_text": "Fix revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0002", "feedback_text": "How should we treat orders.status in [shipped, delivered] when calculating completed orders?", "requires_clarification": true, "reason": "unclear_feedback"}
