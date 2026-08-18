@@ -7,6 +7,7 @@ from app.services.feedback_service import FeedbackService
 from app.services.rule_extractor import MockRuleExtractor
 from app.services.schema_validator import SchemaValidator
 from app.services.feedback_preprocessor import FeedbackValidationError
+from app.services.canonical_rule_service import CanonicalRuleService
 
 from app.schemas.feedback import (
     FeedbackAnalysisRequest,
@@ -26,6 +27,7 @@ feedback_service = FeedbackService(
     classifier=MockClassifier(),
     extractor=MockRuleExtractor(),
     validator=SchemaValidator(),
+    canonical_rule_service=CanonicalRuleService(),
 )
 
 @app.post(
