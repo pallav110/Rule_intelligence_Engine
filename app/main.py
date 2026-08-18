@@ -21,13 +21,12 @@ def list_domain_packs():
     return {"domain_packs": loader.list_available_packs()}
 
 
-@app.get("/v1/taxonomy")
-def get_taxonomy():
+@app.get("/v1/taxonomy/{pack_id}")
+def get_taxonomy(pack_id: str):
     try:
-        return loader.load_taxonomy("ecommerce")
+        return loader.load_taxonomy(pack_id)
     except DomainPackNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
 
 @app.get("/v1/domain-pack/{pack_id}")
 def get_domain_pack(pack_id: str):
