@@ -1,7 +1,17 @@
 from fastapi import FastAPI, HTTPException
 
 from app.services.domain_pack_loader import DomainPackLoader, DomainPackNotFoundError
+from app.services.classifier import MockClassifier
+from app.services.feedback_preprocessor import FeedbackPreprocessor
+from app.services.feedback_service import FeedbackService
+from app.services.rule_extractor import MockRuleExtractor
+from app.services.schema_validator import SchemaValidator
+from app.services.feedback_preprocessor import FeedbackValidationError
 
+from app.schemas.feedback import (
+    FeedbackAnalysisRequest,
+    FeedbackAnalysisResponse,
+)
 
 app = FastAPI(
     title="Rule Intelligence Engine",
@@ -10,6 +20,26 @@ app = FastAPI(
 
 loader = DomainPackLoader()
 
+feedback_service = FeedbackService(
+    preprocessor=FeedbackPreprocessor(),
+    domain_loader=loader,
+    classifier=MockClassifier(),
+    extractor=MockRuleExtractor(),
+    validator=SchemaValidator(),
+)
+
+@app.post(
+    "/v1/feedback/analyze",
+    response_model=FeedbackAnalysisResponse,
+)
+def analyze_feedback(payload: FeedbackAnalysisRequest):
+    try:
+        return feedback_service.analyze(
+            feedback=payload.feedback,
+            domain=payload.domain,
+        )
+    except FeedbackValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @app.get("/health")
 def health_check():
