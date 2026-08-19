@@ -31,3 +31,26 @@ class FeedbackAnalysisResponse(BaseModel):
     classification: ClassificationResponse
     rules: list[dict[str, Any]]
     validation: ValidationResponse
+
+class FeedbackBatchAnalysisRequest(BaseModel):
+    items: list[FeedbackAnalysisRequest] = Field(min_length=1)
+
+class FeedbackBatchAnalysisResponse(BaseModel):
+    results: list[FeedbackAnalysisResponse]
+
+class RuleComparisonRequest(BaseModel):
+    rule: dict[str, Any]
+    existing_rules: list[dict[str, Any]] = []
+
+
+class RuleCompareRequest(BaseModel):
+    rule_a: dict[str, Any]
+    rule_b: dict[str, Any]
+
+
+class RuleComparisonResponse(BaseModel):
+    relationship: str
+    confidence: float
+    matching_rule_id: str | None = None
+    conflicting_rule_id: str | None = None
+    details: dict[str, Any] = {}
