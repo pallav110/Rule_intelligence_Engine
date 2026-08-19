@@ -205,7 +205,7 @@ class SeedValidator:
         all_warnings: list[str] = []
         valid_records: list[dict[str, Any]] = []
         invalid_records: list[dict[str, Any]] = []
-        feedback_ids: set(str) = set()
+        feedback_ids: set[str] = set()
         rule_family_ids: set[str] = set()
         duplicate_feedback_ids: list[str] = []
         
