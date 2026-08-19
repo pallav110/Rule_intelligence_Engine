@@ -4,12 +4,25 @@ from __future__ import annotations
 
 import json
 import random
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from copy import deepcopy
 
 from .config import GenerationConfig
+
+
+# ---------------------------------------------------------------------------
+# Domain-aware ID prefixes. Falls back to the first two letters of the
+# domain_pack_id (uppercased) if the domain isn't listed here, so new domain
+# packs don't silently collide on "EC_" ids.
+# ---------------------------------------------------------------------------
+DOMAIN_ID_PREFIXES = {
+    "ecommerce": "EC",
+    "customer_support": "CS",
+    "saas_subscriptions": "SA",
+}
 
 
 @dataclass
@@ -23,9 +36,100 @@ class GenerationMetadata:
     generated_at: str = ""
 
 
+# ---------------------------------------------------------------------------
+# Natural-language condition phrasing.
+#
+# The old code built condition text as "<field> <operator> <value>", which is
+# why generated feedback read like "status = cancelled" instead of the way
+# your manually-written seeds actually talk ("cancelled orders", "test
+# transactions"). This mirrors the phrasing patterns already present in your
+# seed file (EC_FB001, EC_FB003, EC_FB010, EC_FB018, ...).
+# ---------------------------------------------------------------------------
+BOOLEAN_FIELD_PHRASES = {
+    "is_test": "test transactions",
+    "is_internal": "internal accounts",
+    "is_active": "active records",
+}
+
+
+def _humanize(token: str) -> str:
+    return token.replace("_", " ").strip()
+
+
+def natural_condition_phrase(cond: dict[str, Any], table_hint: str = "") -> str:
+    """Turn a single condition dict into a natural-language phrase."""
+    field = cond.get("field", "") or ""
+    operator = cond.get("operator", "")
+    value = cond.get("value", "")
+    field_simple = field.split(".")[-1] if "." in field else field
+    table = field.split(".")[0] if "." in field else table_hint
+
+    if operator == "equals":
+        if isinstance(value, bool) and value is True:
+            if field_simple in BOOLEAN_FIELD_PHRASES:
+                return BOOLEAN_FIELD_PHRASES[field_simple]
+            return f"{_humanize(field_simple.removeprefix('is_'))} records"
+        if field_simple.endswith("status"):
+            # e.g. orders.status = cancelled -> "cancelled orders"
+            noun = _humanize(table) if table else "records"
+            return f"{value} {noun}"
+        return f"{_humanize(field_simple)} of {value}"
+
+    if operator == "greater_than":
+        return f"{_humanize(field_simple)} above {value}"
+
+    if operator == "less_than":
+        return f"{_humanize(field_simple)} below {value}"
+
+    if operator == "is_not_null":
+        return f"{_humanize(field_simple)} being present"
+
+    # Fallback for any operator we haven't special-cased.
+    return f"{_humanize(field_simple)} {operator} {value}"
+
+
+def build_condition_text(rule: dict[str, Any]) -> str:
+    """Join all conditions on a rule into one natural-language clause."""
+    conditions = rule.get("conditions") or []
+    if not conditions:
+        return ""
+    parts = [natural_condition_phrase(c) for c in conditions]
+    parts = [p for p in parts if p]
+    return " and ".join(parts)
+
+
+def _sample_without_immediate_repeat(bank: list[str], count: int) -> list[str]:
+    """Sample `count` items from `bank`.
+
+    Uses sampling-without-replacement while the bank has enough unique
+    entries; once the bank is exhausted it reshuffles and continues, but
+    never places the same template twice in a row. This avoids the old
+    bug where random.choice() with small template banks produced exact
+    duplicate feedback_text rows within a single generation run.
+    """
+    if count <= 0 or not bank:
+        return []
+    result: list[str] = []
+    pool: list[str] = []
+    last = None
+    while len(result) < count:
+        if not pool:
+            pool = bank.copy()
+            random.shuffle(pool)
+            if len(pool) > 1 and pool[0] == last:
+                pool.append(pool.pop(0))
+        item = pool.pop()
+        result.append(item)
+        last = item
+    return result
+
+
 class FeedbackGenerator:
     """Base class for feedback generators."""
     
+    # Class-level shared counter to ensure unique IDs across all generators
+    _shared_counter = 0
+
     def __init__(self, config: GenerationConfig, seed_records: list[dict[str, Any]]):
         self.config = config
         self.seed_records = seed_records
@@ -33,8 +137,10 @@ class FeedbackGenerator:
         self.taxonomy = self.domain_pack["taxonomy"]
         self.schema = self.domain_pack["schema"]
         self.schema_fields = self._build_schema_fields()
-        self._counter = 0
-    
+        self._id_prefix = DOMAIN_ID_PREFIXES.get(
+            config.domain_pack_id, config.domain_pack_id[:2].upper() or "GN"
+        )
+
     def _load_domain_pack(self) -> dict[str, Any]:
         """Load domain pack data."""
         pack_path = self.config.domain_pack_path
@@ -43,7 +149,7 @@ class FeedbackGenerator:
         with (pack_path / "schema" / "schema.json").open(encoding="utf-8") as f:
             schema = json.load(f)
         return {"taxonomy": taxonomy, "schema": schema}
-    
+
     def _build_schema_fields(self) -> set[str]:
         """Build set of valid table.column fields."""
         fields: set[str] = set()
@@ -51,12 +157,12 @@ class FeedbackGenerator:
             for column in meta.get("columns", {}):
                 fields.add(f"{table}.{column}")
         return fields
-    
+
     def _generate_feedback_id(self) -> str:
-        """Generate unique feedback ID."""
-        self._counter += 1
-        return f"EC_GEN{self._counter:04d}"
-    
+        """Generate a unique, domain-aware feedback ID."""
+        FeedbackGenerator._shared_counter += 1
+        return f"{self._id_prefix}_GEN{FeedbackGenerator._shared_counter:04d}"
+
     def _create_metadata(self, source_seed_id: str, rule_family_id: str, method: str) -> GenerationMetadata:
         """Create generation metadata."""
         from datetime import datetime
@@ -68,7 +174,7 @@ class FeedbackGenerator:
             annotation_version=self.config.annotation_version,
             generated_at=datetime.utcnow().isoformat() + "Z",
         )
-    
+
     def _copy_record_template(self, seed: dict[str, Any]) -> dict[str, Any]:
         """Copy seed record as template for generation."""
         return {
@@ -87,12 +193,35 @@ class FeedbackGenerator:
             "source": "programmatic",
         }
 
+    def _validate_schema_refs(self, record: dict[str, Any]) -> bool:
+        """Check every field referenced by the record's rules against the
+        schema fields available in *that record's own* schema_context.
+        Returns True if all references are valid, False otherwise.
+
+        This wires up self.schema_fields (previously computed but never
+        used) so generated records carry a real, checked
+        schema_validation_expected flag instead of an assumed one.
+        """
+        available = set(record.get("schema_context", {}).get("available_columns", []))
+        for rule in record.get("rules", []):
+            for cond in rule.get("conditions", []):
+                field = cond.get("field")
+                if field and (field not in self.schema_fields or field not in available):
+                    return False
+            for col in rule.get("affected_entities", {}).get("columns", []):
+                if col not in self.schema_fields or col not in available:
+                    return False
+        return True
+
+    def _tag_schema_validation(self, record: dict[str, Any]) -> dict[str, Any]:
+        record["schema_validation_expected"] = "pass" if self._validate_schema_refs(record) else "fail"
+        return record
+
 
 class ParaphraseGenerator(FeedbackGenerator):
     """Generate paraphrases of existing feedback while preserving semantics."""
-    
-    # Paraphrase templates for different rule patterns
-    PARAPHRASE_TEMPLATES = {
+
+    OPERATION_TEMPLATES: dict[str, list[str]] = {
         "exclude": [
             "{term} should exclude {condition}.",
             "Exclude {condition} from {term}.",
@@ -100,6 +229,7 @@ class ParaphraseGenerator(FeedbackGenerator):
             "Don't count {condition} in {term}.",
             "{condition} should be excluded from {term}.",
             "Remove {condition} when calculating {term}.",
+            "Please make sure {term} does not count {condition}.",
         ],
         "include": [
             "{term} should include {condition}.",
@@ -107,70 +237,84 @@ class ParaphraseGenerator(FeedbackGenerator):
             "{term} must include {condition}.",
             "Add {condition} to {term}.",
             "{condition} should be part of {term}.",
+            "Make sure {term} accounts for {condition}.",
         ],
-        "filter_rule": [
-            "{term} should only include {condition}.",
-            "Only {condition} should count for {term}.",
-            "{term} is for {condition} only.",
-            "Restrict {term} to {condition}.",
+        "subtract": [
+            "{term} should subtract {condition}.",
+            "Subtract {condition} from {term}.",
+            "{term} must deduct {condition}.",
+            "{term} should net out {condition}.",
+        ],
+        "replace": [
+            "{term} should use {condition} instead.",
+            "Use {condition} for {term}.",
+            "{term} should rely on {condition} going forward.",
+            "Switch {term} over to {condition}.",
+        ],
+        "add": [
+            "{term} calculation should add {condition}.",
+            "Add {condition} to {term}.",
+            "{term} should also account for {condition}.",
+        ],
+        "restrict": [
+            "{term} should be restricted to {condition}.",
+            "Only show {term} for {condition}.",
+            "{term} access should be limited to {condition}.",
+            "Restrict {term} so only {condition} can see it.",
         ],
     }
-    
+
+    # Used when a rule has no conditions at all (e.g. data-quality issues,
+    # EC_FB013), instead of the old code silently producing "... exclude .".
+    TERM_ONLY_TEMPLATES = [
+        "There's an issue with {term}.",
+        "{term} needs to be fixed.",
+        "Please address the {term} problem.",
+        "We need to clean up {term}.",
+        "{term} isn't reliable right now.",
+    ]
+
+    def _condition_text_for(self, rule: dict[str, Any]) -> str:
+        if rule.get("operation") == "restrict":
+            scope = rule.get("scope") or ""
+            if scope.startswith("region:"):
+                return f"the {scope.split(':', 1)[1]} region"
+        text = build_condition_text(rule)
+        if text and rule.get("time_window") and rule.get("rule_category") == "time_rule":
+            text += f", using {_humanize(rule['time_window'])} boundaries"
+        return text
+
     def generate(self, seed: dict[str, Any], count: int = 3) -> list[dict[str, Any]]:
         """Generate paraphrases of a seed record."""
         if not seed.get("rules"):
             return []
-        
+
+        rule = seed["rules"][0]
+        operation = rule.get("operation", "exclude")
+        business_term = _humanize(rule.get("business_term", ""))
+        condition_text = self._condition_text_for(rule)
+
+        if condition_text:
+            bank = self.OPERATION_TEMPLATES.get(operation, self.OPERATION_TEMPLATES["exclude"])
+            picked = _sample_without_immediate_repeat(bank, count)
+            texts = [t.format(term=business_term, condition=condition_text) for t in picked]
+        else:
+            picked = _sample_without_immediate_repeat(self.TERM_ONLY_TEMPLATES, count)
+            texts = [t.format(term=business_term) for t in picked]
+
         generated = []
-        for _ in range(count):
+        for text in texts:
             record = self._copy_record_template(seed)
-            
-            # Extract rule components for paraphrasing
-            rule = seed["rules"][0] if seed["rules"] else {}
-            operation = rule.get("operation", "")
-            business_term = rule.get("business_term", "")
-            
-            # Build condition text
-            condition_parts = []
-            for cond in rule.get("conditions", []):
-                field = cond.get("field", "")
-                value = cond.get("value", "")
-                operator = cond.get("operator", "")
-                
-                # Simplify field name for readability
-                field_simple = field.split(".")[-1] if "." in field else field
-                
-                if operator == "equals":
-                    condition_parts.append(f"{field_simple} = {value}")
-                elif operator == "greater_than":
-                    condition_parts.append(f"{field_simple} > {value}")
-                elif operator == "is_not_null":
-                    condition_parts.append(f"{field_simple} is present")
-                else:
-                    condition_parts.append(f"{field_simple} {operator} {value}")
-            
-            condition_text = " and ".join(condition_parts) if condition_parts else ""
-            
-            # Select appropriate template
-            templates = self.PARAPHRASE_TEMPLATES.get(operation, self.PARAPHRASE_TEMPLATES["exclude"])
-            template = random.choice(templates)
-            
-            # Generate paraphrase
-            feedback_text = template.format(
-                term=business_term.replace("_", " "),
-                condition=condition_text
-            )
-            
-            record["feedback_text"] = feedback_text
+            record["feedback_text"] = text
             record["source_seed_id"] = seed.get("feedback_id")
+            self._tag_schema_validation(record)
             generated.append(record)
-        
         return generated
 
 
 class ConversationalGenerator(FeedbackGenerator):
     """Generate natural conversational feedback from business rules."""
-    
+
     CONVERSATIONAL_TEMPLATES = [
         "Can we make sure {rule}?",
         "I think {rule}.",
@@ -181,156 +325,155 @@ class ConversationalGenerator(FeedbackGenerator):
         "Hey, can we {rule}?",
         "I was wondering if we could {rule}.",
     ]
-    
+
     def generate(self, seed: dict[str, Any], count: int = 2) -> list[dict[str, Any]]:
         """Generate conversational versions of seed feedback."""
         if not seed.get("rules"):
             return []
-        
+
+        # Earlier versions tried to strip the leading modal ("revenue
+        # should exclude X" -> "revenue exclude X") to sound more casual,
+        # but that breaks subject-verb agreement for most sentences (e.g.
+        # "cancelled orders not contribute to revenue"). Keeping the modal
+        # and just lowercasing/de-punctuating the sentence stays
+        # grammatical for every seed, at the cost of a slightly more
+        # formal register - an acceptable trade for correctness.
+        original_text = (seed.get("feedback_text") or "").rstrip(".")
+        rule_part = original_text[0].lower() + original_text[1:] if original_text else original_text
+
+        templates = _sample_without_immediate_repeat(self.CONVERSATIONAL_TEMPLATES, count)
         generated = []
-        original_text = seed.get("feedback_text", "")
-        
-        for _ in range(count):
+        for template in templates:
             record = self._copy_record_template(seed)
-            
-            # Convert original to more conversational form
-            if original_text.endswith("."):
-                rule_part = original_text[:-1].lower()
-            else:
-                rule_part = original_text.lower()
-            
-            # Remove "should" for more natural conversation
-            if rule_part.startswith("revenue should"):
-                rule_part = rule_part.replace("revenue should", "revenue")
-            
-            template = random.choice(self.CONVERSATIONAL_TEMPLATES)
-            feedback_text = template.format(rule=rule_part)
-            
-            record["feedback_text"] = feedback_text
+            record["feedback_text"] = template.format(rule=rule_part)
             record["source_seed_id"] = seed.get("feedback_id")
+            self._tag_schema_validation(record)
             generated.append(record)
-        
         return generated
 
 
 class HinglishGenerator(FeedbackGenerator):
-    """Generate Hinglish (Hindi-English mixed) feedback examples."""
-    
-    HINGLISH_TEMPLATES = [
+    """Generate Hinglish (Hindi-English mixed) feedback examples.
+
+    Templates now mirror the code-switching pattern already used in your own
+    manual seed EC_FB018 ("Revenue mein cancelled orders include mat karo
+    yaar.") rather than appending a Hindi interjection to an otherwise fully
+    English sentence.
+    """
+
+    EXCLUDE_TEMPLATES = [
         "{term} mein {condition} include mat karo.",
-        "{term} se {condition} hatao yaar.",
-        "Please {term} mein {condition} add karo.",
-        "{term} calculation mein {condition} exclude kar do.",
-        "Yaar, {term} ko {condition} ke liye fix karo.",
+        "{term} mein {condition} include mat karo yaar.",
+        "{term} se {condition} hatao.",
+        "{condition} ko {term} calculation se nikaal do.",
+        "Please {term} mein {condition} ko count mat karo.",
     ]
-    
-    HINGLISH_REPLACEMENTS = {
-        "revenue": "revenue",
-        "exclude": "include mat karo",
-        "include": "add karo",
-        "cancelled": "cancelled",
-        "test": "test",
-        "orders": "orders",
-    }
-    
+    INCLUDE_TEMPLATES = [
+        "{term} mein {condition} bhi add karo.",
+        "{condition} ko bhi {term} mein count karo.",
+        "{term} calculation mein {condition} include karna zaroori hai.",
+    ]
+    GENERIC_TEMPLATES = [
+        "{term} ka {condition} wala part thoda fix karo.",
+        "Yaar {term} mein {condition} sahi se handle karo.",
+        "{term} logic mein {condition} ke liye ek check add karo.",
+    ]
+
     def generate(self, seed: dict[str, Any], count: int = 1) -> list[dict[str, Any]]:
         """Generate Hinglish versions of seed feedback."""
         if not seed.get("rules"):
             return []
-        
+
+        rule = seed["rules"][0]
+        business_term = _humanize(rule.get("business_term", "revenue"))
+        condition_text = build_condition_text(rule)
+        if not condition_text:
+            return []
+
+        operation = rule.get("operation", "exclude")
+        bank = {
+            "exclude": self.EXCLUDE_TEMPLATES,
+            "include": self.INCLUDE_TEMPLATES,
+        }.get(operation, self.GENERIC_TEMPLATES)
+
+        templates = _sample_without_immediate_repeat(bank, count)
         generated = []
-        
-        for _ in range(count):
+        for template in templates:
             record = self._copy_record_template(seed)
-            
-            rule = seed["rules"][0] if seed["rules"] else {}
-            business_term = rule.get("business_term", "revenue")
-            operation = rule.get("operation", "exclude")
-            
-            # Build condition in Hinglish
-            condition_parts = []
-            for cond in rule.get("conditions", []):
-                field = cond.get("field", "")
-                value = cond.get("value", "")
-                field_simple = field.split(".")[-1] if "." in field else field
-                condition_parts.append(f"{field_simple} {value}")
-            
-            condition_text = " and ".join(condition_parts) if condition_parts else ""
-            
-            # Select template
-            template = random.choice(self.HINGLISH_TEMPLATES)
-            
-            # Generate Hinglish feedback
-            feedback_text = template.format(
-                term=business_term,
-                condition=condition_text
-            )
-            
-            record["feedback_text"] = feedback_text
+            record["feedback_text"] = template.format(term=business_term, condition=condition_text)
             record["source_seed_id"] = seed.get("feedback_id")
+            record["language_variant"] = "hinglish"
+            self._tag_schema_validation(record)
             generated.append(record)
-        
         return generated
 
 
 class MultiRuleGenerator(FeedbackGenerator):
     """Generate feedback containing multiple independent rules."""
-    
+
+    CONNECTORS = ["and", "and also", "as well as", "and additionally"]
+
     def generate(self, seeds: list[dict[str, Any]], count: int = 1) -> list[dict[str, Any]]:
         """Generate multi-rule feedback by combining compatible seeds."""
         generated = []
-        
-        # Filter seeds with rules
         actionable_seeds = [s for s in seeds if s.get("rules") and s.get("is_actionable")]
-        
         if len(actionable_seeds) < 2:
             return generated
-        
-        for _ in range(count):
-            # Select 2-3 random seeds
+
+        seen_combos: set[tuple[str, ...]] = set()
+        attempts = 0
+        while len(generated) < count and attempts < count * 10:
+            attempts += 1
             num_rules = random.randint(2, min(3, len(actionable_seeds)))
             selected = random.sample(actionable_seeds, num_rules)
-            
-            # Create combined record
+            combo_key = tuple(sorted(s.get("feedback_id", "") for s in selected))
+            if combo_key in seen_combos:
+                continue
+            seen_combos.add(combo_key)
+
             base = selected[0]
             record = self._copy_record_template(base)
-            
-            # Combine feedback texts
-            texts = [s.get("feedback_text", "") for s in selected]
-            feedback_text = " and ".join(texts)
-            
-            # Combine rules
+
+            connector = random.choice(self.CONNECTORS)
+            raw_texts = [s.get("feedback_text", "").rstrip(".") for s in selected]
+            # Lowercase the first letter of every sentence after the first
+            # so the join doesn't leave a capital letter mid-sentence
+            # (e.g. "...₹999 as well as Cancelled orders must...").
+            texts = [raw_texts[0]] + [
+                (t[0].lower() + t[1:] if t else t) for t in raw_texts[1:]
+            ]
+            feedback_text = f" {connector} ".join(texts) + "."
+
             all_rules = []
             all_rule_family_ids = []
             for s in selected:
-                all_rules.extend(s.get("rules", []))
+                all_rules.extend(deepcopy(s.get("rules", [])))
                 all_rule_family_ids.append(s.get("rule_family_id", ""))
-            
+
             record["feedback_text"] = feedback_text
             record["rules"] = all_rules
-            record["rule_family_id"] = f"multi_{'_'.join(all_rule_family_ids[:2])}"
-            record["source_seed_id"] = ",".join([s.get("feedback_id", "") for s in selected])
-            
-            # Combine schema contexts
-            all_tables = set()
-            all_columns = set()
+            record["rule_family_id"] = "multi_" + "_".join(sorted(set(all_rule_family_ids)))
+            record["source_seed_id"] = ",".join(s.get("feedback_id", "") for s in selected)
+
+            all_tables: set[str] = set()
+            all_columns: set[str] = set()
             for s in selected:
                 all_tables.update(s.get("schema_context", {}).get("available_tables", []))
                 all_columns.update(s.get("schema_context", {}).get("available_columns", []))
-            
             record["schema_context"] = {
-                "available_tables": list(all_tables),
-                "available_columns": list(all_columns),
+                "available_tables": sorted(all_tables),
+                "available_columns": sorted(all_columns),
             }
-            
+
+            self._tag_schema_validation(record)
             generated.append(record)
-        
+
         return generated
 
 
 class AmbiguousGenerator(FeedbackGenerator):
     """Generate ambiguous feedback requiring clarification."""
-    
+
     AMBIGUOUS_TEMPLATES = [
         "Fix {term}.",
         "There's an issue with {term}.",
@@ -338,31 +481,40 @@ class AmbiguousGenerator(FeedbackGenerator):
         "Please check {term}.",
         "Something's off with {term}.",
         "Can you look at {term}?",
+        "{term} doesn't look right to me.",
+        "Not sure why but {term} feels off lately.",
+        "{term} numbers seem strange this week.",
+        "Can we revisit how {term} is calculated?",
+        "I don't think {term} is correct.",
+        "{term} needs a second look.",
     ]
-    
+
     def generate(self, seeds: list[dict[str, Any]], count: int = 3) -> list[dict[str, Any]]:
         """Generate ambiguous feedback from business terms."""
         generated = []
-        
-        # Extract business terms from seeds
-        business_terms = set()
-        for seed in seeds:
-            for rule in seed.get("rules", []):
-                if rule.get("business_term"):
-                    business_terms.add(rule.get("business_term"))
-        
+        business_terms = sorted({
+            rule.get("business_term")
+            for seed in seeds
+            for rule in seed.get("rules", [])
+            if rule.get("business_term")
+        })
         if not business_terms:
             return generated
-        
-        for _ in range(count):
-            term = random.choice(list(business_terms))
-            
+
+        # Pair (term, template) combinations so repeated terms don't get the
+        # same template back-to-back, and we don't exhaust either list early.
+        combos = [(t, tpl) for t in business_terms for tpl in self.AMBIGUOUS_TEMPLATES]
+        picked = random.sample(combos, min(count, len(combos)))
+        while len(picked) < count:
+            picked.append(random.choice(combos))
+
+        for term, template in picked:
             record = {
                 "feedback_id": self._generate_feedback_id(),
                 "domain": self.config.domain_pack_id,
                 "domain_pack_version": self.config.domain_pack_version,
                 "rule_family_id": f"ambiguous_{term}_{random.randint(1000, 9999)}",
-                "feedback_text": "",
+                "feedback_text": template.format(term=_humanize(term)),
                 "feedback_type": "unclear_feedback",
                 "rule_category": None,
                 "is_actionable": False,
@@ -372,78 +524,101 @@ class AmbiguousGenerator(FeedbackGenerator):
                 "annotation_version": self.config.annotation_version,
                 "source": "programmatic",
             }
-            
-            template = random.choice(self.AMBIGUOUS_TEMPLATES)
-            record["feedback_text"] = template.format(term=term.replace("_", " "))
-            
             generated.append(record)
-        
+
         return generated
 
 
 class ConflictGenerator(FeedbackGenerator):
-    """Generate conflicting rule pairs."""
-    
+    """Generate conflicting rule variants.
+
+    Follows your existing seed convention (EC_FB006 / EC_FB007) where a
+    conflict is expressed as a second record sharing the base
+    rule_family_id with a "_conflict" suffix, rather than an explicit
+    new_rule/existing_rule pair object — matching how your data is actually
+    structured today.
+
+    Produces two kinds of conflicts:
+      - threshold conflicts: same field, contradictory numeric threshold
+      - operation conflicts: same field, opposite operation
+        (include vs exclude) — a case the old generator didn't cover at all
+    """
+
+    def _threshold_conflict(self, seed: dict[str, Any]) -> dict[str, Any] | None:
+        rule = seed["rules"][0]
+        if rule.get("threshold") is None:
+            return None
+        original_threshold = rule["threshold"]
+        if isinstance(original_threshold, (int, float)):
+            new_threshold = (
+                original_threshold * 0.5 if original_threshold > 100 else original_threshold * 2
+            )
+        else:
+            new_threshold = 500
+
+        record = self._copy_record_template(seed)
+        new_rules = deepcopy(seed.get("rules", []))
+        for r in new_rules:
+            if r.get("threshold") is not None:
+                r["threshold"] = new_threshold
+                for cond in r.get("conditions", []):
+                    if cond.get("value") == original_threshold:
+                        cond["value"] = new_threshold
+        record["rules"] = new_rules
+        record["rule_family_id"] = f"{seed.get('rule_family_id')}_conflict"
+
+        original_text = seed.get("feedback_text", "")
+        if str(original_threshold) in original_text:
+            feedback_text = original_text.replace(str(original_threshold), str(new_threshold))
+        else:
+            feedback_text = f"{original_text.rstrip('.')} (should be {new_threshold}, not {original_threshold})."
+        record["feedback_text"] = feedback_text
+        record["source_seed_id"] = seed.get("feedback_id")
+        record["conflict_type"] = "threshold_conflict"
+        return record
+
+    def _operation_conflict(self, seed: dict[str, Any]) -> dict[str, Any] | None:
+        rule = seed["rules"][0]
+        flip = {"exclude": "include", "include": "exclude"}.get(rule.get("operation", ""))
+        if not flip or not rule.get("conditions"):
+            return None
+
+        record = self._copy_record_template(seed)
+        new_rules = deepcopy(seed.get("rules", []))
+        new_rules[0]["operation"] = flip
+        record["rules"] = new_rules
+        record["rule_family_id"] = f"{seed.get('rule_family_id')}_conflict"
+
+        condition_text = build_condition_text(new_rules[0])
+        term = _humanize(rule.get("business_term", ""))
+        verb = "includes" if flip == "include" else "excludes"
+        record["feedback_text"] = f"{term.capitalize()} {verb} {condition_text}."
+        record["source_seed_id"] = seed.get("feedback_id")
+        record["conflict_type"] = "operation_conflict"
+        return record
+
     def generate(self, seeds: list[dict[str, Any]], count: int = 2) -> list[dict[str, Any]]:
-        """Generate conflicting rule pairs by modifying threshold values."""
-        generated = []
-        
-        # Find seeds with numeric thresholds
-        threshold_seeds = []
-        for seed in seeds:
-            for rule in seed.get("rules", []):
-                if rule.get("threshold") is not None:
-                    threshold_seeds.append(seed)
-                    break
-        
-        if len(threshold_seeds) < 1:
+        """Generate conflicting rule pairs by modifying thresholds or flipping operations."""
+        generated: list[dict[str, Any]] = []
+        candidates = [s for s in seeds if s.get("rules")]
+        if not candidates:
             return generated
-        
-        for _ in range(count):
-            seed = random.choice(threshold_seeds)
-            rule = seed["rules"][0] if seed["rules"] else {}
-            
-            # Create conflicting version with different threshold
-            record = self._copy_record_template(seed)
-            
-            original_threshold = rule.get("threshold", 0)
-            # Create conflict by changing threshold significantly
-            if isinstance(original_threshold, (int, float)):
-                new_threshold = original_threshold * 0.5 if original_threshold > 100 else original_threshold * 2
-            else:
-                new_threshold = 500  # default conflict value
-            
-            # Update rule with conflicting threshold
-            new_rules = deepcopy(seed.get("rules", []))
-            for r in new_rules:
-                if r.get("threshold") is not None:
-                    r["threshold"] = new_threshold
-                    # Update conditions if they reference the threshold
-                    for cond in r.get("conditions", []):
-                        if cond.get("value") == original_threshold:
-                            cond["value"] = new_threshold
-            
-            record["rules"] = new_rules
-            record["rule_family_id"] = f"{seed.get('rule_family_id')}_conflict"
-            
-            # Generate conflicting feedback text
-            original_text = seed.get("feedback_text", "")
-            if str(original_threshold) in original_text:
-                feedback_text = original_text.replace(str(original_threshold), str(new_threshold))
-            else:
-                feedback_text = f"{original_text} (conflict: use {new_threshold} instead)"
-            
-            record["feedback_text"] = feedback_text
-            record["source_seed_id"] = seed.get("feedback_id")
-            
-            generated.append(record)
-        
+
+        attempts = 0
+        while len(generated) < count and attempts < count * 10:
+            attempts += 1
+            seed = random.choice(candidates)
+            conflict = self._threshold_conflict(seed) or self._operation_conflict(seed)
+            if conflict is not None:
+                self._tag_schema_validation(conflict)
+                generated.append(conflict)
+
         return generated
 
 
 class NonRuleGenerator(FeedbackGenerator):
     """Generate non-rule feedback (UI/UX complaints, etc.)."""
-    
+
     NON_RULE_TEMPLATES = [
         "The checkout button overlaps the footer on mobile.",
         "The dashboard loads too slowly.",
@@ -453,19 +628,26 @@ class NonRuleGenerator(FeedbackGenerator):
         "The export feature doesn't work for PDFs.",
         "The search bar is hard to find.",
         "Page layout breaks on Safari browser.",
+        "Login page keeps timing out for no reason.",
+        "The app crashes when I upload a large file.",
+        "Notifications aren't showing up on my phone.",
+        "Dark mode has some unreadable text.",
+        "The settings page takes forever to save changes.",
+        "Table columns don't resize properly on my screen.",
+        "The app logs me out too frequently.",
     ]
-    
+
     def generate(self, count: int = 5) -> list[dict[str, Any]]:
         """Generate non-rule feedback examples."""
+        texts = _sample_without_immediate_repeat(self.NON_RULE_TEMPLATES, count)
         generated = []
-        
-        for _ in range(count):
+        for text in texts:
             record = {
                 "feedback_id": self._generate_feedback_id(),
                 "domain": self.config.domain_pack_id,
                 "domain_pack_version": self.config.domain_pack_version,
                 "rule_family_id": f"nonrule_{random.randint(1000, 9999)}",
-                "feedback_text": random.choice(self.NON_RULE_TEMPLATES),
+                "feedback_text": text,
                 "feedback_type": "non_rule_feedback",
                 "rule_category": None,
                 "is_actionable": False,
@@ -476,13 +658,12 @@ class NonRuleGenerator(FeedbackGenerator):
                 "source": "programmatic",
             }
             generated.append(record)
-        
         return generated
 
 
 class SpamGenerator(FeedbackGenerator):
     """Generate spam/irrelevant feedback."""
-    
+
     SPAM_TEMPLATES = [
         "Buy cheap meds now!!! Visit scam-site.com",
         "Click here for free iPhone!!!",
@@ -492,19 +673,23 @@ class SpamGenerator(FeedbackGenerator):
         "Free crypto giveaway!!! Send 1 BTC to get 10 back.",
         "Urgent: Your account will be deleted unless you click this link.",
         "Congratulations!!! You've been selected for a prize.",
+        "Work from home and earn 5 lakh per month, click now!",
+        "Limited offer!!! 90% off, click before it's gone!",
+        "Your package could not be delivered, click to reschedule.",
+        "Verify your account now or it will be suspended today.",
     ]
-    
+
     def generate(self, count: int = 5) -> list[dict[str, Any]]:
         """Generate spam feedback examples."""
+        texts = _sample_without_immediate_repeat(self.SPAM_TEMPLATES, count)
         generated = []
-        
-        for _ in range(count):
+        for text in texts:
             record = {
                 "feedback_id": self._generate_feedback_id(),
                 "domain": self.config.domain_pack_id,
                 "domain_pack_version": self.config.domain_pack_version,
                 "rule_family_id": f"spam_{random.randint(1000, 9999)}",
-                "feedback_text": random.choice(self.SPAM_TEMPLATES),
+                "feedback_text": text,
                 "feedback_type": "irrelevant_spam",
                 "rule_category": None,
                 "is_actionable": False,
@@ -515,58 +700,52 @@ class SpamGenerator(FeedbackGenerator):
                 "source": "programmatic",
             }
             generated.append(record)
-        
         return generated
 
 
 class InvalidSchemaGenerator(FeedbackGenerator):
-    """Generate feedback with invalid schema references for validation testing."""
-    
+    """Generate feedback with invalid schema references for validation testing.
+
+    Rewritten to build the sentence from the actual replaced field (matching
+    your own seed convention in EC_FB024: "Revenue should exclude
+    orders.unknown_field equals foo."), instead of guessing that the words
+    "cancelled"/"test" appear in the source text.
+    """
+
     INVALID_FIELDS = [
         "orders.unknown_field",
         "customers.fake_column",
         "payments.nonexistent_field",
         "products.missing_attr",
     ]
-    
+
     def generate(self, seeds: list[dict[str, Any]], count: int = 3) -> list[dict[str, Any]]:
         """Generate feedback with invalid schema references."""
         generated = []
-        
-        if not seeds:
+        candidates = [s for s in seeds if s.get("rules")]
+        if not candidates:
             return generated
-        
+
         for _ in range(count):
-            seed = random.choice(seeds)
+            seed = random.choice(candidates)
             record = self._copy_record_template(seed)
-            
-            # Replace a valid field with an invalid one
+            invalid_field = random.choice(self.INVALID_FIELDS)
+
             new_rules = deepcopy(seed.get("rules", []))
-            for rule in new_rules:
-                for cond in rule.get("conditions", []):
-                    if cond.get("field") and "." in cond["field"]:
-                        cond["field"] = random.choice(self.INVALID_FIELDS)
-                        break
-                for col in rule.get("affected_entities", {}).get("columns", []):
-                    if "." in col:
-                        rule["affected_entities"]["columns"] = [random.choice(self.INVALID_FIELDS)]
-                        break
-            
+            rule = new_rules[0]
+            rule["conditions"] = [{"field": invalid_field, "operator": "equals", "value": "foo"}]
+            rule["affected_entities"]["columns"] = [invalid_field]
             record["rules"] = new_rules
             record["schema_validation_expected"] = "fail"
             record["rule_family_id"] = f"invalid_{random.randint(1000, 9999)}"
-            
-            # Update feedback text to reflect invalid field
-            original_text = seed.get("feedback_text", "")
-            invalid_field = random.choice(self.INVALID_FIELDS)
-            field_simple = invalid_field.split(".")[-1]
-            feedback_text = original_text.replace("cancelled", field_simple).replace("test", field_simple)
-            
-            record["feedback_text"] = feedback_text
+
+            term = _humanize(rule.get("business_term", ""))
+            operation = rule.get("operation", "exclude")
+            record["feedback_text"] = f"{term.capitalize()} should {operation} {invalid_field} equals foo."
             record["source_seed_id"] = seed.get("feedback_id")
-            
+
             generated.append(record)
-        
+
         return generated
 
 
@@ -580,6 +759,9 @@ class GenerationPipeline:
         # Set random seed for reproducibility
         random.seed(config.random_seed)
         
+        # Reset shared counter for unique IDs
+        FeedbackGenerator._shared_counter = 0
+        
         # Initialize generators
         self.paraphrase_gen = ParaphraseGenerator(config, seed_records)
         self.conversational_gen = ConversationalGenerator(config, seed_records)
@@ -590,7 +772,7 @@ class GenerationPipeline:
         self.non_rule_gen = NonRuleGenerator(config, seed_records)
         self.spam_gen = SpamGenerator(config, seed_records)
         self.invalid_schema_gen = InvalidSchemaGenerator(config, seed_records)
-    
+
     def generate_all(self) -> dict[str, list[dict[str, Any]]]:
         """Generate all types of synthetic feedback."""
         all_generated: dict[str, list[dict[str, Any]]] = {
@@ -604,59 +786,107 @@ class GenerationPipeline:
             "spam": [],
             "invalid_schema": [],
         }
-        
-        # Generate from each seed
+
         for seed in self.seed_records:
-            # Skip non-actionable seeds for rule-based generation
             if seed.get("is_actionable") and seed.get("rules"):
-                # Paraphrases
-                paraphrases = self.paraphrase_gen.generate(
-                    seed, count=self.config.paraphrase_multiplier
+                all_generated["paraphrases"].extend(
+                    self.paraphrase_gen.generate(seed, count=self.config.paraphrase_multiplier)
                 )
-                all_generated["paraphrases"].extend(paraphrases)
-                
-                # Conversational
-                conversational = self.conversational_gen.generate(
-                    seed, count=self.config.conversational_multiplier
+                all_generated["conversational"].extend(
+                    self.conversational_gen.generate(seed, count=self.config.conversational_multiplier)
                 )
-                all_generated["conversational"].extend(conversational)
-                
-                # Hinglish
-                hinglish = self.hinglish_gen.generate(
-                    seed, count=self.config.hinglish_multiplier
+                all_generated["hinglish"].extend(
+                    self.hinglish_gen.generate(seed, count=self.config.hinglish_multiplier)
                 )
-                all_generated["hinglish"].extend(hinglish)
-        
-        # Multi-rule (combines multiple seeds)
-        multi_rule = self.multi_rule_gen.generate(
-            self.seed_records, count=self.config.multi_rule_multiplier * 5
+
+        all_generated["multi_rule"].extend(
+            self.multi_rule_gen.generate(self.seed_records, count=self.config.multi_rule_multiplier * 5)
         )
-        all_generated["multi_rule"].extend(multi_rule)
-        
-        # Ambiguous
-        ambiguous = self.ambiguous_gen.generate(
-            self.seed_records, count=self.config.target_ambiguous
+        all_generated["ambiguous"].extend(
+            self.ambiguous_gen.generate(self.seed_records, count=self.config.target_ambiguous)
         )
-        all_generated["ambiguous"].extend(ambiguous)
-        
-        # Conflicts
-        conflicts = self.conflict_gen.generate(
-            self.seed_records, count=self.config.target_conflict_pairs
+        all_generated["conflicts"].extend(
+            self.conflict_gen.generate(self.seed_records, count=self.config.target_conflict_pairs)
         )
-        all_generated["conflicts"].extend(conflicts)
-        
-        # Non-rule
-        non_rule = self.non_rule_gen.generate(count=10)
-        all_generated["non_rule"].extend(non_rule)
-        
-        # Spam
-        spam = self.spam_gen.generate(count=10)
-        all_generated["spam"].extend(spam)
-        
-        # Invalid schema
-        invalid_schema = self.invalid_schema_gen.generate(
-            self.seed_records, count=5
+        all_generated["non_rule"].extend(self.non_rule_gen.generate(count=10))
+        all_generated["spam"].extend(self.spam_gen.generate(count=10))
+        all_generated["invalid_schema"].extend(
+            self.invalid_schema_gen.generate(self.seed_records, count=5)
         )
-        all_generated["invalid_schema"].extend(invalid_schema)
-        
-        return all_generated
+
+        return self._dedupe(all_generated)
+
+    @staticmethod
+    def _dedupe(all_generated: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+        """Drop exact-duplicate feedback_text across the whole run.
+
+        Small template/seed pools mean some categories can independently
+        land on the same sentence (e.g. two operation-conflicts landing on
+        the same seed+flip). Rather than silently letting duplicate rows
+        into train/val/test, we keep the first occurrence and drop the
+        rest, category by category in generation order.
+        """
+        seen: set[str] = set()
+        deduped: dict[str, list[dict[str, Any]]] = {}
+        for category, records in all_generated.items():
+            kept = []
+            for r in records:
+                text = r.get("feedback_text", "")
+                if text in seen:
+                    continue
+                seen.add(text)
+                kept.append(r)
+            deduped[category] = kept
+        return deduped
+
+    def assign_splits(
+        self,
+        all_generated: dict[str, list[dict[str, Any]]],
+        train_ratio: float | None = None,
+        val_ratio: float | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Group every record (seeds + generated) by rule_family_id and
+        assign whole families to a single split.
+
+        This is the piece your spec explicitly calls out and the previous
+        version of this file didn't implement at all:
+        "Paraphrases of the same underlying rule must remain in the same
+        split. Otherwise, the model may appear accurate simply because it
+        saw an almost identical statement during training."
+
+        Records with no rule_family_id (shouldn't normally happen, but
+        defensive) each get treated as their own singleton family.
+        """
+        train_ratio = train_ratio if train_ratio is not None else getattr(self.config, "train_ratio", 0.70)
+        val_ratio = val_ratio if val_ratio is not None else getattr(self.config, "val_ratio", 0.15)
+
+        families: dict[str, list[dict[str, Any]]] = {}
+
+        def _add(record: dict[str, Any]) -> None:
+            fam = record.get("rule_family_id") or f"singleton_{record.get('feedback_id')}"
+            families.setdefault(fam, []).append(record)
+
+        for seed in self.seed_records:
+            _add(seed)
+        for records in all_generated.values():
+            for record in records:
+                _add(record)
+
+        family_ids = list(families.keys())
+        random.shuffle(family_ids)
+
+        n = len(family_ids)
+        n_train = int(n * train_ratio)
+        n_val = int(n * val_ratio)
+
+        splits: dict[str, list[dict[str, Any]]] = {"train": [], "validation": [], "test": []}
+        for i, fam in enumerate(family_ids):
+            if i < n_train:
+                bucket = "train"
+            elif i < n_train + n_val:
+                bucket = "validation"
+            else:
+                bucket = "test"
+            splits[bucket].extend(families[fam])
+
+        return splits

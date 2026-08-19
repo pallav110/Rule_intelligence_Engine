@@ -181,8 +181,9 @@ class PostGenerationValidator:
         
         # Validate feedback_id format
         fid = record.get("feedback_id", "")
-        if not fid.startswith("EC_"):
-            warnings.append(f"{ctx}: feedback_id '{fid}' does not start with 'EC_'")
+        # Don't hardcode prefix - allow different domains
+        if not fid:
+            errors.append(f"{ctx}: feedback_id is empty")
         
         # Validate rule_family_id format
         rfid = record.get("rule_family_id", "")
@@ -196,7 +197,7 @@ class PostGenerationValidator:
         rejection_reason = "; ".join(errors) if errors else None
         
         return ValidationResult(
-            is_valid=len(errors) == 0 or (not self.strict and len(warnings) == 0),
+            is_valid=len(errors) == 0,
             errors=errors,
             warnings=warnings,
             record_id=ctx,
@@ -268,6 +269,10 @@ class PostGenerationValidator:
         # Check that records in same rule_family have consistent structure
         for rfid, group in rule_family_groups.items():
             if len(group) > 1:
+                # Skip multi-rule families from consistency checks (they combine different rule types)
+                if rfid.startswith("multi_"):
+                    continue
+                
                 # Check that all have same feedback_type
                 types = set(r.get("feedback_type") for r in group)
                 if len(types) > 1:

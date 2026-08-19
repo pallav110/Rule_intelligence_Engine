@@ -53,13 +53,15 @@ class DatasetSplitter:
         
         # Calculate target sizes if provided
         total_records = len(records)
-        if target_train_size and target_val_size and target_test_size:
-            # Use target sizes
+        target_total = (target_train_size or 0) + (target_val_size or 0) + (target_test_size or 0)
+        
+        if target_train_size and target_val_size and target_test_size and total_records >= target_total:
+            # Use target sizes only if we have enough data
             train_target = target_train_size
             val_target = target_val_size
             test_target = target_test_size
         else:
-            # Use ratios
+            # Use ratios when insufficient data or targets not provided
             train_target = int(total_records * train_ratio)
             val_target = int(total_records * val_ratio)
             test_target = total_records - train_target - val_target
@@ -197,7 +199,7 @@ class DatasetSplitter:
         rule_family_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in records:
             rfid = record.get("rule_family_id")
-            if rfid and len(rule_family_groups[rfid]) < 2:  # Only families with 2+ records
+            if rfid:
                 rule_family_groups[rfid].append(record)
         
         # Create pairs
@@ -216,6 +218,7 @@ class DatasetSplitter:
                             "feedback_id_2": group[j].get("feedback_id"),
                             "rule_family_id": rfid,
                             "relationship": "semantic_duplicate",
+                            "conflict_type": None,
                         })
         
         return pairs
@@ -250,13 +253,80 @@ class DatasetSplitter:
             
             if base_records and conflict_records:
                 pair_id += 1
+                # Determine conflict type from the conflict record if available
+                conflict_type = "direct_conflict"
+                if conflict_records[0].get("conflict_type"):
+                    conflict_type = conflict_records[0].get("conflict_type")
+                
                 pairs.append({
                     "pair_id": f"CP{pair_id:04d}",
                     "feedback_id_1": base_records[0].get("feedback_id"),
                     "feedback_id_2": conflict_records[0].get("feedback_id"),
                     "rule_family_id_1": base_rfid,
                     "rule_family_id_2": conflict_rfid,
-                    "relationship": "direct_conflict",
+                    "relationship": conflict_type,
                 })
         
         return pairs
+    
+    def analyze_rule_families(
+        self,
+        records: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """
+        Analyze rule families to separate business-rule families from non-business IDs.
+        
+        Returns statistics about business rule families vs ambiguous/non-rule/spam/conflict IDs.
+        """
+        # Group by rule_family_id
+        rule_family_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for record in records:
+            rfid = record.get("rule_family_id")
+            if rfid:
+                rule_family_groups[rfid].append(record)
+        
+        # Categorize rule families
+        business_rule_families = []
+        non_business_families = []
+        
+        for rfid, group in rule_family_groups.items():
+            # Check if this is a business rule family
+            # Business rule families have actionable records with rules
+            is_business = False
+            for record in group:
+                if record.get("is_actionable") and record.get("rules") and record.get("feedback_type") == "business_rule_correction":
+                    is_business = True
+                    break
+            
+            # Also check rule_family_id pattern
+            if rfid.startswith("ecommerce_EC_R") or rfid.startswith("ecommerce_multi_"):
+                is_business = True
+            
+            if is_business:
+                business_rule_families.append({
+                    "rule_family_id": rfid,
+                    "count": len(group),
+                    "feedback_type": group[0].get("feedback_type"),
+                    "rule_category": group[0].get("rule_category"),
+                })
+            else:
+                non_business_families.append({
+                    "rule_family_id": rfid,
+                    "count": len(group),
+                    "feedback_type": group[0].get("feedback_type"),
+                    "category": "ambiguous" if rfid.startswith("ambiguous_") else 
+                                "non_rule" if "nonrule" in rfid else
+                                "spam" if "spam" in rfid else
+                                "conflict" if "_conflict" in rfid else
+                                "invalid" if "invalid" in rfid else "other",
+                })
+        
+        return {
+            "total_rule_families": len(rule_family_groups),
+            "business_rule_families": len(business_rule_families),
+            "non_business_families": len(non_business_families),
+            "business_rule_family_details": business_rule_families,
+            "non_business_family_details": non_business_families,
+            "business_rule_records": sum(f["count"] for f in business_rule_families),
+            "non_business_records": sum(f["count"] for f in non_business_families),
+        }

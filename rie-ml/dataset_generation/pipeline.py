@@ -149,6 +149,16 @@ class DatasetGenerationPipeline:
         print(f"  - Duplicate pairs: {len(duplicate_pairs)}")
         print(f"  - Conflict pairs: {len(conflict_pairs)}")
         
+        # Analyze rule families (business vs non-business)
+        rule_family_analysis = self.dataset_splitter.analyze_rule_families(all_records)
+        
+        print(f"Rule family analysis:")
+        print(f"  - Total rule families: {rule_family_analysis['total_rule_families']}")
+        print(f"  - Business rule families: {rule_family_analysis['business_rule_families']}")
+        print(f"  - Non-business families: {rule_family_analysis['non_business_families']}")
+        print(f"  - Business rule records: {rule_family_analysis['business_rule_records']}")
+        print(f"  - Non-business records: {rule_family_analysis['non_business_records']}")
+        
         datasets = {
             "train": split_result.train,
             "val": split_result.val,
@@ -160,7 +170,7 @@ class DatasetGenerationPipeline:
             "conflict_pairs": conflict_pairs,
         }
         
-        return datasets, split_result.split_info
+        return datasets, split_result.split_info, rule_family_analysis
     
     def write_outputs(
         self,
@@ -169,6 +179,9 @@ class DatasetGenerationPipeline:
         datasets: dict[str, list[dict[str, Any]]],
         split_info: dict[str, Any],
         seed_validation: dict[str, Any],
+        all_records: list[dict[str, Any]],
+        seed_records: list[dict[str, Any]],
+        rule_family_analysis: dict[str, Any],
     ) -> None:
         """Write all output files."""
         print("Writing output files...")
@@ -195,11 +208,12 @@ class DatasetGenerationPipeline:
             self.config.output_approved
         )
         
-        # Write rejected
+        # Write rejected (preserve internal validation fields)
         rejected = validation_result.get("rejected_records_data", [])
         self.output_writer.write_jsonl(
             rejected,
-            self.config.output_rejected
+            self.config.output_rejected,
+            preserve_internal=True
         )
         
         # Write train/val/test splits
@@ -255,6 +269,10 @@ class DatasetGenerationPipeline:
                 gen_type: len(records) for gen_type, records in generated.items()
             },
             "total_generated": len(all_generated),
+            "total_for_splitting": len(all_records),
+            "seed_records": len(seed_records),
+            "approved_generated": len(validation_result.get("valid_records_data", [])),
+            "rejected_generated": len(validation_result.get("rejected_records_data", [])),
             "validation": {
                 "total_records": validation_result["total_records"],
                 "valid_records": validation_result["valid_records"],
@@ -264,6 +282,14 @@ class DatasetGenerationPipeline:
                 "consistency_issues": validation_result.get("consistency", {}).get("consistency_issues", []),
             },
             "split_info": split_info,
+            "task_datasets": {
+                "classification": len(datasets["classification"]),
+                "extraction": len(datasets["extraction"]),
+                "clarification": len(datasets["clarification"]),
+                "duplicate_pairs": len(datasets["duplicate_pairs"]),
+                "conflict_pairs": len(datasets["conflict_pairs"]),
+            },
+            "rule_family_analysis": rule_family_analysis,
         }
         
         self.output_writer.write_report(
@@ -311,7 +337,7 @@ class DatasetGenerationPipeline:
         all_records = seed_records + validation_result.get("valid_records_data", [])
         
         # Split dataset
-        datasets, split_info = self.split_dataset(all_records)
+        datasets, split_info, rule_family_analysis = self.split_dataset(all_records)
         
         # Write outputs
         self.write_outputs(
@@ -320,6 +346,9 @@ class DatasetGenerationPipeline:
             datasets,
             split_info,
             seed_validation,
+            all_records,
+            seed_records,
+            rule_family_analysis,
         )
         
         print("=" * 60)
@@ -362,7 +391,7 @@ def main():
     parser.add_argument(
         "--random-seed",
         type=int,
-        default=42,
+        default=None,
         help="Random seed for reproducibility",
     )
     parser.add_argument(
@@ -376,6 +405,17 @@ def main():
     # Load or create config
     if args.config and args.config.exists():
         config = GenerationConfig.load(args.config)
+        # CLI flags override config file values
+        if args.domain_pack:
+            config.domain_pack_path = args.domain_pack
+        if args.seed:
+            config.seed_path = args.seed
+        if args.output:
+            config.output_dir = args.output
+        if args.random_seed is not None:
+            config.random_seed = args.random_seed
+        if args.strict:
+            config.strict_validation = True
     else:
         config = GenerationConfig()
         
@@ -385,7 +425,7 @@ def main():
             config.seed_path = args.seed
         if args.output:
             config.output_dir = args.output
-        if args.random_seed:
+        if args.random_seed is not None:
             config.random_seed = args.random_seed
         if args.strict:
             config.strict_validation = True

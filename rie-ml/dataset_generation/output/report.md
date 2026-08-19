@@ -1,33 +1,89 @@
 # Dataset Generation Report
 
-**Generated at:** 2026-08-17T11:06:46.415454Z
+**Generated at:** 2026-08-19T11:34:22.874657Z
 
 ## Summary
 
-- Total records generated: 0
-- Valid records: 0
-- Rejected records: 0
+- Seed records: 25
+- Total generated: 240
+- Approved generated: 240
+- Rejected generated: 0
+- **Total for splitting**: 265 (seed + approved generated)
 - Validation errors: 0
-- Validation warnings: 0
+- Validation warnings: 24
 
 ## Generation Breakdown
 
-- paraphrases: 57
+- paraphrases: 47
 - conversational: 38
-- hinglish: 19
+- hinglish: 16
 - multi_rule: 5
 - ambiguous: 100
-- conflicts: 150
+- conflicts: 10
 - non_rule: 10
 - spam: 10
-- invalid_schema: 5
+- invalid_schema: 4
 
 ## Dataset Split
 
-- Train: 63 records (15.3%)
-- Validation: 150 records (36.3%)
-- Test: 200 records (48.4%)
-- Rule families: 152
+**Target sizes:** Train=600, Val=150, Test=200
+
+**Actual sizes:**
+- Train: 185 records (69.8%) - 102 rule families
+- Validation: 39 records (14.7%) - 28 rule families
+- Test: 41 records (15.5%) - 28 rule families
+- Total rule families: 158
+
+**⚠️ Insufficient data for target split:** Available 265 records vs target 950. Split sizes are limited by available rule families and records. Add more seed data or increase generation multipliers to reach targets.
+
+## Task-Specific Datasets
+
+- Classification: 265 records
+- Extraction: 139 records
+- Clarification: 104 records
+- Duplicate pairs: 496 pairs
+- Conflict pairs: 9 pairs
+
+**⚠️ Conflict pairs:** Generated 9 vs target 150. Limited by seeds with numeric thresholds that can create conflicts. Add more threshold-based rules to seed.
+
+## Rule Family Analysis
+
+- Total rule families: 158
+- Business rule families: 32 (139 records)
+- Non-business families: 126 (126 records)
+
+Non-business breakdown:
+- ambiguous: 100 records
+- non_rule: 11 records
+- other: 4 records
+- spam: 11 records
+
+## Validation Warnings
+
+- EC_GEN0108: EC_GEN0108.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0108: EC_GEN0108.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0109: EC_GEN0109.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0109: EC_GEN0109.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0110: EC_GEN0110.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0110: EC_GEN0110.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0111: EC_GEN0111.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0111: EC_GEN0111.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0112: EC_GEN0112.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0112: EC_GEN0112.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0113: EC_GEN0113.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0113: EC_GEN0113.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0118: EC_GEN0118.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0118: EC_GEN0118.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0227: EC_GEN0227.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0227: EC_GEN0227.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0389: EC_GEN0389.rules[0]: unknown schema field 'payments.nonexistent_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0389: EC_GEN0389.rules[0]: unknown affected column 'payments.nonexistent_field'
+- EC_GEN0390: EC_GEN0390.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0390: EC_GEN0390.rules[0]: unknown affected column 'orders.unknown_field'
+- EC_GEN0392: EC_GEN0392.rules[0]: unknown schema field 'products.missing_attr' (allowed: schema_validation_expected=fail)
+- EC_GEN0392: EC_GEN0392.rules[0]: unknown affected column 'products.missing_attr'
+- EC_GEN0393: EC_GEN0393.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)
+- EC_GEN0393: EC_GEN0393.rules[0]: unknown affected column 'orders.unknown_field'
 
 ## Configuration
 

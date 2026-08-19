@@ -1,2 +1,9 @@
-{"pair_id": "CP0001", "feedback_id_1": "EC_FB006", "feedback_id_2": "EC_GEN0002", "rule_family_id_1": "ecommerce_EC_R005", "rule_family_id_2": "ecommerce_EC_R005_conflict_conflict", "relationship": "direct_conflict"}
-{"pair_id": "CP0002", "feedback_id_1": "EC_FB012", "feedback_id_2": "EC_GEN0004", "rule_family_id_1": "ecommerce_EC_R012", "rule_family_id_2": "ecommerce_EC_R012_conflict", "relationship": "direct_conflict"}
+{"pair_id": "CP0001", "feedback_id_1": "EC_FB006", "feedback_id_2": "EC_FB007", "rule_family_id_1": "ecommerce_EC_R005", "rule_family_id_2": "ecommerce_EC_R005_conflict", "relationship": "direct_conflict"}
+{"pair_id": "CP0002", "feedback_id_1": "EC_FB010", "feedback_id_2": "EC_GEN0219", "rule_family_id_1": "ecommerce_EC_R010", "rule_family_id_2": "ecommerce_EC_R010_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0003", "feedback_id_1": "EC_FB005", "feedback_id_2": "EC_GEN0221", "rule_family_id_1": "ecommerce_EC_R004", "rule_family_id_2": "ecommerce_EC_R004_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0004", "feedback_id_1": "EC_FB001", "feedback_id_2": "EC_GEN0222", "rule_family_id_1": "ecommerce_EC_R001", "rule_family_id_2": "ecommerce_EC_R001_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0005", "feedback_id_1": "EC_FB003", "feedback_id_2": "EC_GEN0224", "rule_family_id_1": "ecommerce_EC_R002", "rule_family_id_2": "ecommerce_EC_R002_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0006", "feedback_id_1": "EC_FB024", "feedback_id_2": "EC_GEN0227", "rule_family_id_1": "ecommerce_invalid_001", "rule_family_id_2": "ecommerce_invalid_001_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0007", "feedback_id_1": "EC_FB011", "feedback_id_2": "EC_GEN0238", "rule_family_id_1": "ecommerce_EC_R011", "rule_family_id_2": "ecommerce_EC_R011_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0008", "feedback_id_1": "EC_FB009", "feedback_id_2": "EC_GEN0244", "rule_family_id_1": "ecommerce_EC_R009", "rule_family_id_2": "ecommerce_EC_R009_conflict", "relationship": "operation_conflict"}
+{"pair_id": "CP0009", "feedback_id_1": "EC_FB012", "feedback_id_2": "EC_GEN0271", "rule_family_id_1": "ecommerce_EC_R012", "rule_family_id_2": "ecommerce_EC_R012_conflict", "relationship": "threshold_conflict"}
