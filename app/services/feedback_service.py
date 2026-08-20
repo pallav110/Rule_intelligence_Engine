@@ -1,3 +1,10 @@
+from datetime import datetime
+from uuid import uuid4
+
+from sqlalchemy.orm import Session
+
+from app.db.models.analysis_run import AnalysisRun
+from app.db.models.feedback import Feedback
 from app.services.classifier import Classifier
 from app.services.domain_pack_loader import DomainPackLoader
 from app.services.feedback_preprocessor import FeedbackPreprocessor
@@ -30,7 +37,36 @@ class FeedbackService:
         self.validator = validator
         self.canonical_rule_service = canonical_rule_service
 
-    def analyze(self, feedback: str, domain: str):
+    def analyze(
+        self,
+        db: Session,
+        workspace_id: str,
+        feedback: str,
+        domain: str,
+    ):
+        feedback_id = str(uuid4())
+        analysis_run_id = str(uuid4())
+
+        feedback_record = Feedback(
+            feedback_id=feedback_id,
+            workspace_id=workspace_id,
+            content=feedback,
+        )
+
+        analysis_run = AnalysisRun(
+            analysis_run_id=analysis_run_id,
+            feedback_id=feedback_id,
+            workspace_id=workspace_id,
+            status="processing",
+            started_at=datetime.utcnow(),
+        )
+
+        db.add(feedback_record)
+        db.flush()
+
+        db.add(analysis_run)
+        db.commit()
+
         available_domains = {
             pack["domain_pack_id"]
             for pack in self.domain_loader.list_available_packs()
@@ -71,8 +107,13 @@ class FeedbackService:
             schema,
         )
 
+        analysis_run.status = "completed"
+        analysis_run.completed_at = datetime.utcnow()
+
+        db.commit()
+
         return FeedbackAnalysisResponse(
-            feedback_id=str(processed.feedback_id),
+            feedback_id=feedback_id,
             classification=ClassificationResponse(
                 feedback_type=classification.feedback_type,
                 rule_category=classification.rule_category,

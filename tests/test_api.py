@@ -5,6 +5,8 @@ from app.main import app
 
 client = TestClient(app)
 
+WORKSPACE_ID = "52bb3fbd-16cf-4ee3-b5a5-e66dca62d811"
+
 
 def test_health():
     response = client.get("/health")
@@ -17,6 +19,7 @@ def test_feedback_analyze_valid_request():
     response = client.post(
         "/v1/feedback/analyze",
         json={
+            "workspace_id": WORKSPACE_ID,
             "feedback": "Refund orders should not count as revenue.",
             "domain": "ecommerce",
         },
@@ -35,6 +38,7 @@ def test_feedback_analyze_unknown_domain():
     response = client.post(
         "/v1/feedback/analyze",
         json={
+            "workspace_id": WORKSPACE_ID,
             "feedback": "Refund orders should not count as revenue.",
             "domain": "unknown_domain",
         },
@@ -50,10 +54,12 @@ def test_batch_feedback():
         json={
             "items": [
                 {
+                    "workspace_id": WORKSPACE_ID,
                     "feedback": "Refund orders should not count as revenue.",
                     "domain": "ecommerce",
                 },
                 {
+                    "workspace_id": WORKSPACE_ID,
                     "feedback": "Cancelled orders should be excluded.",
                     "domain": "ecommerce",
                 },

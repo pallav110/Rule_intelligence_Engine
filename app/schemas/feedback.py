@@ -1,11 +1,12 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
 class FeedbackAnalysisRequest(BaseModel):
+    workspace_id: str
     feedback: str = Field(min_length=1)
     domain: str = Field(min_length=1)
-
-from typing import Any
 
 
 class ClassificationResponse(BaseModel):
@@ -32,16 +33,18 @@ class FeedbackAnalysisResponse(BaseModel):
     rules: list[dict[str, Any]]
     validation: ValidationResponse
 
+
 class FeedbackBatchAnalysisRequest(BaseModel):
     items: list[FeedbackAnalysisRequest] = Field(min_length=1)
+
 
 class FeedbackBatchAnalysisResponse(BaseModel):
     results: list[FeedbackAnalysisResponse]
 
-class RuleComparisonRequest(BaseModel):
-    rule: dict[str, Any]
-    existing_rules: list[dict[str, Any]] = []
 
+class RuleComparisonRequest(BaseModel):
+    workspace_id: str
+    rule: dict[str, Any]
 
 class RuleCompareRequest(BaseModel):
     rule_a: dict[str, Any]

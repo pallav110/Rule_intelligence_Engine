@@ -40,3 +40,21 @@ def test_invalid_rule_is_rejected():
         assert False, "Expected validation error"
     except Exception:
         assert True
+
+def test_string_condition_is_rejected():
+    invalid_rule = {
+        "rule_id": "R003",
+        "rule_category": "filter_rule",
+        "operation": "exclude",
+        "conditions": [
+            "orders.status must equal refunded"
+        ],
+        "affected_tables": ["orders"],
+        "affected_columns": ["status"],
+    }
+
+    try:
+        CanonicalRuleService().build(invalid_rule)
+        assert False, "Expected validation error"
+    except Exception:
+        assert True

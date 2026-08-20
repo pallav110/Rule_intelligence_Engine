@@ -1,3 +1,7 @@
+from uuid import uuid4
+
+from app.db.database import SessionLocal
+from app.db.models.workspace import Workspace
 from app.services.classifier import MockClassifier
 from app.services.canonical_rule_service import CanonicalRuleService
 from app.services.domain_pack_loader import DomainPackLoader
@@ -17,15 +21,34 @@ def test_batch_feedback_service_processes_multiple_items():
         canonical_rule_service=CanonicalRuleService(),
     )
 
-    first = service.analyze(
-        "Refund orders should not count as revenue.",
-        "ecommerce",
+    db = SessionLocal()
+
+    workspace_id = str(uuid4())
+
+    workspace = Workspace(
+        workspace_id=workspace_id,
+        name="Batch Feedback Test Workspace",
     )
 
-    second = service.analyze(
-        "Cancelled orders should be excluded.",
-        "ecommerce",
-    )
+    db.add(workspace)
+    db.commit()
+
+    try:
+        first = service.analyze(
+            db=db,
+            workspace_id=workspace_id,
+            feedback="Refund orders should not count as revenue.",
+            domain="ecommerce",
+        )
+
+        second = service.analyze(
+            db=db,
+            workspace_id=workspace_id,
+            feedback="Cancelled orders should be excluded.",
+            domain="ecommerce",
+        )
+    finally:
+        db.close()
 
     assert first.feedback_id != second.feedback_id
     assert first.classification.is_actionable is True
