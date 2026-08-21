@@ -4,9 +4,13 @@ from app.worker import celery_app
 
 
 @celery_app.task(
-    name="jobs.process_background_job"
+    name="jobs.process_background_job",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
 )
-def process_background_job(job_id: str):
+def process_background_job(self, job_id: str):
     db = SessionLocal()
 
     try:
@@ -34,12 +38,7 @@ def process_background_job(job_id: str):
         }
 
     except Exception:
-        job = db.get(BackgroundJob, job_id)
-
-        if job is not None:
-            job.status = "failed"
-            db.commit()
-
+        db.rollback()
         raise
 
     finally:

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -13,6 +15,24 @@ def test_health():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_readiness():
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+def test_readiness_fails_when_dependency_unavailable():
+    with patch(
+        "app.main.engine.connect",
+        side_effect=Exception("database unavailable"),
+    ):
+        response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert "Readiness check failed" in response.json()["detail"]
 
 
 def test_feedback_analyze_valid_request():
