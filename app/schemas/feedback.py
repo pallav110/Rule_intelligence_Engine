@@ -5,8 +5,9 @@ from pydantic import BaseModel, Field
 
 class FeedbackAnalysisRequest(BaseModel):
     workspace_id: str
-    feedback: str = Field(min_length=1)
-    domain: str = Field(min_length=1)
+    feedback_id: str
+    feedback_text: str = Field(min_length=1)
+    schema_context: dict = Field(default_factory=dict)
 
 
 class ClassificationResponse(BaseModel):
@@ -29,9 +30,14 @@ class ValidationResponse(BaseModel):
 
 class FeedbackAnalysisResponse(BaseModel):
     feedback_id: str
-    classification: ClassificationResponse
-    rules: list[dict[str, Any]]
-    validation: ValidationResponse
+    feedback_type: str
+    rule_category: str
+    is_actionable: bool
+    requires_clarification: bool
+    confidence: float
+    extracted_rules: Any = None
+    suggestion: Any = None
+    clarification: Any = None
 
 
 class FeedbackBatchAnalysisRequest(BaseModel):

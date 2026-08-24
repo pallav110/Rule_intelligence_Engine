@@ -37,7 +37,6 @@
             min-height: 100vh;
         }
 
-        /* Sidebar */
         .sidebar {
             background: var(--secondary);
             border-right: 1px solid var(--border);
@@ -110,15 +109,6 @@
             color: white;
         }
 
-        .nav-icon {
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Main Content */
         .main {
             display: flex;
             flex-direction: column;
@@ -143,11 +133,6 @@
         .breadcrumb {
             font-size: 12px;
             color: var(--text-secondary);
-        }
-
-        .breadcrumb span {
-            color: var(--accent);
-            margin: 0 5px;
         }
 
         .page-title {
@@ -189,7 +174,6 @@
             overflow-y: auto;
         }
 
-        /* Grid Layout */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -201,11 +185,6 @@
             grid-template-columns: 1fr;
         }
 
-        .grid.half {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        /* Cards */
         .card {
             background: var(--secondary);
             border: 1px solid var(--border);
@@ -228,18 +207,6 @@
             gap: 10px;
         }
 
-        .card-title-icon {
-            width: 20px;
-            height: 20px;
-            background: rgba(59, 130, 246, 0.2);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-
-        /* Stat Cards */
         .stat-card {
             background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
             border: 1px solid rgba(59, 130, 246, 0.2);
@@ -257,13 +224,6 @@
             color: var(--text-secondary);
         }
 
-        .stat-change {
-            font-size: 11px;
-            color: var(--success);
-            margin-top: 8px;
-        }
-
-        /* Forms */
         .form-group {
             margin-bottom: 16px;
         }
@@ -299,10 +259,8 @@
         textarea {
             resize: vertical;
             min-height: 100px;
-            font-family: 'Roboto Mono', monospace;
         }
 
-        /* Buttons */
         .button-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -344,30 +302,11 @@
             color: var(--accent);
         }
 
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #059669;
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
 
-        /* Response Display */
         .response-box {
             background: var(--primary);
             border: 1px solid var(--border);
@@ -403,149 +342,17 @@
             line-height: 1.6;
         }
 
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 0;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-
-        .tab {
-            padding: 12px 20px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .tab:hover, .tab.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        .tab-content {
+        .page {
             display: none;
         }
 
-        .tab-content.active {
+        .page.active {
             display: block;
-        }
-
-        /* Table */
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-
-        .table th {
-            background: var(--primary);
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .table td {
-            padding: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .table tr:hover {
-            background: rgba(59, 130, 246, 0.05);
-        }
-
-        /* Badge */
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-success {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-        }
-
-        .badge-warning {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
-        }
-
-        .badge-error {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
-        }
-
-        .badge-info {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--accent);
-        }
-
-        /* Loading */
-        .loading {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid var(--accent);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent);
-        }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .grid.half {
-                grid-template-columns: 1fr;
-            }
-
-            .container {
-                grid-template-columns: 1fr;
-            }
-
-            .sidebar {
-                display: none;
-            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Sidebar -->
         <div class="sidebar">
             <div class="logo">
                 <div class="logo-icon">⚙️</div>
@@ -557,53 +364,22 @@
 
             <div class="nav-section">
                 <div class="nav-section-title">Core Operations</div>
-                <div class="nav-item active" onclick="navigateTo('feedback')">
-                    <div class="nav-icon">📨</div>
-                    <span>Feedback Analysis</span>
-                </div>
-                <div class="nav-item" onclick="navigateTo('extraction')">
-                    <div class="nav-icon">⚗️</div>
-                    <span>Rule Extraction</span>
-                </div>
-                <div class="nav-item" onclick="navigateTo('suggestions')">
-                    <div class="nav-icon">💡</div>
-                    <span>Suggestions</span>
-                </div>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Review Workflow</div>
-                <div class="nav-item" onclick="navigateTo('clarifications')">
-                    <div class="nav-icon">❓</div>
-                    <span>Clarifications</span>
-                </div>
-                <div class="nav-item" onclick="navigateTo('reviews')">
-                    <div class="nav-icon">📋</div>
-                    <span>Reviews</span>
-                </div>
+                <div class="nav-item active" onclick="navigateTo('feedback')">📨 Feedback Analysis</div>
+                <div class="nav-item" onclick="navigateTo('suggestions')">💡 Suggestions</div>
+                <div class="nav-item" onclick="navigateTo('clarifications')">❓ Clarifications</div>
+                <div class="nav-item" onclick="navigateTo('reviews')">📋 Reviews</div>
             </div>
 
             <div class="nav-section">
                 <div class="nav-section-title">Monitoring</div>
-                <div class="nav-item" onclick="navigateTo('status')">
-                    <div class="nav-icon">📊</div>
-                    <span>System Status</span>
-                </div>
-                <div class="nav-item" onclick="navigateTo('metrics')">
-                    <div class="nav-icon">📈</div>
-                    <span>Performance</span>
-                </div>
+                <div class="nav-item" onclick="navigateTo('status')">📊 System Status</div>
             </div>
         </div>
 
-        <!-- Main Content -->
         <div class="main">
-            <!-- Header -->
             <div class="header">
                 <div class="header-left">
-                    <div class="breadcrumb">
-                        Dashboard <span>/</span> <span id="current-page">Feedback Analysis</span>
-                    </div>
+                    <div class="breadcrumb">Dashboard <span>/</span> <span id="current-page">Feedback Analysis</span></div>
                 </div>
                 <div class="header-right">
                     <div class="status-indicator">
@@ -613,33 +389,22 @@
                 </div>
             </div>
 
-            <!-- Content -->
             <div class="content">
                 <!-- Feedback Analysis Page -->
-                <div id="page-feedback" class="page">
+                <div id="page-feedback" class="page active">
                     <div class="grid">
                         <div class="stat-card card">
                             <div class="stat-value" id="stat-feedbacks">0</div>
                             <div class="stat-label">Total Feedbacks Processed</div>
-                            <div class="stat-change">↑ +0 this session</div>
                         </div>
                         <div class="stat-card card">
                             <div class="stat-value" id="stat-actionable">0</div>
                             <div class="stat-label">Actionable Items</div>
-                            <div class="stat-change">Avg Confidence: 0.00</div>
-                        </div>
-                        <div class="stat-card card">
-                            <div class="stat-value" id="stat-clarity">0</div>
-                            <div class="stat-label">Require Clarification</div>
-                            <div class="stat-change">Pending Questions</div>
                         </div>
                     </div>
 
                     <div class="card">
-                        <div class="card-title">
-                            <div class="card-title-icon">📨</div>
-                            Analyze Feedback
-                        </div>
+                        <div class="card-title">📨 Analyze Feedback</div>
 
                         <div class="form-group">
                             <label>Feedback Text*</label>
@@ -648,17 +413,17 @@
 
                         <div class="form-group">
                             <label>Workspace ID</label>
-                            <input type="text" id="feedback-workspace" value="default" placeholder="default">
+                            <input type="text" id="feedback-workspace" value="default">
                         </div>
 
                         <div class="form-group">
-                            <label>Available Tables (comma-separated)</label>
-                            <input type="text" id="feedback-tables" value="orders,customers,products" placeholder="orders,customers,products">
+                            <label>Available Tables</label>
+                            <input type="text" id="feedback-tables" value="orders,customers,products">
                         </div>
 
                         <div class="form-group">
-                            <label>Available Columns (comma-separated)</label>
-                            <input type="text" id="feedback-columns" value="order_id,revenue,discount,customer_id" placeholder="order_id,revenue,discount">
+                            <label>Available Columns</label>
+                            <input type="text" id="feedback-columns" value="order_id,revenue,discount,customer_id">
                         </div>
 
                         <div class="button-group">
@@ -670,91 +435,53 @@
                     </div>
                 </div>
 
-                <!-- Rule Extraction Page -->
-                <div id="page-extraction" class="page" style="display: none;">
+                <!-- Suggestions Page -->
+                <div id="page-suggestions" class="page">
                     <div class="card">
-                        <div class="card-title">
-                            <div class="card-title-icon">⚗️</div>
-                            Rule Extraction Engine
+                        <div class="card-title">💡 Create Suggestion</div>
+
+                        <div class="form-group">
+                            <label>Workspace ID</label>
+                            <input type="text" id="sug-workspace" value="default">
                         </div>
 
                         <div class="form-group">
-                            <label>Input Text*</label>
-                            <textarea id="extract-text" placeholder="Enter text for rule extraction...">Customer retention metric must exclude inactive users from the calculation</textarea>
+                            <label>Feedback ID</label>
+                            <input type="text" id="sug-feedback-id" placeholder="auto-generated">
                         </div>
 
                         <div class="form-group">
-                            <label>Classification Context (JSON)</label>
-                            <textarea id="extract-classification" placeholder='{"feedback_type": "business_rule_correction", "rule_category": "metric_definition"}'></textarea>
+                            <label>Confidence Score</label>
+                            <input type="number" id="sug-confidence" min="0" max="1" step="0.01" value="0.85">
                         </div>
 
                         <div class="button-group">
-                            <button class="btn-primary" onclick="extractRules()">⚗️ Extract Rules</button>
-                            <button class="btn-secondary" onclick="clearExtraction()">Clear</button>
+                            <button class="btn-primary" onclick="createSuggestion()">Create</button>
                         </div>
 
-                        <div id="extraction-response" class="response-box"></div>
+                        <div id="suggestion-response" class="response-box"></div>
                     </div>
-                </div>
 
-                <!-- Suggestions Page -->
-                <div id="page-suggestions" class="page" style="display: none;">
-                    <div class="grid half">
-                        <div class="card">
-                            <div class="card-title">
-                                <div class="card-title-icon">➕</div>
-                                Create Suggestion
-                            </div>
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-title">🔍 Get Suggestion</div>
 
-                            <div class="form-group">
-                                <label>Workspace ID</label>
-                                <input type="text" id="sug-workspace" value="default">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Feedback ID</label>
-                                <input type="text" id="sug-feedback-id" placeholder="feedback-id">
-                            </div>
-
-                            <div class="form-group">
-                                <label>Confidence Score</label>
-                                <input type="number" id="sug-confidence" min="0" max="1" step="0.01" value="0.85">
-                            </div>
-
-                            <div class="button-group">
-                                <button class="btn-primary" onclick="createSuggestion()">Create</button>
-                            </div>
-
-                            <div id="suggestion-create-response" class="response-box"></div>
+                        <div class="form-group">
+                            <label>Suggestion ID</label>
+                            <input type="text" id="sug-get-id" placeholder="suggestion-id">
                         </div>
 
-                        <div class="card">
-                            <div class="card-title">
-                                <div class="card-title-icon">🔍</div>
-                                Get Suggestion
-                            </div>
-
-                            <div class="form-group">
-                                <label>Suggestion ID</label>
-                                <input type="text" id="sug-get-id" placeholder="suggestion-id">
-                            </div>
-
-                            <div class="button-group">
-                                <button class="btn-primary" onclick="getSuggestion()">Retrieve</button>
-                            </div>
-
-                            <div id="suggestion-get-response" class="response-box"></div>
+                        <div class="button-group">
+                            <button class="btn-primary" onclick="getSuggestion()">Retrieve</button>
                         </div>
+
+                        <div id="suggestion-get-response" class="response-box"></div>
                     </div>
                 </div>
 
                 <!-- Clarifications Page -->
-                <div id="page-clarifications" class="page" style="display: none;">
+                <div id="page-clarifications" class="page">
                     <div class="card">
-                        <div class="card-title">
-                            <div class="card-title-icon">❓</div>
-                            Create Clarification Request
-                        </div>
+                        <div class="card-title">❓ Create Clarification</div>
 
                         <div class="form-group">
                             <label>Feedback ID*</label>
@@ -762,17 +489,12 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Classification Result (JSON)*</label>
-                            <textarea id="clar-classification" placeholder='{"feedback_type": "data_quality_issue", "rule_category": "metric_definition"}'></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Questions to Ask</label>
-                            <textarea id="clar-questions" placeholder="What is the exact threshold? How should inactive users be defined?" style="height: 80px;"></textarea>
+                            <label>Questions</label>
+                            <textarea id="clar-questions" placeholder="What questions need answering?">What is the exact threshold for inactive users?</textarea>
                         </div>
 
                         <div class="button-group">
-                            <button class="btn-primary" onclick="createClarification()">Create Request</button>
+                            <button class="btn-primary" onclick="createClarification()">Create</button>
                         </div>
 
                         <div id="clarification-response" class="response-box"></div>
@@ -780,12 +502,9 @@
                 </div>
 
                 <!-- Reviews Page -->
-                <div id="page-reviews" class="page" style="display: none;">
+                <div id="page-reviews" class="page">
                     <div class="card">
-                        <div class="card-title">
-                            <div class="card-title-icon">📋</div>
-                            Review Management
-                        </div>
+                        <div class="card-title">📋 Create Review</div>
 
                         <div class="form-group">
                             <label>Suggestion ID*</label>
@@ -797,12 +516,11 @@
                             <select id="review-type">
                                 <option value="manual">Manual Review</option>
                                 <option value="automated">Automated Check</option>
-                                <option value="peer">Peer Review</option>
                             </select>
                         </div>
 
                         <div class="button-group">
-                            <button class="btn-primary" onclick="createReview()">Create Review</button>
+                            <button class="btn-primary" onclick="createReview()">Create</button>
                         </div>
 
                         <div id="review-response" class="response-box"></div>
@@ -810,64 +528,30 @@
                 </div>
 
                 <!-- Status Page -->
-                <div id="page-status" class="page" style="display: none;">
+                <div id="page-status" class="page">
                     <div class="grid">
                         <div class="stat-card card">
                             <div class="stat-value" id="status-health">?</div>
                             <div class="stat-label">API Health</div>
                         </div>
-                        <div class="stat-card card">
-                            <div class="stat-value" id="status-version">1.0.0</div>
-                            <div class="stat-label">API Version</div>
-                        </div>
-                        <div class="stat-card card">
-                            <div class="stat-value" id="status-endpoints">15+</div>
-                            <div class="stat-label">Active Endpoints</div>
-                        </div>
                     </div>
 
                     <div class="card">
-                        <div class="card-title">
-                            <div class="card-title-icon">📊</div>
-                            System Information
-                        </div>
-
-                        <table class="table">
-                            <tr>
+                        <div class="card-title">📊 System Info</div>
+                        <table style="width:100%; font-size: 12px;">
+                            <tr style="border-bottom: 1px solid var(--border); padding: 8px;">
                                 <td style="color: var(--text-secondary);">Backend Status</td>
-                                <td><span class="badge badge-success">Online</span></td>
+                                <td><span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 10px;">Online</span></td>
                             </tr>
-                            <tr>
+                            <tr style="border-bottom: 1px solid var(--border); padding: 8px;">
                                 <td style="color: var(--text-secondary);">ML Models</td>
-                                <td><span class="badge badge-success">Loaded</span></td>
+                                <td><span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 10px;">Loaded</span></td>
                             </tr>
-                            <tr>
+                            <tr style="border-bottom: 1px solid var(--border); padding: 8px;">
                                 <td style="color: var(--text-secondary);">Database</td>
-                                <td><span class="badge badge-success">Connected</span></td>
-                            </tr>
-                            <tr>
-                                <td style="color: var(--text-secondary);">Cache</td>
-                                <td><span class="badge badge-success">Active</span></td>
+                                <td><span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 10px;">Connected</span></td>
                             </tr>
                         </table>
-                    </div>
-                </div>
-
-                <!-- Metrics Page -->
-                <div id="page-metrics" class="page" style="display: none;">
-                    <div class="grid">
-                        <div class="stat-card card">
-                            <div class="stat-value">1.2ms</div>
-                            <div class="stat-label">Avg Response Time</div>
-                        </div>
-                        <div class="stat-card card">
-                            <div class="stat-value">99.9%</div>
-                            <div class="stat-label">Uptime (30d)</div>
-                        </div>
-                        <div class="stat-card card">
-                            <div class="stat-value">~5K</div>
-                            <div class="stat-label">Requests (24h)</div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -878,62 +562,40 @@
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let sessionStats = {
             feedbacks: 0,
-            actionable: 0,
-            clarity: 0
+            actionable: 0
         };
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
             checkAPIHealth();
             setInterval(checkAPIHealth, 30000);
         });
 
-        // Navigation
         function navigateTo(page) {
-            // Hide all pages
-            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${page}`).classList.add('active');
 
-            // Show selected page
-            const pageEl = document.getElementById(`page-${page}`);
-            if (pageEl) {
-                pageEl.style.display = 'block';
-            }
-
-            // Update header
             const titles = {
                 feedback: 'Feedback Analysis',
-                extraction: 'Rule Extraction',
                 suggestions: 'Suggestions',
                 clarifications: 'Clarifications',
                 reviews: 'Reviews',
-                status: 'System Status',
-                metrics: 'Performance Metrics'
+                status: 'System Status'
             };
             document.getElementById('current-page').textContent = titles[page] || page;
-
-            // Update nav items
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            event.target.closest('.nav-item')?.classList.add('active');
         }
 
-        // API Health Check
         async function checkAPIHealth() {
             try {
                 const response = await fetch(`${API_BASE}/health`);
                 if (response.ok) {
                     document.getElementById('api-status').textContent = '✓ API: Online';
                     document.getElementById('status-health').textContent = '✓';
-                } else {
-                    document.getElementById('api-status').textContent = '✗ API: Error';
-                    document.getElementById('status-health').textContent = '✗';
                 }
             } catch (error) {
                 document.getElementById('api-status').textContent = '✗ API: Offline';
-                document.getElementById('status-health').textContent = '✗';
             }
         }
 
-        // API Call Helper
         async function apiCall(method, endpoint, data = null) {
             try {
                 const options = {
@@ -959,19 +621,16 @@
             }
         }
 
-        // Display Response
         function displayResponse(elementId, data, success) {
             const element = document.getElementById(elementId);
             element.className = `response-box show ${success ? 'success' : 'error'}`;
             element.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
         }
 
-        // Generate ID
         function generateId() {
             return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
 
-        // Feedback Analysis
         async function analyzeFeedback() {
             const text = document.getElementById('feedback-text').value;
             if (!text) {
@@ -983,9 +642,9 @@
             const columns = document.getElementById('feedback-columns').value.split(',').map(c => c.trim());
 
             const result = await apiCall('POST', '/v1/feedback/analyze', {
-                feedback_text: text,
-                feedback_id: generateId(),
                 workspace_id: document.getElementById('feedback-workspace').value || 'default',
+                feedback_id: generateId(),
+                feedback_text: text,
                 schema_context: {
                     available_tables: tables,
                     available_columns: columns
@@ -996,7 +655,6 @@
             if (result.success) {
                 sessionStats.feedbacks++;
                 if (result.data.is_actionable) sessionStats.actionable++;
-                if (result.data.requires_clarification) sessionStats.clarity++;
                 updateStats();
             }
         }
@@ -1006,39 +664,15 @@
             document.getElementById('feedback-response').style.display = 'none';
         }
 
-        // Rule Extraction
-        async function extractRules() {
-            const text = document.getElementById('extract-text').value;
-            if (!text) {
-                alert('Please enter text');
-                return;
-            }
-
-            const result = await apiCall('POST', '/v1/suggestions', {
-                workspace_id: 'default',
-                feedback_id: generateId(),
-                suggested_rule: { business_term: 'revenue', operation: 'exclude' },
-                confidence: 0.85
-            });
-
-            displayResponse('extraction-response', result.data, result.success);
-        }
-
-        function clearExtraction() {
-            document.getElementById('extract-text').value = '';
-            document.getElementById('extraction-response').style.display = 'none';
-        }
-
-        // Suggestions
         async function createSuggestion() {
             const result = await apiCall('POST', '/v1/suggestions', {
                 workspace_id: document.getElementById('sug-workspace').value || 'default',
                 feedback_id: document.getElementById('sug-feedback-id').value || generateId(),
-                suggested_rule: { business_term: 'revenue', operation: 'exclude' },
+                suggested_rule: { business_term: 'revenue', operation: 'exclude', conditions: [] },
                 confidence: parseFloat(document.getElementById('sug-confidence').value) || 0.85
             });
 
-            displayResponse('suggestion-create-response', result.data, result.success);
+            displayResponse('suggestion-response', result.data, result.success);
         }
 
         async function getSuggestion() {
@@ -1052,7 +686,6 @@
             displayResponse('suggestion-get-response', result.data, result.success);
         }
 
-        // Clarifications
         async function createClarification() {
             const feedbackId = document.getElementById('clar-feedback-id').value;
             if (!feedbackId) {
@@ -1062,14 +695,19 @@
 
             const result = await apiCall('POST', '/v1/clarifications', {
                 feedback_id: feedbackId,
-                classification_result: JSON.parse(document.getElementById('clar-classification').value || '{}'),
-                questions_needed: [document.getElementById('clar-questions').value || 'Clarification needed']
+                classification: {
+                    feedback_type: 'data_quality_issue',
+                    rule_category: 'metric_definition'
+                },
+                extraction: {
+                    rules: [],
+                    confidence: 0.0
+                }
             });
 
             displayResponse('clarification-response', result.data, result.success);
         }
 
-        // Reviews
         async function createReview() {
             const suggestionId = document.getElementById('review-sug-id').value;
             if (!suggestionId) {
@@ -1079,17 +717,15 @@
 
             const result = await apiCall('POST', '/v1/reviews', {
                 suggestion_id: suggestionId,
-                review_type: document.getElementById('review-type').value
+                priority: 'normal'
             });
 
             displayResponse('review-response', result.data, result.success);
         }
 
-        // Stats Update
         function updateStats() {
             document.getElementById('stat-feedbacks').textContent = sessionStats.feedbacks;
             document.getElementById('stat-actionable').textContent = sessionStats.actionable;
-            document.getElementById('stat-clarity').textContent = sessionStats.clarity;
         }
     </script>
 </body>

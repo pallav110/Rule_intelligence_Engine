@@ -26,7 +26,6 @@ RUN pip install --no-cache-dir -e ./rie_ml/
 
 # Copy application code
 COPY app/ ./app/
-COPY train_models.py .
 
 # Create necessary directories
 RUN mkdir -p ./rie_ml/models ./logs
@@ -42,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Run migrations and start server
-CMD ["sh", "-c", "python train_models.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]

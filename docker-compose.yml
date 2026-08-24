@@ -75,9 +75,6 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
-    command: >
-      sh -c "python train_models.py &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # Celery Worker (Background Tasks)
   celery_worker:

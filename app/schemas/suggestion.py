@@ -59,8 +59,8 @@ class ClarificationRespondRequest(BaseModel):
 # Review schemas
 class ReviewCreateRequest(BaseModel):
     suggestion_id: str
-    reviewer_id: Optional[str] = None
-    priority: str = "normal"
+    reviewer_id: Optional[str] = "auto"
+    priority: Optional[str] = "normal"
 
 
 class ReviewResponse(BaseModel):

@@ -143,59 +143,32 @@ def readiness_check():
 def analyze_feedback(
     payload: FeedbackAnalysisRequest,
     db=Depends(get_db),
-    classifier=Depends(),
-    suggestion_service=Depends(),
-    clarification_service=Depends(),
 ):
     """Analyze feedback text using ML baseline."""
-    # Classify the feedback
-    classification_result = classifier.classify(
+    # Create service instances
+    suggestion_service = SuggestionService()
+
+    # Extract rules and get classification
+    extract_result = suggestion_service.extract(
         feedback=payload.feedback_text,
         domain_context=payload.schema_context,
     )
 
-    # Extract rules
-    # TODO: Fix this - suggestion_service[0] is wrong
-    extracted_rules = suggestion_service.extract(
-        feedback=payload.feedback_text,
-        classification=classification_result,
-        schema_context=payload.schema_context,
-    )
+    classification_result_dict = extract_result["classification"]
+    extracted_rules = extract_result["extraction"]
 
-    # Check for duplicates and conflicts
-    # (would use duplicate/conflict services)
-
-    # Create suggestion if actionable
-    if classification_result.is_actionable:
-        suggestion = suggestion_service.create_suggestion(
-            db=db,
-            workspace_id=payload.workspace_id or "default",
-            feedback_id=payload.feedback_id,
-            suggested_rule={"business_term": extracted_rules.rules[0].business_term if extracted_rules.rules else None,
-                          "operation": extracted_rules.rules[0].operation if extracted_rules.rules else None},
-            confidence=classification_result.confidence,
-        )
-    else:
-        suggestion = None
-
-    # Create clarification if needed
-    if classification_result.requires_clarification:
-        clarification = clarification_service.create_clarification(
-            db=db,
-            feedback_id=payload.feedback_id,
-            classification=classification_result,
-            extraction=extracted_rules,
-        )
-    else:
-        clarification = None
+    # For now, skip DB creation and just return analysis
+    # TODO: Create analysis_run first, then create suggestion with proper foreign key
+    suggestion = None
+    clarification = None
 
     return FeedbackAnalysisResponse(
         feedback_id=payload.feedback_id,
-        feedback_type=classification_result.feedback_type,
-        rule_category=classification_result.rule_category,
-        is_actionable=classification_result.is_actionable,
-        requires_clarification=classification_result.requires_clarification,
-        confidence=classification_result.confidence,
+        feedback_type=classification_result_dict["feedback_type"],
+        rule_category=classification_result_dict["rule_category"],
+        is_actionable=classification_result_dict["is_actionable"],
+        requires_clarification=classification_result_dict["requires_clarification"],
+        confidence=classification_result_dict["confidence"],
         extracted_rules=extracted_rules,
         suggestion=suggestion,
         clarification=clarification,
@@ -208,8 +181,8 @@ def analyze_feedback(
 def create_suggestion_route(
     payload: SuggestionCreateRequest,
     db=Depends(get_db),
-    suggestion_service=Depends(),
 ):
+    suggestion_service = SuggestionService()
     suggestion = suggestion_service.create_suggestion(
         db=db,
         workspace_id=payload.workspace_id,
@@ -234,8 +207,8 @@ def create_suggestion_route(
 def get_suggestion_route(
     suggestion_id: str,
     db=Depends(get_db),
-    suggestion_service=Depends(),
 ):
+    suggestion_service = SuggestionService()
     suggestion = suggestion_service.get_suggestion(db=db, suggestion_id=suggestion_id)
     if suggestion is None:
         raise HTTPException(status_code=404, detail=f"Suggestion not found: {suggestion_id}")
@@ -257,8 +230,8 @@ def approve_suggestion_route(
     suggestion_id: str,
     payload: SuggestionApproveRequest,
     db=Depends(get_db),
-    suggestion_service=Depends(),
 ):
+    suggestion_service = SuggestionService()
     suggestion = suggestion_service.approve_suggestion(
         db=db,
         suggestion_id=suggestion_id,
@@ -282,8 +255,8 @@ def reject_suggestion_route(
     suggestion_id: str,
     payload: SuggestionRejectRequest,
     db=Depends(get_db),
-    suggestion_service=Depends(),
 ):
+    suggestion_service = SuggestionService()
     suggestion = suggestion_service.reject_suggestion(
         db=db,
         suggestion_id=suggestion_id,
@@ -306,10 +279,10 @@ def reject_suggestion_route(
 @app.get("/v1/suggestions", response_model=List[SuggestionResponse])
 def list_suggestions_route(
     db=Depends(get_db),
-    suggestion_service=Depends(),
     workspace_id: Optional[str] = None,
     status: Optional[str] = None,
 ):
+    suggestion_service = SuggestionService()
     suggestions = suggestion_service.list_suggestions(
         db=db,
         workspace_id=workspace_id,
@@ -337,8 +310,8 @@ def list_suggestions_route(
 def create_clarification_route(
     payload: ClarificationCreateRequest,
     db=Depends(get_db),
-    clarification_service=Depends(),
 ):
+    clarification_service = ClarificationService()
     clarification = clarification_service.create_clarification(
         db=db,
         feedback_id=payload.feedback_id,
@@ -374,8 +347,8 @@ def create_clarification_route(
 def get_clarification_route(
     clarification_id: str,
     db=Depends(get_db),
-    clarification_service=Depends(),
 ):
+    clarification_service = ClarificationService()
     clarification = clarification_service.get_clarification(db=db, clarification_id=clarification_id)
     if clarification is None:
         raise HTTPException(status_code=404, detail=f"Clarification not found: {clarification_id}")
@@ -396,8 +369,8 @@ def respond_to_clarification_route(
     clarification_id: str,
     payload: ClarificationRespondRequest,
     db=Depends(get_db),
-    clarification_service=Depends(),
 ):
+    clarification_service = ClarificationService()
     clarification = clarification_service.respond_to_clarification(
         db=db,
         clarification_id=clarification_id,
@@ -421,8 +394,8 @@ def respond_to_clarification_route(
 def create_review_route(
     payload: ReviewCreateRequest,
     db=Depends(get_db),
-    review_routing_service=Depends(),
 ):
+    review_routing_service = ReviewRoutingService()
     review = review_routing_service.create_review(
         db=db,
         suggestion_id=payload.suggestion_id,
@@ -444,8 +417,8 @@ def create_review_route(
 def get_review_route(
     review_id: str,
     db=Depends(get_db),
-    review_routing_service=Depends(),
 ):
+    review_routing_service = ReviewRoutingService()
     review = review_routing_service.get_review(db=db, review_id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail=f"Review not found: {review_id}")
@@ -465,8 +438,8 @@ def complete_review_route(
     review_id: str,
     payload: ReviewCompleteRequest,
     db=Depends(get_db),
-    review_routing_service=Depends(),
 ):
+    review_routing_service = ReviewRoutingService()
     review = review_routing_service.complete_review(
         db=db,
         review_id=review_id,
@@ -491,8 +464,8 @@ def assign_reviewer_route(
     review_id: str,
     payload: ReviewAssignRequest,
     db=Depends(get_db),
-    review_routing_service=Depends(),
 ):
+    review_routing_service = ReviewRoutingService()
     review = review_routing_service.assign_reviewer(
         db=db,
         review_id=review_id,
@@ -515,8 +488,8 @@ def assign_reviewer_route(
 def create_evaluation_route(
     payload: EvaluationCreateRequest,
     db=Depends(get_db),
-    evaluation_service=Depends(get_evaluation_service),
 ):
+    evaluation_service = EvaluationService()
     evaluation = evaluation_service.create_evaluation(
         db=db,
         workspace_id=payload.workspace_id,
@@ -538,8 +511,8 @@ def create_evaluation_route(
 def get_evaluation_route(
     evaluation_id: str,
     db=Depends(get_db),
-    evaluation_service=Depends(),
 ):
+    evaluation_service = EvaluationService()
     evaluation = evaluation_service.get_evaluation(db=db, evaluation_id=evaluation_id)
     if evaluation is None:
         raise HTTPException(status_code=404, detail=f"Evaluation not found: {evaluation_id}")
@@ -559,8 +532,9 @@ def get_evaluation_route(
 def create_workspace_route(
     payload: WorkspaceCreateRequest,
     db=Depends(get_db),
-    workspace_service=Depends(),
 ):
+    from app.services.workspace_service import WorkspaceService
+    workspace_service = WorkspaceService()
     workspace = workspace_service.create_workspace(
         db=db,
         name=payload.name,
@@ -579,8 +553,9 @@ def create_workspace_route(
 def get_workspace_route(
     workspace_id: str,
     db=Depends(get_db),
-    workspace_service=Depends(),
 ):
+    from app.services.workspace_service import WorkspaceService
+    workspace_service = WorkspaceService()
     workspace = workspace_service.get_workspace(db=db, workspace_id=workspace_id)
     if workspace is None:
         raise HTTPException(status_code=404, detail=f"Workspace not found: {workspace_id}")
