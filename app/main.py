@@ -1,5 +1,9 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 import redis
+import csv
+import io
+from uuid import uuid4
+from fastapi import File, UploadFile
 from sqlalchemy import text
 import os
 from app.db.database import engine
@@ -64,7 +68,6 @@ app = FastAPI(
     title="Rule Intelligence Engine",
     version="0.1.0",
 )
-
 loader = DomainPackLoader()
 
 feedback_service = FeedbackService(
@@ -111,103 +114,132 @@ def readiness_check():
         ) from exc
 
 @app.post(
-
     "/v1/feedback/analyze",
-
     response_model=FeedbackAnalysisResponse,
-
 )
 
 def analyze_feedback(
-
     payload: FeedbackAnalysisRequest,
-
     db=Depends(get_db),
-
 ):
-
     try:
-
         return feedback_service.analyze(
-
             db=db,
-
             workspace_id=payload.workspace_id,
-
             feedback=payload.feedback,
-
             domain=payload.domain,
-
         )
-
     except FeedbackValidationError as exc:
-
         raise HTTPException(
-
             status_code=400,
-
             detail=str(exc),
-
         ) from exc
 
+@app.post(
+    "/v1/feedback/batch-analyze",
+    response_model=FeedbackBatchAnalysisResponse,
+)
+def analyze_feedback_batch(
+    payload: FeedbackBatchAnalysisRequest,
+    db=Depends(get_db),
+):
+    results = []
+    for item in payload.items:
+        try:
+            results.append(
+    feedback_service.analyze(
+        db=db,
+        workspace_id=item.workspace_id,
+        feedback=item.feedback,
+        domain=item.domain,
+    )
+)
+        except FeedbackValidationError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=str(exc),
+            ) from exc
+    return FeedbackBatchAnalysisResponse(
+        results=results,
+    )
 
 @app.post(
-
-    "/v1/feedback/batch-analyze",
-
-    response_model=FeedbackBatchAnalysisResponse,
-
+    "/v1/feedback/batch-csv",
+    response_model=JobResponse,
 )
-
-def analyze_feedback_batch(
-
-    payload: FeedbackBatchAnalysisRequest,
-
+def analyze_feedback_csv(
+    file: UploadFile = File(...),
+    workspace_id: str = Form(...),
+    domain_pack_id: str = Form(...),
     db=Depends(get_db),
-
 ):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="File must be a CSV",
+        )
 
-    results = []
+    try:
+        content = file.file.read().decode("utf-8")
+        reader = csv.DictReader(io.StringIO(content))
 
-
-
-    for item in payload.items:
-
-        try:
-
-            results.append(
-
-    feedback_service.analyze(
-
-        db=db,
-
-        workspace_id=item.workspace_id,
-
-        feedback=item.feedback,
-
-        domain=item.domain,
-
-    )
-
-)
-
-        except FeedbackValidationError as exc:
-
+        if "feedback" not in (reader.fieldnames or []):
             raise HTTPException(
-
                 status_code=400,
+                detail="CSV must contain a 'feedback' column",
+            )
 
-                detail=str(exc),
+        feedback_rows = []
 
-            ) from exc
+        for row in reader:
+           feedback = (row.get("feedback") or "").strip()
 
+           if feedback:
+               feedback_rows.append(feedback)
 
+        if not feedback_rows:
+           raise HTTPException(
+                status_code=400,
+                detail="CSV contains no valid feedback rows",
+            )
 
-    return FeedbackBatchAnalysisResponse(
+        available_domains = {
+           pack["domain_pack_id"]
+           for pack in loader.list_available_packs()
+        } 
 
-        results=results,
+        if domain_pack_id not in available_domains:
+           raise HTTPException(
+               status_code=400,
+               detail=f"Unknown domain: {domain_pack_id}",
+            )
 
-    )
+        job = background_job_service.create_job(
+            db=db,
+            workspace_id=workspace_id,
+            job_type="batch_feedback_csv",
+            idempotency_key=str(uuid4()),
+       )
+
+        process_background_job.delay(
+         job.job_id,
+         feedback_rows,
+         domain_pack_id,
+      )
+
+        return {
+    "job_id": job.job_id,
+    "workspace_id": job.workspace_id,
+    "job_type": job.job_type,
+    "status": job.status,
+    "idempotency_key": job.idempotency_key,
+}
+
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="CSV must be UTF-8 encoded",
+        ) from exc
 
 @app.get("/v1/domain-packs")
 def list_domain_packs():
@@ -289,7 +321,7 @@ def check_duplicate(
 
     return RuleComparisonResponse(
         relationship=result.relationship,
-        confidence=result.confidence,
+        confidence=result.confidence, 
         matching_rule_id=result.matching_rule_id,
     )
 
@@ -521,9 +553,7 @@ def get_evaluation(
     )
 
 
-@app.get("/v1/models/metrics")
-def get_model_metrics():
-    return MetricsService().get_metrics()
+
 
 @app.post(
     "/v1/models",

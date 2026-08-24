@@ -43,6 +43,7 @@ class FeedbackService:
         workspace_id: str,
         feedback: str,
         domain: str,
+        processing_mode: str = "single",
     ):
         feedback_id = str(uuid4())
         analysis_run_id = str(uuid4())
@@ -58,6 +59,7 @@ class FeedbackService:
             feedback_id=feedback_id,
             workspace_id=workspace_id,
             status="processing",
+            processing_mode=processing_mode,
             started_at=datetime.utcnow(),
         )
 
