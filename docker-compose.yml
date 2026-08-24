@@ -15,16 +15,39 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rie_db
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rie_db
+      REDIS_URL: redis://redis:6379/0
+    command: celery -A app.worker.celery_app worker --loglevel=info
 
 volumes:
   rie_pgdata:

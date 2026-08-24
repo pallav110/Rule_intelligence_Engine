@@ -1,0 +1,10 @@
+from enum import Enum
+
+
+class ReviewState(str, Enum):
+    SUGGESTED = "SUGGESTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    ARCHIVED = "ARCHIVED"

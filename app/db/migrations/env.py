@@ -29,6 +29,11 @@ from app.db.models.clarification import Clarification
 from app.db.models.model_version import ModelVersion
 from app.db.models.dataset_version import DatasetVersion
 from app.db.models.background_job import BackgroundJob
+from app.db.models.review import Review
+from app.db.models.audit_history import AuditHistory
+from app.db.models.rule_comparison import RuleComparison
+from app.db.models.evaluation_run import EvaluationRun
+from app.db.models.evaluation_metric import EvaluationMetric
 
 target_metadata = Base.metadata
 # other values from the config, defined by the needs of env.py,
