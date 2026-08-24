@@ -1,53 +1,127 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
   db:
-    image: postgres:16-alpine
+    image: postgres:15-alpine
+    container_name: rie_postgres
     environment:
-      POSTGRES_DB: rie_db
       POSTGRES_USER: rie_user
       POSTGRES_PASSWORD: rie_password
+      POSTGRES_DB: rule_intelligence_engine
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
-    volumes:
-      - rie_pgdata:/var/lib/postgresql/data
+    networks:
+      - rie_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rie_user -d rie_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U rie_user -d rule_intelligence_engine"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+    restart: unless-stopped
 
+  # Redis Cache
   redis:
     image: redis:7-alpine
+    container_name: rie_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - rie_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
+  # FastAPI Application
   api:
-    build: .
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rie_api
     environment:
-      DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rie_db
+      DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rule_intelligence_engine
       REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+      ENV: production
+    volumes:
+      - ./app:/app/app
+      - ./rie_ml:/app/rie_ml
+      - ./logs:/app/logs
+      - ./rie_ml/models:/app/rie_ml/models
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  worker:
-    build: .
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - rie_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    command: >
+      sh -c "python train_models.py &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  # Celery Worker (Background Tasks)
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rie_celery_worker
     environment:
-      DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rie_db
+      DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rule_intelligence_engine
       REDIS_URL: redis://redis:6379/0
-    command: celery -A app.worker.celery_app worker --loglevel=info
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./app:/app/app
+      - ./rie_ml:/app/rie_ml
+    depends_on:
+      - db
+      - redis
+      - api
+    networks:
+      - rie_network
+    command: celery -A app.tasks worker --loglevel=info
+    restart: unless-stopped
+
+  # PgAdmin (Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: rie_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@rie.local
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - rie_network
+    restart: unless-stopped
+
+networks:
+  rie_network:
+    driver: bridge
 
 volumes:
-  rie_pgdata:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
