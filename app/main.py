@@ -93,8 +93,8 @@ if static_dir.exists():
 # Root endpoint to serve custom UI
 @app.get("/", include_in_schema=False)
 async def root():
-    """Serve custom UI dashboard."""
-    ui_file = static_dir / "index.html"
+    """Serve custom production dashboard."""
+    ui_file = static_dir / "dashboard.html"
     if ui_file.exists():
         return FileResponse(str(ui_file), media_type="text/html")
     return {"message": "Rule Intelligence Engine API - Visit /docs for Swagger UI"}
