@@ -417,13 +417,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Available Tables (Optional)</label>
-                            <input type="text" id="feedback-tables" placeholder="Comma-separated table names, or leave empty">
+                            <label>Domain Pack</label>
+                            <select id="feedback-domain" onchange="loadDomainSchema()">
+                                <option value="customer_support">Customer Support</option>
+                                <option value="ecommerce">E-Commerce</option>
+                                <option value="saas_subscription">SaaS Subscription</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
-                            <label>Available Columns (Optional)</label>
-                            <input type="text" id="feedback-columns" placeholder="Comma-separated column names, or leave empty">
+                            <label>Domain Schema Info</label>
+                            <textarea id="domain-schema-display" readonly placeholder="Schema will load automatically..."></textarea>
                         </div>
 
                         <div class="button-group">
@@ -564,11 +568,44 @@
             feedbacks: 0,
             actionable: 0
         };
+        let currentDomainPack = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             checkAPIHealth();
+            loadDomainSchema();
             setInterval(checkAPIHealth, 30000);
         });
+
+        async function loadDomainSchema() {
+            const domainSelect = document.getElementById('feedback-domain');
+            const domain = domainSelect.value;
+
+            try {
+                // Load domain pack from server
+                const response = await fetch(`${API_BASE}/api/domain-packs/${domain}`);
+                if (response.ok) {
+                    currentDomainPack = await response.json();
+                    // Display schema summary
+                    const tables = currentDomainPack.tables || {};
+                    const tableNames = Object.keys(tables).join(', ');
+                    document.getElementById('domain-schema-display').value =
+                        `Domain: ${domain}\n` +
+                        `Tables: ${tableNames}\n` +
+                        `Version: ${currentDomainPack.version || 'unknown'}\n` +
+                        `\nSchema loaded successfully. Entities will be auto-extracted from feedback.`;
+                } else {
+                    currentDomainPack = { domain: domain };
+                    document.getElementById('domain-schema-display').value =
+                        `Domain: ${domain}\n` +
+                        `Using default context for entity extraction.`;
+                }
+            } catch (error) {
+                currentDomainPack = { domain: domain };
+                document.getElementById('domain-schema-display').value =
+                    `Domain: ${domain}\n` +
+                    `Schema auto-extraction will be used.`;
+            }
+        }
 
         function navigateTo(page) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -638,19 +675,17 @@
                 return;
             }
 
-            const tablesInput = document.getElementById('feedback-tables').value.trim();
-            const columnsInput = document.getElementById('feedback-columns').value.trim();
-
-            const tables = tablesInput ? tablesInput.split(',').map(t => t.trim()) : [];
-            const columns = columnsInput ? columnsInput.split(',').map(c => c.trim()) : [];
+            // Get domain from selector
+            const domain = document.getElementById('feedback-domain').value;
 
             const result = await apiCall('POST', '/v1/feedback/analyze', {
                 workspace_id: document.getElementById('feedback-workspace').value || 'default',
                 feedback_id: generateId(),
                 feedback_text: text,
                 schema_context: {
-                    available_tables: tables,
-                    available_columns: columns
+                    domain_pack_id: domain,
+                    tables: currentDomainPack && currentDomainPack.tables ?
+                        Object.keys(currentDomainPack.tables) : [],
                 }
             });
 

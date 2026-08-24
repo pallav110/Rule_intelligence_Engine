@@ -46,46 +46,19 @@ from app.schemas.suggestion import (
     ReviewCompleteRequest,
     ReviewAssignRequest,
 )
-from app.services.background_job_service import BackgroundJobService
-from app.services.canonical_rule_service import CanonicalRuleService
 from app.services.classifier import RealClassifier
 from app.services.domain_pack_loader import (
     DomainPackLoader,
     DomainPackNotFoundError,
 )
-from app.services.feedback_preprocessor import (
-    FeedbackPreprocessor,
-    FeedbackValidationError,
-)
 from app.services.feedback_service import FeedbackService
-from app.services.metrics_service import MetricsService
-from app.services.rule_comparison_service import (
-    RealRuleComparisonService as RuleComparisonService,
-    RealRuleConflictService as RuleConflictService,
-)
 from app.services.rule_extractor import RealRuleExtractor
-from app.services.schema_validator import SchemaValidator
-from app.services.feedback_service import FeedbackService
 from app.services.suggestion_service import SuggestionService
 from app.services.clarification_service import ClarificationService
 from app.services.review_routing_service import ReviewRoutingService
-from app.tasks import process_background_job
-from app.schemas.model_version import (
-    ModelVersionCreateRequest,
-    ModelVersionResponse,
-)
-from app.services.model_version_service import ModelVersionService
-from app.schemas.dataset import (
-    DatasetVersionCreateRequest,
-    DatasetVersionResponse,
-    DatasetVersionListResponse,
-)
-from app.services.dataset_version_service import DatasetVersionService
-from app.schemas.evaluation import (
-    EvaluationCreateRequest,
-    EvaluationResponse,
-)
-from app.services.evaluation_service import EvaluationService
+from app.services.conflict_detection_service import RealConflictDetectionService
+from app.services.duplicate_detection_service import RealDuplicateDetectionService
+from app.services.entity_extractor import RealEntityExtractor
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
 
@@ -123,12 +96,6 @@ def get_clarification_service():
 def get_review_routing_service():
     return ReviewRoutingService()
 
-def get_evaluation_service():
-    return EvaluationService()
-
-def get_workspace_service():
-    return WorkspaceService()
-
 # Health and readiness checks
 @app.get("/health", include_in_schema=False)
 def health_check():
@@ -148,7 +115,15 @@ def analyze_feedback(
     payload: FeedbackAnalysisRequest,
     db=Depends(get_db),
 ):
-    """Analyze feedback text using ML baseline and create Feedback + AnalysisRun + Suggestion."""
+    """
+    Analyze feedback text through complete Week 3 pipeline:
+    1. Classify feedback
+    2. Extract rules with NER from domain pack
+    3. Detect duplicates against existing rules
+    4. Detect conflicts against existing rules
+    5. Generate clarification if needed
+    6. Route for review (auto-approve if eligible)
+    """
     from uuid import uuid4
     from datetime import datetime
 
@@ -176,7 +151,15 @@ def analyze_feedback(
     db.add(analysis_run)
     db.flush()
 
-    # Step 3: Extract rules and get classification
+    # Step 3: Get domain pack for NER extraction
+    domain_pack_loader = DomainPackLoader()
+    domain_pack_id = payload.schema_context.get("domain_pack_id", "customer_support")
+    try:
+        domain_pack = domain_pack_loader.load(domain_pack_id)
+    except DomainPackNotFoundError:
+        domain_pack = {}
+
+    # Step 4: Classification + Extraction with NER
     suggestion_service = SuggestionService()
     extract_result = suggestion_service.extract(
         feedback=payload.feedback_text,
@@ -186,8 +169,73 @@ def analyze_feedback(
     classification_result_dict = extract_result["classification"]
     extracted_rules = extract_result["extraction"]
 
-    # Step 4: Create RuleSuggestion record
+    # Step 5: Entity extraction using domain pack
+    from app.services.entity_extractor import RealEntityExtractor
+
+    entity_extractor = RealEntityExtractor(domain_pack)
+    entity_extraction = entity_extractor.extract_with_context(
+        payload.feedback_text, payload.schema_context
+    )
+
+    # Enhance extracted rules with entity information
+    for rule in extracted_rules:
+        if "affected_entities" not in rule or not rule.get("affected_entities"):
+            rule["affected_entities"] = entity_extraction.get("affected_entities", {})
+
+    # Step 6: Duplicate Detection
+    from app.services.duplicate_detection_service import RealDuplicateDetectionService
+
+    duplicate_service = RealDuplicateDetectionService()
+    primary_rule = extracted_rules[0] if extracted_rules else {}
+    duplicate_check = duplicate_service.check_duplicate(
+        suggested_rule=primary_rule,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # Step 7: Conflict Detection
+    from app.services.conflict_detection_service import RealConflictDetectionService
+
+    conflict_service = RealConflictDetectionService()
+    conflict_check = conflict_service.check_conflict(
+        suggested_rule=primary_rule,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # Step 8: Clarification Generation
+    from app.services.clarification_service import RealClarificationService
+
+    clarification_service = RealClarificationService()
+    clarification_result = clarification_service.generate_clarification(
+        feedback_id=feedback_id,
+        feedback_text=payload.feedback_text,
+        classification=classification_result_dict,
+        extraction=extract_result,
+        workspace_id=payload.workspace_id,
+        db=db,
+    )
+
+    # Step 9: Review Routing
+    from app.services.review_routing_service import RealReviewRoutingService
+
+    routing_service = RealReviewRoutingService()
     suggestion_id = str(uuid4())
+    routing_decision = routing_service.route_suggestion(
+        suggestion_id=suggestion_id,
+        suggestion=primary_rule,
+        classification=classification_result_dict,
+        extraction=extract_result,
+        conflict_check=conflict_check,
+        duplicate_check=duplicate_check,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # Step 10: Create RuleSuggestion record with all intelligence
     rule_suggestion = RuleSuggestion(
         suggestion_id=suggestion_id,
         workspace_id=payload.workspace_id,
@@ -196,30 +244,48 @@ def analyze_feedback(
         feedback_type=classification_result_dict.get("feedback_type"),
         rule_category=classification_result_dict.get("rule_category"),
         classification_result=classification_result_dict,
-        extraction_result="completed",  # String status, not list
-        clarification_required=classification_result_dict.get("requires_clarification", False),
-        review_status="pending",
-        suggested_rule=extract_result.get("suggested_rule"),
+        extraction_result="completed",
+        clarification_required=clarification_result.get("created", False),
+        review_status=routing_decision.get("review_status", "pending_review"),
+        suggested_rule=primary_rule,
         created_at=datetime.utcnow(),
     )
     db.add(rule_suggestion)
 
-    # Step 5: Mark AnalysisRun as completed
+    # Step 11: Mark AnalysisRun as completed
     analysis_run.status = "completed"
     analysis_run.completed_at = datetime.utcnow()
 
     db.commit()
 
+    # Step 12: Build comprehensive response
     return FeedbackAnalysisResponse(
         feedback_id=feedback_id,
         feedback_type=classification_result_dict["feedback_type"],
         rule_category=classification_result_dict["rule_category"],
         is_actionable=classification_result_dict["is_actionable"],
-        requires_clarification=classification_result_dict["requires_clarification"],
+        requires_clarification=clarification_result.get("created", False),
         confidence=classification_result_dict["confidence"],
         extracted_rules=extracted_rules,
-        suggestion=None,
-        clarification=None,
+        suggestion={
+            "suggestion_id": suggestion_id,
+            "analysis_run_id": analysis_run_id,
+            "suggested_rule": primary_rule,
+            "extracted_entities": entity_extraction,
+            "duplicate_check": duplicate_check,
+            "conflict_check": conflict_check,
+            "routing_decision": routing_decision,
+            "review_status": routing_decision.get("review_status"),
+            "priority": routing_decision.get("priority"),
+            "auto_approved": routing_decision.get("review_status") == "auto_approved",
+        },
+        clarification={
+            "clarification_id": clarification_result.get("clarification_id"),
+            "required": clarification_result.get("created", False),
+            "questions": clarification_result.get("questions", []),
+            "reason": clarification_result.get("reason"),
+            "ambiguity_reasons": clarification_result.get("details", {}).get("ambiguity_reasons", []),
+        } if clarification_result.get("created") else None,
     )
 
 
