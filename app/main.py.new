@@ -138,8 +138,7 @@ def analyze_feedback(
     )
 
     # Extract rules
-    # TODO: Fix this - suggestion_service[0] is wrong
-    extracted_rules = suggestion_service.extract(
+    extracted_rules = suggestion_service[0].extract(
         feedback=payload.feedback_text,
         classification=classification_result,
         schema_context=payload.schema_context,

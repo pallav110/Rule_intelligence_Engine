@@ -1,9 +1,9 @@
 {
   "domain_pack_id": "ecommerce",
   "domain_pack_version": "ecommerce_v0.1.0",
-  "domain_pack_path": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie-ml/domain-packs/ecommerce",
-  "seed_path": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie-ml/domain-packs/ecommerce/feedback/seed.jsonl",
-  "output_dir": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie-ml/dataset_generation/output",
+  "domain_pack_path": "domain-packs/customer_support",
+  "seed_path": "domain-packs/customer_support/feedback/seed.jsonl",
+  "output_dir": "dataset_generation/output/customer_support_v2",
   "dataset_version": "dataset_v0.1.0",
   "annotation_version": "ann_v0.1.0",
   "random_seed": 42,

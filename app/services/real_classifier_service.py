@@ -33,7 +33,7 @@ class RealClassifier(Classifier):
     def __init__(self, model_path: str | None = None):
         if model_path is None:
             # Default to rie-ml/models/baseline_classifier.pkl
-            model_path = str(Path(__file__).parent.parent.parent / "rie-ml" / "models" / "baseline_classifier.pkl")
+            model_path = str(Path(__file__).parent.parent.parent.parent / "rie-ml" / "models" / "baseline_classifier.pkl")
 
         self._model = MLClassifier(model_path=model_path)
 

@@ -1,0 +1,1509 @@
+{
+  "config": {
+    "domain_pack_id": "ecommerce",
+    "domain_pack_version": "ecommerce_v0.1.0",
+    "domain_pack_path": "domain-packs/customer_support",
+    "seed_path": "domain-packs/customer_support/feedback/seed.jsonl",
+    "output_dir": "dataset_generation/output/customer_support_v2",
+    "dataset_version": "dataset_v0.1.0",
+    "annotation_version": "ann_v0.1.0",
+    "random_seed": 42,
+    "target_train_size": 600,
+    "target_val_size": 150,
+    "target_test_size": 200,
+    "target_duplicate_pairs": 150,
+    "target_conflict_pairs": 150,
+    "target_ambiguous": 100,
+    "paraphrase_multiplier": 3,
+    "conversational_multiplier": 2,
+    "hinglish_multiplier": 1,
+    "multi_rule_multiplier": 1,
+    "strict_validation": true,
+    "allow_invalid_schema_refs": false
+  },
+  "seed_validation": {
+    "is_valid": true,
+    "total_records": 51,
+    "valid_records": 51,
+    "invalid_records": 0,
+    "errors": [],
+    "warnings": [
+      "CS_FB021: CS_FB021: rule columns {'tickets.ticket_id'} not in schema_context.available_columns",
+      "CS_FB024: CS_FB024.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "CS_FB024: CS_FB024.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "CS_FB024: CS_FB024: rule columns {'tickets.unknown_column'} not in schema_context.available_columns"
+    ]
+  },
+  "generation_breakdown": {
+    "paraphrases": 111,
+    "conversational": 82,
+    "hinglish": 39,
+    "multi_rule": 5,
+    "ambiguous": 100,
+    "conflicts": 18,
+    "non_rule": 10,
+    "spam": 10,
+    "invalid_schema": 5
+  },
+  "total_generated": 380,
+  "total_for_splitting": 431,
+  "seed_records": 51,
+  "approved_generated": 380,
+  "rejected_generated": 0,
+  "validation": {
+    "total_records": 380,
+    "valid_records": 380,
+    "rejected_records": 0,
+    "errors": [],
+    "warnings": [
+      "EC_GEN0109: EC_GEN0109.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0109: EC_GEN0109.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0110: EC_GEN0110.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0110: EC_GEN0110.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0111: EC_GEN0111.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0111: EC_GEN0111.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0112: EC_GEN0112.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0112: EC_GEN0112.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0113: EC_GEN0113.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0113: EC_GEN0113.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0114: EC_GEN0114.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0114: EC_GEN0114.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0372: EC_GEN0372.rules[0]: unknown schema field 'tickets.unknown_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0372: EC_GEN0372.rules[0]: unknown affected column 'tickets.unknown_column'",
+      "EC_GEN0522: EC_GEN0522.rules[0]: unknown schema field 'payments.nonexistent_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0522: EC_GEN0522.rules[0]: unknown affected column 'payments.nonexistent_field'",
+      "EC_GEN0523: EC_GEN0523.rules[0]: unknown schema field 'payments.nonexistent_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0523: EC_GEN0523.rules[0]: unknown affected column 'payments.nonexistent_field'",
+      "EC_GEN0524: EC_GEN0524.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0524: EC_GEN0524.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0525: EC_GEN0525.rules[0]: unknown schema field 'products.missing_attr' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0525: EC_GEN0525.rules[0]: unknown affected column 'products.missing_attr'",
+      "EC_GEN0526: EC_GEN0526.rules[0]: unknown schema field 'products.missing_attr' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0526: EC_GEN0526.rules[0]: unknown affected column 'products.missing_attr'"
+    ],
+    "consistency_issues": []
+  },
+  "split_info": {
+    "total_records": 431,
+    "total_rule_families": 197,
+    "train": {
+      "count": 301,
+      "families": 126,
+      "family_ids": [
+        "CS_calc_001",
+        "ambiguous_quality_review_ticket_1470",
+        "CS_threshold_003",
+        "ambiguous_agent_workload_5022",
+        "ambiguous_escalation_rate_8216",
+        "ambiguous_reopen_rate_8933",
+        "ambiguous_escalation_rate_6016",
+        "spam_9697",
+        "multi_CS_calc_005_RF009",
+        "ambiguous_department_queue_4630",
+        "ambiguous_escalation_rate_6912",
+        "CS_calc_006",
+        "ambiguous_duplicate_ticket_5658",
+        "ambiguous_overloaded_agent_3939",
+        "CS_status_001",
+        "ambiguous_customer_satisfaction_2958",
+        "CS_calc_003",
+        "CS_threshold_002",
+        "RF003",
+        "ambiguous_overloaded_agent_4138",
+        "RF005",
+        "ambiguous_agent_workload_8800",
+        "RF017",
+        "RF025",
+        "CS_calc_005",
+        "ambiguous_unassigned_ticket_8988",
+        "RF029_conflict",
+        "ambiguous_ticket_status_display_6023",
+        "RF026_conflict",
+        "RF001",
+        "ambiguous_duplicate_ticket_5952",
+        "ambiguous_high_priority_ticket_5636",
+        "multi_RF021_closed_join",
+        "nonrule_6772",
+        "nonrule_2591",
+        "CS_threshold_001_conflict",
+        "ambiguous_open_ticket_2070",
+        "spam_3877",
+        "ambiguous_closed_ticket_5526",
+        "ambiguous_average_resolution_time_5530",
+        "ambiguous_reopen_rate_3068",
+        "spam_9837",
+        "spam_6994",
+        "ambiguous_priority_display_8827",
+        "RF029",
+        "ambiguous_first_response_time_5232",
+        "ambiguous_first_response_time_4727",
+        "nonrule_9138",
+        "ambiguous_ticket_event_1893",
+        "CS_status_002",
+        "ambiguous_open_ticket_6764",
+        "nonrule_3240",
+        "RF004",
+        "ambiguous_ticket_backlog_1166",
+        "ambiguous_escalation_rate_7658",
+        "ambiguous_average_resolution_time_9004",
+        "ambiguous_quality_review_ticket_8136",
+        "RF026",
+        "CS_threshold_003_conflict",
+        "invalid_3306",
+        "CS_data_quality_001",
+        "ambiguous_overloaded_agent_4475",
+        "ambiguous_customer_satisfaction_8434",
+        "RF018",
+        "ambiguous_ticket_backlog_7625",
+        "nonrule_4115",
+        "ambiguous_open_ticket_9056",
+        "ambiguous_customer_satisfaction_4986",
+        "RF025_conflict",
+        "ambiguous_closed_ticket_4020",
+        "ambiguous_high_priority_ticket_4545",
+        "ambiguous_vip_customer_5397",
+        "RF006_conflict",
+        "RF010",
+        "ambiguous_vip_customer_6813",
+        "multi_RF023_urgent_csat_conflict",
+        "ambiguous_agent_workload_1231",
+        "RF028",
+        "ambiguous_escalated_ticket_2976",
+        "CS_colmean_004",
+        "ambiguous_first_response_time_1878",
+        "ambiguous_closed_ticket_4155",
+        "ambiguous_reopen_rate_8843",
+        "invalid_8894",
+        "invalid_2886",
+        "ambiguous_duplicate_customer_email_6419",
+        "CS_calc_007",
+        "invalid_6992",
+        "ambiguous_department_queue_8385",
+        "RF027",
+        "multi_RF013_duplicate_exclude_link_conflict",
+        "ambiguous_unassigned_ticket_9751",
+        "RF027_conflict",
+        "RF011",
+        "RF014",
+        "CS_calc_008",
+        "CS_calc_002",
+        "ambiguous_quality_review_ticket_5118",
+        "RF003_conflict",
+        "ambiguous_agent_access_9464",
+        "ambiguous_quality_review_ticket_2647",
+        "RF004_conflict",
+        "RF019",
+        "RF024_conflict",
+        "ambiguous_unassigned_ticket_6280",
+        "CS_threshold_004_conflict",
+        "ambiguous_agent_workload_4937",
+        "ambiguous_closed_ticket_5136",
+        "RF030_conflict",
+        "RF008",
+        "ambiguous_duplicate_ticket_5853",
+        "ambiguous_sla_compliance_rate_5569",
+        "spam_9221",
+        "RF030",
+        "ambiguous_first_contact_resolution_8753",
+        "RF014_conflict",
+        "ambiguous_duplicate_ticket_6632",
+        "ambiguous_ticket_backlog_2213",
+        "invalid_1228",
+        "spam_5465",
+        "nonrule_1803",
+        "ambiguous_survey_status_display_7046",
+        "ambiguous_ticket_event_9595",
+        "CS_calc_004",
+        "ambiguous_open_ticket_8690",
+        "ambiguous_escalation_rate_6325"
+      ],
+      "ratio": 0.6983758700696056
+    },
+    "val": {
+      "count": 64,
+      "families": 37,
+      "family_ids": [
+        "spam_4289",
+        "ambiguous_priority_display_6582",
+        "ambiguous_ticket_status_display_7971",
+        "spam_7807",
+        "multi_RF001_RF025_RF028",
+        "CS_threshold_002_conflict",
+        "multi_CS_status_002_CS_threshold_003_multi_RF020_internal_csat",
+        "ambiguous_first_contact_resolution_3444",
+        "CS_colmean_002",
+        "CS_colmean_005",
+        "ambiguous_quality_review_ticket_3485",
+        "multi_RF020_internal_csat",
+        "ambiguous_first_contact_resolution_9042",
+        "multi_RF027_RF030",
+        "RF005_conflict",
+        "ambiguous_agent_access_1745",
+        "multi_RF023_urgent_csat",
+        "ambiguous_tickets_per_agent_4130",
+        "RF006",
+        "ambiguous_survey_status_display_3979",
+        "ambiguous_duplicate_customer_email_2524",
+        "ambiguous_tickets_per_agent_4180",
+        "ambiguous_vip_customer_7565",
+        "CS_status_003",
+        "ambiguous_first_contact_resolution_6169",
+        "nonrule_5106",
+        "ambiguous_open_ticket_3073",
+        "ambiguous_agent_access_1282",
+        "ambiguous_average_resolution_time_7209",
+        "ambiguous_escalation_rate_1200",
+        "ambiguous_closed_ticket_2419",
+        "CS_colmean_003",
+        "ambiguous_open_ticket_9098",
+        "RF007",
+        "ambiguous_first_response_time_6511",
+        "ambiguous_first_contact_resolution_5581",
+        "RF016"
+      ],
+      "ratio": 0.14849187935034802
+    },
+    "test": {
+      "count": 66,
+      "families": 34,
+      "family_ids": [
+        "ambiguous_reopen_rate_6576",
+        "ambiguous_average_resolution_time_2680",
+        "ambiguous_first_contact_resolution_5820",
+        "nonrule_5689",
+        "ambiguous_escalated_ticket_5786",
+        "ambiguous_overloaded_agent_4954",
+        "ambiguous_vip_customer_5438",
+        "RF024",
+        "ambiguous_escalation_rate_5978",
+        "ambiguous_high_priority_ticket_9779",
+        "CS_threshold_004",
+        "multi_RF022_internal_dept_access",
+        "CS_colmean_001",
+        "ambiguous_survey_status_display_4995",
+        "multi_CS_calc_003_multi_RF023_urgent_csat",
+        "ambiguous_duplicate_ticket_8613",
+        "ambiguous_average_resolution_time_2402",
+        "RF015",
+        "nonrule_4588",
+        "multi_RF013_duplicate_exclude_link",
+        "spam_6352",
+        "ambiguous_ticket_status_display_1841",
+        "spam_3165",
+        "ambiguous_vip_customer_2869",
+        "multi_RF020_internal_csat_conflict",
+        "ambiguous_duplicate_ticket_5494",
+        "ambiguous_escalated_ticket_8342",
+        "CS_threshold_001",
+        "ambiguous_first_contact_resolution_9041",
+        "ambiguous_sla_compliance_rate_4033",
+        "ambiguous_quality_review_ticket_4777",
+        "RF009",
+        "nonrule_4770",
+        "ambiguous_priority_display_9698"
+      ],
+      "ratio": 0.1531322505800464
+    },
+    "random_seed": 42
+  },
+  "task_datasets": {
+    "classification": 431,
+    "extraction": 301,
+    "clarification": 108,
+    "duplicate_pairs": 856,
+    "conflict_pairs": 18
+  },
+  "rule_family_analysis": {
+    "total_rule_families": 197,
+    "business_rule_families": 67,
+    "non_business_families": 130,
+    "business_rule_family_details": [
+      {
+        "rule_family_id": "RF001",
+        "count": 13,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "RF003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "RF004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "RF006",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF007",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "RF008",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "RF009",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "join_correction"
+      },
+      {
+        "rule_family_id": "RF010",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "join_correction"
+      },
+      {
+        "rule_family_id": "RF011",
+        "count": 10,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "access_scope_rule"
+      },
+      {
+        "rule_family_id": "multi_RF013_duplicate_exclude_link",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "RF014",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "multi_RF020_internal_csat",
+        "count": 4,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "multi_RF021_closed_join",
+        "count": 5,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "multi_RF022_internal_dept_access",
+        "count": 3,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_RF023_urgent_csat",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF024",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "RF025",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "RF026",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "RF027",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "RF028",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "column_meaning"
+      },
+      {
+        "rule_family_id": "RF029",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "expected_result_correction"
+      },
+      {
+        "rule_family_id": "RF030",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "CS_calc_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_006",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_007",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_calc_008",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_status_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "CS_status_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "CS_status_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "CS_threshold_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_threshold_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_threshold_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_threshold_004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_data_quality_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "multi_RF001_RF025_RF028",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_CS_status_002_CS_threshold_003_multi_RF020_internal_csat",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "multi_CS_calc_003_multi_RF023_urgent_csat",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "multi_RF027_RF030",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "multi_CS_calc_005_RF009",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "RF006_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "CS_threshold_003_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_threshold_004_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_RF020_internal_csat_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF030_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "RF025_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "CS_threshold_002_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "CS_threshold_001_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "RF004_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF014_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "RF005_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "RF024_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "RF003_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "multi_RF013_duplicate_exclude_link_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "multi_RF023_urgent_csat_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "RF026_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "RF027_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "RF029_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "expected_result_correction"
+      },
+      {
+        "rule_family_id": "invalid_8894",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "access_scope_rule"
+      },
+      {
+        "rule_family_id": "invalid_2886",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "invalid_3306",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "invalid_6992",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "invalid_1228",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      }
+    ],
+    "non_business_family_details": [
+      {
+        "rule_family_id": "RF015",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "RF016",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "RF017",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "RF018",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "RF019",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "CS_colmean_001",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "CS_colmean_002",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "CS_colmean_003",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "CS_colmean_004",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "CS_colmean_005",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_8136",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_vip_customer_5397",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_unassigned_ticket_6280",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_workload_5022",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_closed_ticket_2419",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_sla_compliance_rate_5569",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_department_queue_8385",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_survey_status_display_4995",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_8613",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_resolution_time_7209",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_response_time_6511",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_1470",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_9098",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_6325",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_survey_status_display_3979",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_unassigned_ticket_8988",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_overloaded_agent_4475",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_vip_customer_6813",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_response_time_5232",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_reopen_rate_6576",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_5581",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_closed_ticket_5526",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_backlog_1166",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_access_9464",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_tickets_per_agent_4130",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_resolution_time_2402",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_overloaded_agent_4954",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_7658",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_resolution_time_9004",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_workload_4937",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_workload_8800",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_9041",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalated_ticket_8342",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_access_1282",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_customer_email_2524",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_5820",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_department_queue_4630",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_backlog_7625",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_satisfaction_4986",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_6016",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_survey_status_display_7046",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_8753",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_display_9698",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_6632",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_status_display_7971",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_customer_email_6419",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_6764",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_satisfaction_8434",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_vip_customer_5438",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_status_display_6023",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_5118",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_4777",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalated_ticket_2976",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_closed_ticket_4155",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_6169",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_satisfaction_2958",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_priority_ticket_9779",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_sla_compliance_rate_4033",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_overloaded_agent_4138",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_priority_ticket_4545",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_reopen_rate_8933",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_resolution_time_5530",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_event_9595",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_priority_ticket_5636",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_2647",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_tickets_per_agent_4180",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_5853",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_response_time_4727",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_6912",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_overloaded_agent_3939",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_5952",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_workload_1231",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_unassigned_ticket_9751",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_3073",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_5494",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_agent_access_1745",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_event_1893",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalated_ticket_5786",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_reopen_rate_3068",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_9042",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_resolution_time_2680",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_1200",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_ticket_5658",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_8690",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_reopen_rate_8843",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_8216",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_display_6582",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_closed_ticket_4020",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_status_display_1841",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_closed_ticket_5136",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_display_8827",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_vip_customer_2869",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_2070",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_vip_customer_7565",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_open_ticket_9056",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_ticket_backlog_2213",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_response_time_1878",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_quality_review_ticket_3485",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_first_contact_resolution_3444",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_escalation_rate_5978",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "nonrule_1803",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_9138",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_5689",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_4770",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_6772",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_4588",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_4115",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_5106",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_3240",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_2591",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "spam_6352",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_7807",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_3877",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_4289",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_3165",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_9837",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_6994",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_9697",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_9221",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_5465",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      }
+    ],
+    "business_rule_records": 301,
+    "non_business_records": 130
+  }
+}

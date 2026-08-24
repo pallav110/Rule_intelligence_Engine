@@ -1,0 +1,114 @@
+{"feedback_id": "EC_FB014", "feedback_text": "How should we treat orders with a status of shipped or delivered when calculating completed orders?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_FB019", "feedback_text": "Fix revenue calc", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_FB023", "feedback_text": "I expected around 500 completed orders in January but saw 450 — is the revenue calculation wrong?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB025", "feedback_text": "Does the completed date represent the fulfillment date or the revenue recognition date?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB041", "feedback_text": "Does orders.completed_at represent the fulfillment date or the revenue recognition date?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB042", "feedback_text": "Clarify whether customers.last_purchase_at includes returned orders or only delivered orders.", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB043", "feedback_text": "What does payments.paid_at represent when the payment status is 'failed'?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB044", "feedback_text": "Does order_items.unit_price include or exclude line-level discounts?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB045", "feedback_text": "Is products.list_price the pre-discount price or the current selling price?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB046", "feedback_text": "Clarify if refunds.refund_date is when the refund was requested or when it was processed.", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB047", "feedback_text": "Does orders.region_id represent the customer's region or the fulfillment warehouse region?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB048", "feedback_text": "What does customers.created_at represent — account signup or first purchase?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB049", "feedback_text": "Is orders.discount_pct an order-level discount or the aggregate of all line-item discounts?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_FB050", "feedback_text": "Does payments.transaction_id come from the payment gateway or is it an internal identifier?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_GEN0269", "feedback_text": "Can you look at sell through rate?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0270", "feedback_text": "net revenue calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0271", "feedback_text": "I don't think fulfillment time is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0272", "feedback_text": "There's an issue with sell through rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0273", "feedback_text": "order completion status needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0274", "feedback_text": "Can we revisit how free shipping is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0275", "feedback_text": "Can you look at bulk discount?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0276", "feedback_text": "Fix payment status accounting.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0277", "feedback_text": "Can we revisit how active customer is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0278", "feedback_text": "revenue per customer needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0279", "feedback_text": "Fix premium tier.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0280", "feedback_text": "average order value calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0281", "feedback_text": "high risk order needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0282", "feedback_text": "free express shipping doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0283", "feedback_text": "regional orders numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0284", "feedback_text": "average order value needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0285", "feedback_text": "Please check total items sold.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0286", "feedback_text": "Can we revisit how regional orders is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0287", "feedback_text": "average discount numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0288", "feedback_text": "sell through rate calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0289", "feedback_text": "Please check average discount.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0290", "feedback_text": "free shipping doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0291", "feedback_text": "duplicate customer id doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0292", "feedback_text": "I don't think active customer is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0293", "feedback_text": "refund status display doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0294", "feedback_text": "customer count doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0295", "feedback_text": "free shipping calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0296", "feedback_text": "Something's off with conversion rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0297", "feedback_text": "payment status accounting calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0298", "feedback_text": "repeat customer rate doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0299", "feedback_text": "I don't think cart abandonment rate is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0300", "feedback_text": "Fix priority support.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0301", "feedback_text": "Please check free express shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0302", "feedback_text": "I don't think payment reconciliation is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0303", "feedback_text": "I don't think return rate is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0304", "feedback_text": "free shipping needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0305", "feedback_text": "monthly revenue numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0306", "feedback_text": "There's an issue with customer lifetime value.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0307", "feedback_text": "I don't think refund rate is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0308", "feedback_text": "Can we revisit how revenue per customer is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0309", "feedback_text": "Not sure why but revenue feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0310", "feedback_text": "units per transaction needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0311", "feedback_text": "customer count needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0312", "feedback_text": "Please check gross sales.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0313", "feedback_text": "Not sure why but cart abandonment rate feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0314", "feedback_text": "priority support numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0315", "feedback_text": "There's an issue with average discount.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0316", "feedback_text": "Something's off with revenue per customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0317", "feedback_text": "priority support doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0318", "feedback_text": "I don't think repeat customer rate is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0319", "feedback_text": "Fix net revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0320", "feedback_text": "net revenue needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0321", "feedback_text": "revenue doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0322", "feedback_text": "Can you look at duplicate customer id?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0323", "feedback_text": "bulk discount calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0324", "feedback_text": "Please check refund rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0325", "feedback_text": "Can you look at return rate?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0326", "feedback_text": "Can we revisit how refund status display is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0327", "feedback_text": "Something's off with free shipping.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0328", "feedback_text": "Something's off with cart abandonment rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0329", "feedback_text": "return rate numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0330", "feedback_text": "I don't think gross merchandise value is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0331", "feedback_text": "return rate calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0332", "feedback_text": "Not sure why but refund rate feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0333", "feedback_text": "There's an issue with conversion rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0334", "feedback_text": "There's an issue with priority support.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0335", "feedback_text": "Can we revisit how average discount is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0336", "feedback_text": "Can we revisit how high risk order is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0337", "feedback_text": "payment success rate numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0338", "feedback_text": "Please check order status display.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0339", "feedback_text": "repeat customer rate calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0340", "feedback_text": "Can we revisit how monthly revenue is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0341", "feedback_text": "total items sold numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0342", "feedback_text": "Not sure why but payment status display feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0343", "feedback_text": "Not sure why but regional orders feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0344", "feedback_text": "high risk order doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0345", "feedback_text": "active customer doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0346", "feedback_text": "Not sure why but units per transaction feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0347", "feedback_text": "I don't think payment status accounting is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0348", "feedback_text": "cart abandonment rate doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0349", "feedback_text": "Can you look at order status display?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0350", "feedback_text": "Can you look at monthly revenue?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0351", "feedback_text": "There's an issue with regional orders.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0352", "feedback_text": "Not sure why but payment reconciliation feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0353", "feedback_text": "I don't think sell through rate is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0354", "feedback_text": "order status display doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0355", "feedback_text": "customer lifetime value doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0356", "feedback_text": "Please check payment success rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0357", "feedback_text": "fulfillment time doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0358", "feedback_text": "Please check refund status display.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0359", "feedback_text": "payment success rate needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0360", "feedback_text": "Not sure why but payment status accounting feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0361", "feedback_text": "Something's off with total items sold.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0362", "feedback_text": "Not sure why but order status display feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0363", "feedback_text": "Something's off with revenue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0364", "feedback_text": "Can you look at fulfillment time?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0365", "feedback_text": "Can we revisit how gross sales is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0366", "feedback_text": "Can you look at free shipping?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0367", "feedback_text": "bulk discount numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0368", "feedback_text": "Can we revisit how units per transaction is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}

@@ -1,0 +1,108 @@
+{"feedback_id": "CS_FB015", "feedback_text": "Please make the support backlog rule more flexible.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "CS_FB016", "feedback_text": "Urgent ticket SLA needs review.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "CS_FB017", "feedback_text": "The CSAT count seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "CS_FB039", "feedback_text": "Does tickets.first_response_at include automated email responses or only human agent replies?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "CS_FB040", "feedback_text": "Clarify whether tickets.resolved_at represents when the agent marked it resolved or when the customer confirmed resolution.", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "CS_FB041", "feedback_text": "What does satisfaction_scores.response_status 'pending' mean — survey sent but not returned?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "CS_FB042", "feedback_text": "Is tickets.department_id the department that opened the ticket or the current assigned department?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "CS_FB043", "feedback_text": "Does ticket_events.event_type 'reply' include both agent and customer messages?", "requires_clarification": true, "reason": "business_rule_correction"}
+{"feedback_id": "EC_GEN0252", "feedback_text": "Can we revisit how quality review ticket is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0253", "feedback_text": "Please check vip customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0254", "feedback_text": "Fix unassigned ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0255", "feedback_text": "There's an issue with agent workload.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0256", "feedback_text": "closed ticket doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0257", "feedback_text": "Please check sla compliance rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0258", "feedback_text": "Can we revisit how department queue is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0259", "feedback_text": "survey status display numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0260", "feedback_text": "Can we revisit how duplicate ticket is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0261", "feedback_text": "There's an issue with average resolution time.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0262", "feedback_text": "There's an issue with first response time.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0263", "feedback_text": "quality review ticket calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0264", "feedback_text": "open ticket needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0265", "feedback_text": "Fix escalation rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0266", "feedback_text": "Something's off with survey status display.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0267", "feedback_text": "unassigned ticket needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0268", "feedback_text": "Something's off with overloaded agent.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0269", "feedback_text": "Fix vip customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0270", "feedback_text": "I don't think first response time is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0271", "feedback_text": "reopen rate needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0272", "feedback_text": "Can we revisit how first contact resolution is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0273", "feedback_text": "Can you look at closed ticket?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0274", "feedback_text": "Fix ticket backlog.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0275", "feedback_text": "Can we revisit how agent access is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0276", "feedback_text": "Fix tickets per agent.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0277", "feedback_text": "average resolution time calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0278", "feedback_text": "overloaded agent needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0279", "feedback_text": "escalation rate doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0280", "feedback_text": "average resolution time needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0281", "feedback_text": "agent workload numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0282", "feedback_text": "Please check agent workload.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0283", "feedback_text": "first contact resolution doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0284", "feedback_text": "escalated ticket doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0285", "feedback_text": "I don't think agent access is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0286", "feedback_text": "duplicate customer email doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0287", "feedback_text": "first contact resolution calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0288", "feedback_text": "Something's off with department queue.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0289", "feedback_text": "ticket backlog calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0290", "feedback_text": "I don't think customer satisfaction is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0291", "feedback_text": "Please check escalation rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0292", "feedback_text": "I don't think survey status display is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0293", "feedback_text": "first contact resolution needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0294", "feedback_text": "priority display numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0295", "feedback_text": "There's an issue with duplicate ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0296", "feedback_text": "Can we revisit how ticket status display is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0297", "feedback_text": "duplicate customer email needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0298", "feedback_text": "Please check open ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0299", "feedback_text": "Not sure why but customer satisfaction feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0300", "feedback_text": "vip customer numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0301", "feedback_text": "There's an issue with ticket status display.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0302", "feedback_text": "Fix quality review ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0303", "feedback_text": "quality review ticket needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0304", "feedback_text": "Can you look at escalated ticket?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0305", "feedback_text": "closed ticket calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0306", "feedback_text": "Something's off with first contact resolution.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0307", "feedback_text": "Something's off with customer satisfaction.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0308", "feedback_text": "I don't think high priority ticket is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0309", "feedback_text": "There's an issue with sla compliance rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0310", "feedback_text": "Not sure why but overloaded agent feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0311", "feedback_text": "Can we revisit how high priority ticket is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0312", "feedback_text": "reopen rate calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0313", "feedback_text": "average resolution time doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0314", "feedback_text": "ticket event numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0315", "feedback_text": "Fix high priority ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0316", "feedback_text": "quality review ticket numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0317", "feedback_text": "tickets per agent calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0318", "feedback_text": "Something's off with duplicate ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0319", "feedback_text": "Something's off with first response time.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0320", "feedback_text": "There's an issue with escalation rate.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0321", "feedback_text": "There's an issue with overloaded agent.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0322", "feedback_text": "I don't think duplicate ticket is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0323", "feedback_text": "Can you look at agent workload?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0324", "feedback_text": "Please check unassigned ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0325", "feedback_text": "Can we revisit how open ticket is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0326", "feedback_text": "Please check duplicate ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0327", "feedback_text": "Please check agent access.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0328", "feedback_text": "ticket event calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0329", "feedback_text": "escalated ticket needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0330", "feedback_text": "reopen rate doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0331", "feedback_text": "Can you look at first contact resolution?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0332", "feedback_text": "Please check average resolution time.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0333", "feedback_text": "escalation rate calculation seems wrong.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0334", "feedback_text": "duplicate ticket numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0335", "feedback_text": "open ticket doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0336", "feedback_text": "reopen rate numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0337", "feedback_text": "Can we revisit how escalation rate is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0338", "feedback_text": "There's an issue with priority display.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0339", "feedback_text": "Please check closed ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0340", "feedback_text": "ticket status display numbers seem strange this week.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0341", "feedback_text": "Can we revisit how closed ticket is calculated?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0342", "feedback_text": "Not sure why but priority display feels off lately.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0343", "feedback_text": "There's an issue with vip customer.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0344", "feedback_text": "I don't think open ticket is correct.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0345", "feedback_text": "Can you look at vip customer?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0346", "feedback_text": "There's an issue with open ticket.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0347", "feedback_text": "ticket backlog needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0348", "feedback_text": "Can you look at first response time?", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0349", "feedback_text": "quality review ticket doesn't look right to me.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0350", "feedback_text": "Please check first contact resolution.", "requires_clarification": true, "reason": "unclear_feedback"}
+{"feedback_id": "EC_GEN0351", "feedback_text": "escalation rate needs a second look.", "requires_clarification": true, "reason": "unclear_feedback"}

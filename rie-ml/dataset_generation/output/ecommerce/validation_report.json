@@ -1,0 +1,1530 @@
+{
+  "config": {
+    "domain_pack_id": "ecommerce",
+    "domain_pack_version": "ecommerce_v0.1.0",
+    "domain_pack_path": "domain-packs/ecommerce",
+    "seed_path": "domain-packs/ecommerce/feedback/seed.jsonl",
+    "output_dir": "dataset_generation/output/ecommerce_v2",
+    "dataset_version": "dataset_v0.1.0",
+    "annotation_version": "ann_v0.1.0",
+    "random_seed": 42,
+    "target_train_size": 600,
+    "target_val_size": 150,
+    "target_test_size": 200,
+    "target_duplicate_pairs": 150,
+    "target_conflict_pairs": 150,
+    "target_ambiguous": 100,
+    "paraphrase_multiplier": 3,
+    "conversational_multiplier": 2,
+    "hinglish_multiplier": 1,
+    "multi_rule_multiplier": 1,
+    "strict_validation": true,
+    "allow_invalid_schema_refs": false
+  },
+  "seed_validation": {
+    "is_valid": true,
+    "total_records": 60,
+    "valid_records": 60,
+    "invalid_records": 0,
+    "errors": [],
+    "warnings": [
+      "EC_FB024: EC_FB024.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_FB024: EC_FB024.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_FB024: EC_FB024: rule columns {'orders.unknown_field'} not in schema_context.available_columns",
+      "EC_FB027: EC_FB027: rule columns {'customers.customer_id'} not in schema_context.available_columns"
+    ]
+  },
+  "generation_breakdown": {
+    "paraphrases": 122,
+    "conversational": 88,
+    "hinglish": 41,
+    "multi_rule": 5,
+    "ambiguous": 100,
+    "conflicts": 15,
+    "non_rule": 10,
+    "spam": 10,
+    "invalid_schema": 5
+  },
+  "total_generated": 396,
+  "total_for_splitting": 456,
+  "seed_records": 60,
+  "approved_generated": 396,
+  "rejected_generated": 0,
+  "validation": {
+    "total_records": 396,
+    "valid_records": 396,
+    "rejected_records": 0,
+    "errors": [],
+    "warnings": [
+      "EC_GEN0108: EC_GEN0108.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0108: EC_GEN0108.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0109: EC_GEN0109.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0109: EC_GEN0109.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0110: EC_GEN0110.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0110: EC_GEN0110.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0111: EC_GEN0111.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0111: EC_GEN0111.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0112: EC_GEN0112.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0112: EC_GEN0112.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0113: EC_GEN0113.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0113: EC_GEN0113.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0382: EC_GEN0382.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0382: EC_GEN0382.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0539: EC_GEN0539.rules[0]: unknown schema field 'customers.fake_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0539: EC_GEN0539.rules[0]: unknown affected column 'customers.fake_column'",
+      "EC_GEN0540: EC_GEN0540.rules[0]: unknown schema field 'payments.nonexistent_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0540: EC_GEN0540.rules[0]: unknown affected column 'payments.nonexistent_field'",
+      "EC_GEN0541: EC_GEN0541.rules[0]: unknown schema field 'orders.unknown_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0541: EC_GEN0541.rules[0]: unknown affected column 'orders.unknown_field'",
+      "EC_GEN0542: EC_GEN0542.rules[0]: unknown schema field 'customers.fake_column' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0542: EC_GEN0542.rules[0]: unknown affected column 'customers.fake_column'",
+      "EC_GEN0543: EC_GEN0543.rules[0]: unknown schema field 'payments.nonexistent_field' (allowed: schema_validation_expected=fail)",
+      "EC_GEN0543: EC_GEN0543.rules[0]: unknown affected column 'payments.nonexistent_field'"
+    ],
+    "consistency_issues": []
+  },
+  "split_info": {
+    "total_records": 456,
+    "total_rule_families": 200,
+    "train": {
+      "count": 319,
+      "families": 144,
+      "family_ids": [
+        "ambiguous_conversion_rate_1282",
+        "ecommerce_colmean_008",
+        "ambiguous_refund_rate_3939",
+        "spam_1410",
+        "ecommerce_colmean_001",
+        "invalid_9071",
+        "ambiguous_return_rate_5853",
+        "ambiguous_total_items_sold_3444",
+        "ecommerce_threshold_conflict_003_conflict",
+        "ambiguous_free_shipping_8753",
+        "ecommerce_colmean_009",
+        "ambiguous_fulfillment_time_5066",
+        "ambiguous_average_discount_9751",
+        "ambiguous_return_rate_9595",
+        "ambiguous_free_shipping_2647",
+        "ecommerce_calc_007",
+        "ambiguous_duplicate_customer_id_9004",
+        "ecommerce_spam_001",
+        "ecommerce_threshold_conflict_001_conflict",
+        "ambiguous_payment_success_rate_1878",
+        "ecommerce_EC_R004_conflict",
+        "spam_7689",
+        "ambiguous_sell_through_rate_8827",
+        "ambiguous_repeat_customer_rate_1893",
+        "ambiguous_average_order_value_5526",
+        "ecommerce_EC_R002_conflict",
+        "nonrule_2233",
+        "ambiguous_order_status_display_2869",
+        "ambiguous_free_express_shipping_6576",
+        "ambiguous_average_discount_4954",
+        "ambiguous_average_discount_4130",
+        "ecommerce_calc_015",
+        "ecommerce_clarif_002",
+        "spam_2035",
+        "ecommerce_expect_001",
+        "ambiguous_total_items_sold_1166",
+        "ecommerce_colmean_007",
+        "ecommerce_EC_R012",
+        "ecommerce_EC_R011",
+        "multi_ecommerce_EC_R009_ecommerce_calc_011",
+        "ambiguous_high_risk_order_1200",
+        "ambiguous_bulk_discount_4697",
+        "ambiguous_refund_status_display_5636",
+        "ambiguous_free_shipping_8342",
+        "ecommerce_EC_R011_conflict",
+        "ecommerce_threshold_conflict_001",
+        "ambiguous_sell_through_rate_8385",
+        "ecommerce_EC_R009",
+        "ambiguous_active_customer_5658",
+        "ambiguous_payment_status_display_9042",
+        "multi_ecommerce_calc_009_ecommerce_threshold_conflict_003",
+        "ecommerce_colmean_004",
+        "ambiguous_free_shipping_1470",
+        "ambiguous_fulfillment_time_9056",
+        "ambiguous_repeat_customer_rate_2958",
+        "ambiguous_revenue_per_customer_6419",
+        "ambiguous_free_express_shipping_4986",
+        "ecommerce_EC_R005_conflict_conflict",
+        "ambiguous_regional_orders_9464",
+        "ambiguous_cart_abandonment_rate_8216",
+        "ambiguous_monthly_revenue_4020",
+        "ambiguous_return_rate_6912",
+        "ambiguous_order_status_display_1745",
+        "ambiguous_regional_orders_5581",
+        "ambiguous_order_completion_status_6511",
+        "ecommerce_status_001",
+        "ambiguous_refund_rate_7971",
+        "multi_ecommerce_status_003_ecommerce_status_004_ecommerce_threshold_conflict_004",
+        "ambiguous_regional_orders_2680",
+        "spam_8724",
+        "ambiguous_return_rate_7046",
+        "ecommerce_calc_009",
+        "invalid_9850",
+        "ambiguous_free_shipping_7818",
+        "ecommerce_nonrule_001",
+        "ambiguous_bulk_discount_9098",
+        "ambiguous_order_status_display_5978",
+        "ecommerce_EC_R005",
+        "ambiguous_free_shipping_7658",
+        "nonrule_3306",
+        "ecommerce_EC_R009_conflict",
+        "ecommerce_EC_R004",
+        "invalid_4846",
+        "ecommerce_EC_R008",
+        "ecommerce_calc_008",
+        "ecommerce_colmean_010",
+        "ambiguous_sell_through_rate_7209",
+        "ambiguous_units_per_transaction_8690",
+        "ecommerce_calc_013",
+        "ambiguous_payment_success_rate_7565",
+        "ecommerce_threshold_conflict_005_conflict",
+        "ecommerce_EC_R001",
+        "ecommerce_colmean_003",
+        "ambiguous_active_customer_4937",
+        "multi_ecommerce_EC_R003_ecommerce_EC_R008_ecommerce_EC_R012",
+        "nonrule_6992",
+        "invalid_7367",
+        "ecommerce_threshold_conflict_003",
+        "ambiguous_order_status_display_6582",
+        "ecommerce_EC_R006",
+        "ecommerce_threshold_conflict_002",
+        "ambiguous_payment_reconciliation_5136",
+        "ecommerce_calc_012",
+        "ambiguous_net_revenue_4995",
+        "ambiguous_refund_status_display_8800",
+        "ecommerce_clarif_001",
+        "ecommerce_EC_R005_conflict",
+        "ambiguous_payment_status_accounting_3485",
+        "ecommerce_multi_001_conflict",
+        "ecommerce_threshold_conflict_002_conflict",
+        "ecommerce_threshold_conflict_004",
+        "ecommerce_calc_003",
+        "ambiguous_refund_rate_5530",
+        "ecommerce_calc_011",
+        "ecommerce_status_003",
+        "ambiguous_revenue_per_customer_8988",
+        "ambiguous_revenue_6764",
+        "ecommerce_multi_001",
+        "ambiguous_cart_abandonment_rate_4630",
+        "ecommerce_threshold_conflict_004_conflict",
+        "ambiguous_payment_status_accounting_8843",
+        "spam_2775",
+        "nonrule_8894",
+        "spam_8606",
+        "ambiguous_priority_support_7625",
+        "multi_ecommerce_calc_002_ecommerce_calc_011_ecommerce_multi_001",
+        "nonrule_7511",
+        "ambiguous_revenue_4138",
+        "ecommerce_threshold_conflict_005",
+        "ambiguous_payment_reconciliation_6016",
+        "nonrule_5835",
+        "ecommerce_EC_R010",
+        "ambiguous_premium_tier_4475",
+        "ambiguous_gross_sales_6023",
+        "ambiguous_gross_sales_2940",
+        "ambiguous_conversion_rate_5952",
+        "ecommerce_calc_005",
+        "ecommerce_EC_R012_conflict",
+        "ambiguous_priority_support_4777",
+        "ecommerce_colmean_005",
+        "spam_4830",
+        "spam_4626",
+        "ambiguous_refund_status_display_2213",
+        "ambiguous_average_discount_2976"
+      ],
+      "ratio": 0.6995614035087719
+    },
+    "val": {
+      "count": 68,
+      "families": 20,
+      "family_ids": [
+        "ecommerce_invalid_001",
+        "ecommerce_status_002",
+        "ecommerce_calc_002",
+        "ecommerce_calc_006",
+        "ecommerce_calc_001",
+        "ambiguous_duplicate_customer_id_4545",
+        "spam_6374",
+        "ambiguous_gross_merchandise_value_4727",
+        "ambiguous_payment_status_accounting_2524",
+        "ambiguous_average_order_value_6813",
+        "ambiguous_units_per_transaction_8434",
+        "nonrule_2886",
+        "ecommerce_status_004",
+        "ecommerce_status_005",
+        "nonrule_4696",
+        "ambiguous_total_items_sold_3068",
+        "ecommerce_calc_010",
+        "ambiguous_revenue_per_customer_4155",
+        "nonrule_6549",
+        "spam_5951"
+      ],
+      "ratio": 0.14912280701754385
+    },
+    "test": {
+      "count": 69,
+      "families": 36,
+      "family_ids": [
+        "ambiguous_customer_lifetime_value_6632",
+        "ecommerce_invalid_001_conflict",
+        "ambiguous_units_per_transaction_9561",
+        "ecommerce_colmean_011",
+        "ecommerce_EC_R003",
+        "ecommerce_EC_R002",
+        "ambiguous_net_revenue_4033",
+        "nonrule_8673",
+        "ambiguous_customer_lifetime_value_2070",
+        "ambiguous_high_risk_order_5232",
+        "ambiguous_bulk_discount_8933",
+        "ambiguous_net_revenue_9779",
+        "ecommerce_calc_014",
+        "ecommerce_colmean_002",
+        "ambiguous_priority_support_6169",
+        "invalid_1742",
+        "ambiguous_monthly_revenue_5786",
+        "ecommerce_calc_004",
+        "ambiguous_cart_abandonment_rate_4180",
+        "ambiguous_revenue_2395",
+        "ambiguous_customer_count_9041",
+        "ambiguous_payment_status_accounting_6325",
+        "ambiguous_cart_abandonment_rate_5118",
+        "ecommerce_EC_R010_conflict",
+        "ambiguous_high_risk_order_3073",
+        "ambiguous_sell_through_rate_2402",
+        "ambiguous_monthly_revenue_9698",
+        "ambiguous_priority_support_1231",
+        "ambiguous_payment_success_rate_5494",
+        "ambiguous_regional_orders_1841",
+        "ecommerce_DATA_001",
+        "ambiguous_repeat_customer_rate_5820",
+        "ambiguous_active_customer_3979",
+        "ambiguous_customer_count_5438",
+        "ecommerce_colmean_006",
+        "ambiguous_fulfillment_time_8613"
+      ],
+      "ratio": 0.1513157894736842
+    },
+    "random_seed": 42
+  },
+  "task_datasets": {
+    "classification": 456,
+    "extraction": 320,
+    "clarification": 114,
+    "duplicate_pairs": 1020,
+    "conflict_pairs": 9
+  },
+  "rule_family_analysis": {
+    "total_rule_families": 200,
+    "business_rule_families": 64,
+    "non_business_families": 136,
+    "business_rule_family_details": [
+      {
+        "rule_family_id": "ecommerce_EC_R001",
+        "count": 17,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R003",
+        "count": 11,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R005_conflict",
+        "count": 8,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R008",
+        "count": 12,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "join_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R009",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R010",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R011",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R012",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_DATA_001",
+        "count": 6,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "data_quality_issue"
+      },
+      {
+        "rule_family_id": "ecommerce_multi_001",
+        "count": 4,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R006",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "access_scope_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_invalid_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_006",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_007",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_008",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_009",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_010",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_011",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_012",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_013",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_014",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_calc_015",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "ecommerce_status_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "ecommerce_status_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "ecommerce_status_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "ecommerce_status_004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "ecommerce_status_005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_001",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_002",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_003",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_004",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_005",
+        "count": 7,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_ecommerce_EC_R009_ecommerce_calc_011",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      },
+      {
+        "rule_family_id": "multi_ecommerce_status_003_ecommerce_status_004_ecommerce_threshold_conflict_004",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "multi_ecommerce_calc_009_ecommerce_threshold_conflict_003",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_ecommerce_EC_R003_ecommerce_EC_R008_ecommerce_EC_R012",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "multi_ecommerce_calc_002_ecommerce_calc_011_ecommerce_multi_001",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_001_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R005_conflict_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_multi_001_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_002_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_004_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R011_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "time_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R012_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R004_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "metric_definition"
+      },
+      {
+        "rule_family_id": "ecommerce_invalid_001_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R002_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_005_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_threshold_conflict_003_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R010_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_EC_R009_conflict",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "entity_definition"
+      },
+      {
+        "rule_family_id": "invalid_1742",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "join_correction"
+      },
+      {
+        "rule_family_id": "invalid_9071",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "filter_rule"
+      },
+      {
+        "rule_family_id": "invalid_4846",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "join_correction"
+      },
+      {
+        "rule_family_id": "invalid_7367",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "status_mapping"
+      },
+      {
+        "rule_family_id": "invalid_9850",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "rule_category": "calculation_correction"
+      }
+    ],
+    "non_business_family_details": [
+      {
+        "rule_family_id": "ecommerce_clarif_001",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_nonrule_001",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "ecommerce_spam_001",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "ecommerce_clarif_002",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_expect_001",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_001",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_002",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_003",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_004",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_005",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_006",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_007",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_008",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_009",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_010",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ecommerce_colmean_011",
+        "count": 1,
+        "feedback_type": "business_rule_correction",
+        "category": "other"
+      },
+      {
+        "rule_family_id": "ambiguous_sell_through_rate_8385",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_net_revenue_4995",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_fulfillment_time_8613",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_sell_through_rate_7209",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_order_completion_status_6511",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_1470",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_bulk_discount_9098",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_status_accounting_6325",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_active_customer_3979",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_per_customer_8988",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_premium_tier_4475",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_order_value_6813",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_risk_order_5232",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_express_shipping_6576",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_regional_orders_5581",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_order_value_5526",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_total_items_sold_1166",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_regional_orders_9464",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_discount_4130",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_sell_through_rate_2402",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_discount_4954",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_7658",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_customer_id_9004",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_active_customer_4937",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_status_display_8800",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_count_9041",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_8342",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_conversion_rate_1282",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_status_accounting_2524",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_repeat_customer_rate_5820",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_cart_abandonment_rate_4630",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_support_7625",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_express_shipping_4986",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_reconciliation_6016",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_return_rate_7046",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_8753",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_monthly_revenue_9698",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_lifetime_value_6632",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_rate_7971",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_per_customer_6419",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_6764",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_units_per_transaction_8434",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_count_5438",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_gross_sales_6023",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_cart_abandonment_rate_5118",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_support_4777",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_discount_2976",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_per_customer_4155",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_support_6169",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_repeat_customer_rate_2958",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_net_revenue_9779",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_net_revenue_4033",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_4138",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_duplicate_customer_id_4545",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_bulk_discount_8933",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_rate_5530",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_return_rate_9595",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_status_display_5636",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_2647",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_cart_abandonment_rate_4180",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_return_rate_5853",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_gross_merchandise_value_4727",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_return_rate_6912",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_rate_3939",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_conversion_rate_5952",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_priority_support_1231",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_average_discount_9751",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_risk_order_3073",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_success_rate_5494",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_order_status_display_1745",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_repeat_customer_rate_1893",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_monthly_revenue_5786",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_total_items_sold_3068",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_status_display_9042",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_regional_orders_2680",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_high_risk_order_1200",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_active_customer_5658",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_units_per_transaction_8690",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_status_accounting_8843",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_cart_abandonment_rate_8216",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_order_status_display_6582",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_monthly_revenue_4020",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_regional_orders_1841",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_reconciliation_5136",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_sell_through_rate_8827",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_order_status_display_2869",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_customer_lifetime_value_2070",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_success_rate_7565",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_fulfillment_time_9056",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_refund_status_display_2213",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_success_rate_1878",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_payment_status_accounting_3485",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_total_items_sold_3444",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_order_status_display_5978",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_revenue_2395",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_fulfillment_time_5066",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_gross_sales_2940",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_free_shipping_7818",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_bulk_discount_4697",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "ambiguous_units_per_transaction_9561",
+        "count": 1,
+        "feedback_type": "unclear_feedback",
+        "category": "ambiguous"
+      },
+      {
+        "rule_family_id": "nonrule_8894",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_5835",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_6549",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_2886",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_8673",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_2233",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_3306",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_4696",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_7511",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "nonrule_6992",
+        "count": 1,
+        "feedback_type": "non_rule_feedback",
+        "category": "non_rule"
+      },
+      {
+        "rule_family_id": "spam_2775",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_4830",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_8724",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_1410",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_6374",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_4626",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_2035",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_8606",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_5951",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      },
+      {
+        "rule_family_id": "spam_7689",
+        "count": 1,
+        "feedback_type": "irrelevant_spam",
+        "category": "spam"
+      }
+    ],
+    "business_rule_records": 320,
+    "non_business_records": 136
+  }
+}
