@@ -1,4 +1,7 @@
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from typing import List, Optional
 import redis
 import csv
 import io
@@ -6,6 +9,7 @@ from uuid import uuid4
 from fastapi import File, UploadFile
 from sqlalchemy import text
 import os
+from pathlib import Path
 from app.db.database import engine
 from app.db.database import get_db
 from app.db.models.rule import Rule
@@ -78,13 +82,22 @@ from app.schemas.evaluation import (
     EvaluationResponse,
 )
 from app.services.evaluation_service import EvaluationService
-from app.schemas.workspace import (
-    WorkspaceCreateRequest,
-    WorkspaceResponse,
-)
-from app.services.workspace_service import WorkspaceService
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
+
+# Mount static files (custom UI dashboard)
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
+
+# Root endpoint to serve custom UI
+@app.get("/", include_in_schema=False)
+async def root():
+    """Serve custom UI dashboard."""
+    ui_file = static_dir / "index.html"
+    if ui_file.exists():
+        return FileResponse(str(ui_file), media_type="text/html")
+    return {"message": "Rule Intelligence Engine API - Visit /docs for Swagger UI"}
 
 # Dependency injection setup
 def get_db():
@@ -130,9 +143,9 @@ def readiness_check():
 def analyze_feedback(
     payload: FeedbackAnalysisRequest,
     db=Depends(get_db),
-    classifier: RealClassifier = Depends(),
-    suggestion_service: SuggestionService = Depends(),
-    clarification_service: ClarificationService = Depends(),
+    classifier=Depends(),
+    suggestion_service=Depends(),
+    clarification_service=Depends(),
 ):
     """Analyze feedback text using ML baseline."""
     # Classify the feedback
@@ -195,7 +208,7 @@ def analyze_feedback(
 def create_suggestion_route(
     payload: SuggestionCreateRequest,
     db=Depends(get_db),
-    suggestion_service: SuggestionService = Depends(),
+    suggestion_service=Depends(),
 ):
     suggestion = suggestion_service.create_suggestion(
         db=db,
@@ -221,7 +234,7 @@ def create_suggestion_route(
 def get_suggestion_route(
     suggestion_id: str,
     db=Depends(get_db),
-    suggestion_service: SuggestionService = Depends(),
+    suggestion_service=Depends(),
 ):
     suggestion = suggestion_service.get_suggestion(db=db, suggestion_id=suggestion_id)
     if suggestion is None:
@@ -244,7 +257,7 @@ def approve_suggestion_route(
     suggestion_id: str,
     payload: SuggestionApproveRequest,
     db=Depends(get_db),
-    suggestion_service: SuggestionService = Depends(),
+    suggestion_service=Depends(),
 ):
     suggestion = suggestion_service.approve_suggestion(
         db=db,
@@ -269,7 +282,7 @@ def reject_suggestion_route(
     suggestion_id: str,
     payload: SuggestionRejectRequest,
     db=Depends(get_db),
-    suggestion_service: SuggestionService = Depends(),
+    suggestion_service=Depends(),
 ):
     suggestion = suggestion_service.reject_suggestion(
         db=db,
@@ -293,7 +306,7 @@ def reject_suggestion_route(
 @app.get("/v1/suggestions", response_model=List[SuggestionResponse])
 def list_suggestions_route(
     db=Depends(get_db),
-    suggestion_service: SuggestionService = Depends(),
+    suggestion_service=Depends(),
     workspace_id: Optional[str] = None,
     status: Optional[str] = None,
 ):
@@ -324,7 +337,7 @@ def list_suggestions_route(
 def create_clarification_route(
     payload: ClarificationCreateRequest,
     db=Depends(get_db),
-    clarification_service: ClarificationService = Depends(),
+    clarification_service=Depends(),
 ):
     clarification = clarification_service.create_clarification(
         db=db,
@@ -361,7 +374,7 @@ def create_clarification_route(
 def get_clarification_route(
     clarification_id: str,
     db=Depends(get_db),
-    clarification_service: ClarificationService = Depends(),
+    clarification_service=Depends(),
 ):
     clarification = clarification_service.get_clarification(db=db, clarification_id=clarification_id)
     if clarification is None:
@@ -383,7 +396,7 @@ def respond_to_clarification_route(
     clarification_id: str,
     payload: ClarificationRespondRequest,
     db=Depends(get_db),
-    clarification_service: ClarificationService = Depends(),
+    clarification_service=Depends(),
 ):
     clarification = clarification_service.respond_to_clarification(
         db=db,
@@ -408,7 +421,7 @@ def respond_to_clarification_route(
 def create_review_route(
     payload: ReviewCreateRequest,
     db=Depends(get_db),
-    review_routing_service: ReviewRoutingService = Depends(),
+    review_routing_service=Depends(),
 ):
     review = review_routing_service.create_review(
         db=db,
@@ -431,7 +444,7 @@ def create_review_route(
 def get_review_route(
     review_id: str,
     db=Depends(get_db),
-    review_routing_service: ReviewRoutingService = Depends(),
+    review_routing_service=Depends(),
 ):
     review = review_routing_service.get_review(db=db, review_id=review_id)
     if review is None:
@@ -452,7 +465,7 @@ def complete_review_route(
     review_id: str,
     payload: ReviewCompleteRequest,
     db=Depends(get_db),
-    review_routing_service: ReviewRoutingService = Depends(),
+    review_routing_service=Depends(),
 ):
     review = review_routing_service.complete_review(
         db=db,
@@ -478,7 +491,7 @@ def assign_reviewer_route(
     review_id: str,
     payload: ReviewAssignRequest,
     db=Depends(get_db),
-    review_routing_service: ReviewRoutingService = Depends(),
+    review_routing_service=Depends(),
 ):
     review = review_routing_service.assign_reviewer(
         db=db,
@@ -502,7 +515,7 @@ def assign_reviewer_route(
 def create_evaluation_route(
     payload: EvaluationCreateRequest,
     db=Depends(get_db),
-    evaluation_service: EvaluationService = Depends(),
+    evaluation_service=Depends(get_evaluation_service),
 ):
     evaluation = evaluation_service.create_evaluation(
         db=db,
@@ -525,7 +538,7 @@ def create_evaluation_route(
 def get_evaluation_route(
     evaluation_id: str,
     db=Depends(get_db),
-    evaluation_service: EvaluationService = Depends(),
+    evaluation_service=Depends(),
 ):
     evaluation = evaluation_service.get_evaluation(db=db, evaluation_id=evaluation_id)
     if evaluation is None:
@@ -546,7 +559,7 @@ def get_evaluation_route(
 def create_workspace_route(
     payload: WorkspaceCreateRequest,
     db=Depends(get_db),
-    workspace_service: WorkspaceService = Depends(),
+    workspace_service=Depends(),
 ):
     workspace = workspace_service.create_workspace(
         db=db,
@@ -566,7 +579,7 @@ def create_workspace_route(
 def get_workspace_route(
     workspace_id: str,
     db=Depends(get_db),
-    workspace_service: WorkspaceService = Depends(),
+    workspace_service=Depends(),
 ):
     workspace = workspace_service.get_workspace(db=db, workspace_id=workspace_id)
     if workspace is None:

@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from uuid import uuid4
 from datetime import datetime
 import logging
+from sqlalchemy.orm import Session
 
 from app.db.models.review import Review
 from app.db.models.feedback import Feedback

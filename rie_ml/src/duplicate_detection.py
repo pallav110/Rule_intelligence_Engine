@@ -5,14 +5,7 @@ Replaces Mock duplicate detection with semantic similarity-based detection.
 """
 
 from typing import List, Dict, Any
-import sys
-from pathlib import Path
-
-# Add rie_ml to path
-rie_ml_path = Path(__file__).parent.parent.parent / "rie_ml"
-sys.path.insert(0, str(rie_ml_path))
-
-from src.duplicate_detection import DuplicateDetector
+import json
 
 
 class RealDuplicateDetectionService:
