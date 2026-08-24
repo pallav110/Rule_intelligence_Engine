@@ -1,9 +1,0 @@
-2.4 Knowledge Sources
-The Rule Intelligence Engine uses multiple knowledge sources during analysis to improve classification accuracy, rule extraction, schema validation, and business rule comparison.
-These include:
-• Business glossary and taxonomy
-• Schema metadata
-• Active business rule repository
-• Domain packs for supported business domains
-• pgvector-based semantic rule index
-These knowledge sources are read-only during automated analysis and are used to validate extracted rule components, resolve business terminology, perform semantic candidate retrieval, and compare structured rule representations against existing business rules. Semantic similarity is used only to retrieve candidate rules, while final duplicate and conflict detection is performed through structured rule comparison.

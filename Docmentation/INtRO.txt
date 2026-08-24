@@ -1,4 +1,0 @@
-Business Feedback & Rule Intelligence Engine (RIE)
-System Documentation
-1.System Overview
-The Rule Intelligence Engine (RIE) is a standalone ML-assisted modular monolith that converts unstructured business feedback into structured business rule suggestions. The system classifies feedback, extracts one or more structured canonical rules, validates them against business schemas, identifies duplicate and conflicting rules, requests clarification for incomplete feedback, and routes suggestions for human review. Approved suggestions may be converted into draft business rules through a separate rule creation workflow, while rule activation is performed only through an explicit administrative action. At no point does the Rule Intelligence Engine automatically create, activate, modify, or deploy production business rules.
