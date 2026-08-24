@@ -417,13 +417,13 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Available Tables</label>
-                            <input type="text" id="feedback-tables" value="orders,customers,products">
+                            <label>Available Tables (Optional)</label>
+                            <input type="text" id="feedback-tables" placeholder="Comma-separated table names, or leave empty">
                         </div>
 
                         <div class="form-group">
-                            <label>Available Columns</label>
-                            <input type="text" id="feedback-columns" value="order_id,revenue,discount,customer_id">
+                            <label>Available Columns (Optional)</label>
+                            <input type="text" id="feedback-columns" placeholder="Comma-separated column names, or leave empty">
                         </div>
 
                         <div class="button-group">
@@ -638,8 +638,11 @@
                 return;
             }
 
-            const tables = document.getElementById('feedback-tables').value.split(',').map(t => t.trim());
-            const columns = document.getElementById('feedback-columns').value.split(',').map(c => c.trim());
+            const tablesInput = document.getElementById('feedback-tables').value.trim();
+            const columnsInput = document.getElementById('feedback-columns').value.trim();
+
+            const tables = tablesInput ? tablesInput.split(',').map(t => t.trim()) : [];
+            const columns = columnsInput ? columnsInput.split(',').map(c => c.trim()) : [];
 
             const result = await apiCall('POST', '/v1/feedback/analyze', {
                 workspace_id: document.getElementById('feedback-workspace').value || 'default',
