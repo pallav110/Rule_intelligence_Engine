@@ -1,4 +1,4 @@
-"""Baseline classifier for RIE-ML (tf-idf + logistic regression).
+"""Baseline classifier for rie_ml (tf-idf + logistic regression).
 
 This implements the deterministic baseline that the backend expects
 (see ``app/services/classifier.py`` MockClassifier / actual service).
@@ -60,9 +60,10 @@ class BaselineClassifier:
                 obj = json.loads(line.strip())
                 texts.append(obj["feedback_text"])
                 # We have two multi-label targets; collect both.
+                # Replace None with empty string to avoid numpy sorting errors
                 labels.append([
-                    obj.get("feedback_type", ""),
-                    obj.get("rule_category", ""),
+                    obj.get("feedback_type") or "",
+                    obj.get("rule_category") or "",
                 ])
 
         X = self.vectorizer.fit_transform(texts)
@@ -109,8 +110,20 @@ class BaselineClassifier:
             4: "column_meaning",
         }
 
-        feedback_type = type_map.get(int(preds[0]), str(preds[0]))
-        rule_category = category_map.get(int(preds[1]), str(preds[1]))
+        # Handle both string and numeric predictions
+        try:
+            pred_type = int(preds[0])
+            feedback_type = type_map.get(pred_type, str(preds[0]))
+        except (ValueError, TypeError):
+            # If prediction is already a string, use it directly
+            feedback_type = str(preds[0])
+
+        try:
+            pred_cat = int(preds[1])
+            rule_category = category_map.get(pred_cat, str(preds[1]))
+        except (ValueError, TypeError):
+            # If prediction is already a string, use it directly
+            rule_category = str(preds[1])
 
         # Simple heuristic for the remaining booleans
         is_actionable = feedback_type in {
@@ -119,7 +132,14 @@ class BaselineClassifier:
         }
         requires_clarification = "unclear" in feedback.lower() or "?" in feedback
 
-        confidence = float(np.max(np.abs(preds)))
+        # Compute confidence - use predict_proba if available, otherwise use heuristic
+        try:
+            proba = self.model.predict_proba(X)
+            # For multi-output, average the probabilities
+            confidence = float(np.mean([np.max(p) for p in proba]))
+        except AttributeError:
+            # Fallback: use heuristic based on feedback length and content
+            confidence = 0.75 if len(feedback) > 20 else 0.5
 
         return {
             "feedback_type": feedback_type,

@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional
 import sys
 from pathlib import Path
 
-# Add rie-ml to path
-rie_ml_path = Path(__file__).parent.parent.parent / "rie-ml"
+# Add rie_ml to path
+rie_ml_path = Path(__file__).parent.parent.parent / "rie_ml"
 sys.path.insert(0, str(rie_ml_path))
 
 from src.duplicate_detection import DuplicateDetector
@@ -24,7 +24,7 @@ class DuplicateCheckResult:
 
 
 class RealRuleComparisonService:
-    """Production duplicate detection backed by rie-ml."""
+    """Production duplicate detection backed by rie_ml."""
 
     def __init__(self):
         self.duplicate_detector = DuplicateDetector(threshold=0.85)
@@ -99,7 +99,7 @@ class ConflictCheckResult:
 
 
 class RealRuleConflictService:
-    """Production conflict detection backed by rie-ml."""
+    """Production conflict detection backed by rie_ml."""
 
     def __init__(self):
         self.conflict_detector = ConflictDetector()

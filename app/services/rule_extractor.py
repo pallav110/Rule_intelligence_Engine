@@ -1,4 +1,4 @@
-"""Real rule extractor service integrating rie-ml baseline extractor.
+"""Real rule extractor service integrating rie_ml baseline extractor.
 
 Replaces MockRuleExtractor with actual ML-powered rule extraction.
 """
@@ -6,7 +6,7 @@ Replaces MockRuleExtractor with actual ML-powered rule extraction.
 from dataclasses import dataclass
 from typing import Any, List, Dict
 
-from rie_ml.baseline.extractor import BaselineRuleExtractor as MLExtractor
+from rie_ml.src.baseline.extractor import BaselineRuleExtractor as MLExtractor
 
 
 @dataclass
@@ -26,7 +26,7 @@ class RuleExtractor:
 
 
 class RealRuleExtractor(RuleExtractor):
-    """Production rule extractor backed by rie-ml baseline."""
+    """Production rule extractor backed by rie_ml baseline."""
 
     def __init__(self):
         self._model = MLExtractor()

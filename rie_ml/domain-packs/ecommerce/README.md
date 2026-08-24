@@ -19,7 +19,7 @@ This domain pack contains a complete synthetic e-commerce business environment f
 ## Directory Structure
 
 ```
-rie-ml/domain-packs/ecommerce/
+rie_ml/domain-packs/ecommerce/
 ├── domain_config.json              # Pack metadata and version
 ├── schema/
 │   ├── schema.json                 # 7-entity database schema
@@ -149,7 +149,7 @@ All labels are defined in `taxonomy/labels.json` and use **snake_case** as the a
 **Run the domain pack validator:**
 
 ```bash
-python rie-ml/scripts/validate_domain_pack.py
+python rie_ml/scripts/validate_domain_pack.py
 ```
 
 Checks:
@@ -169,7 +169,7 @@ Person 1 (Backend / System Architecture) should implement a `DomainPackLoader` t
 
 ```python
 # Pseudo-code
-loader = DomainPackLoader("rie-ml/domain-packs/ecommerce")
+loader = DomainPackLoader("rie_ml/domain-packs/ecommerce")
 pack = loader.load()
 
 # Expected attributes:
@@ -233,7 +233,7 @@ feedback/seed.jsonl
   ↓
   (person 2: generate ~950 more examples with LLM-assisted pipeline)
   ↓
-  rie-ml/data/processed/
+  rie_ml/data/processed/
     ├── classification_train_*.jsonl
     ├── classification_val_*.jsonl
     ├── extraction_train_*.jsonl
@@ -242,7 +242,7 @@ feedback/seed.jsonl
   ↓
   (person 2: train DistilBERT classification + extraction models)
   ↓
-  rie-ml/models/
+  rie_ml/models/
     ├── classification_model_v1/
     ├── extraction_model_v1/
     └── model_metadata.json
@@ -254,7 +254,7 @@ feedback/seed.jsonl
 
 ### Validate the pack:
 ```bash
-cd rie-ml
+cd rie_ml
 python scripts/validate_domain_pack.py
 # Expected: "✅ ecommerce domain pack is valid"
 ```

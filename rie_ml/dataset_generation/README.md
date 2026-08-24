@@ -36,7 +36,7 @@ And produces:
 No additional dependencies beyond Python 3.8+. The pipeline uses only standard library modules.
 
 ```bash
-cd rie-ml
+cd rie_ml
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ python3 scripts/generate_dataset.py
 Or using the direct script:
 
 ```bash
-python3 rie-ml/dataset_generation/run_pipeline.py
+python3 rie_ml/dataset_generation/run_pipeline.py
 ```
 
 ### Advanced Usage

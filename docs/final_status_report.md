@@ -9,34 +9,34 @@
 
 ## ✅ COMPLETED DELIVERABLES
 
-### 1. ML Package (rie-ml/) - 100% Complete
+### 1. ML Package (rie_ml/) - 100% Complete
 
 #### Core Models
-- ✅ `rie-ml/src/baseline/classifier.py` - TF-IDF + Logistic Regression classifier
-- ✅ `rie-ml/src/baseline/extractor.py` - Regex-based rule extractor
-- ✅ `rie-ml/src/baseline/__init__.py` - Package exports
+- ✅ `rie_ml/src/baseline/classifier.py` - TF-IDF + Logistic Regression classifier
+- ✅ `rie_ml/src/baseline/extractor.py` - Regex-based rule extractor
+- ✅ `rie_ml/src/baseline/__init__.py` - Package exports
 
 #### Phase 3 Modules (Week 3 Requirements)
-- ✅ `rie-ml/src/duplicate_detection.py` - Semantic similarity detector (TF-IDF cosine)
-- ✅ `rie-ml/src/conflict_detection.py` - Structured conflict detector
-- ✅ `rie-ml/src/clarification.py` - Clarification question generator
+- ✅ `rie_ml/src/duplicate_detection.py` - Semantic similarity detector (TF-IDF cosine)
+- ✅ `rie_ml/src/conflict_detection.py` - Structured conflict detector
+- ✅ `rie_ml/src/clarification.py` - Clarification question generator
 
 #### Evaluation & Testing
-- ✅ `rie-ml/src/evaluation.py` - Evaluation harness with metrics
-- ✅ `rie-ml/run_e2e_pipeline.py` - End-to-end pipeline runner
+- ✅ `rie_ml/src/evaluation.py` - Evaluation harness with metrics
+- ✅ `rie_ml/run_e2e_pipeline.py` - End-to-end pipeline runner
 
 #### Documentation
-- ✅ `rie-ml/back_end_integration.md` - Integration contract
-- ✅ `rie-ml/requirements.txt` - Updated dependencies (sklearn, numpy, joblib)
-- ✅ `rie-ml/WEEK1_TO_WEEK3_PLAN.md` - Live tracking document
+- ✅ `rie_ml/back_end_integration.md` - Integration contract
+- ✅ `rie_ml/requirements.txt` - Updated dependencies (sklearn, numpy, joblib)
+- ✅ `rie_ml/WEEK1_TO_WEEK3_PLAN.md` - Live tracking document
 
 ---
 
 ### 2. Backend Services (app/services/) - 100% Complete
 
 #### Real ML Services (Replaced Mocks)
-- ✅ `app/services/classifier.py` - RealClassifier importing from rie-ml
-- ✅ `app/services/rule_extractor.py` - RealRuleExtractor importing from rie-ml
+- ✅ `app/services/classifier.py` - RealClassifier importing from rie_ml
+- ✅ `app/services/rule_extractor.py` - RealRuleExtractor importing from rie_ml
 - ✅ `app/services/rule_comparison_service.py` - Real duplicate/conflict detection
 - ✅ `app/services/duplicate_detection_service.py` - Standalone duplicate service
 - ✅ `app/services/conflict_detection_service.py` - Standalone conflict service
@@ -92,7 +92,7 @@
 
 - ✅ `BACKEND_AUDIT_REPORT.md` - Comprehensive audit of Person 1's gaps
 - ✅ `WEEK1_3_STATUS.md` - Progress tracking document
-- ✅ `rie-ml/back_end_integration.md` - ML-Backend integration contract
+- ✅ `rie_ml/back_end_integration.md` - ML-Backend integration contract
 
 ---
 
@@ -154,7 +154,7 @@ From documentation requirements:
 1. ✅ Replaced all Mock implementations with real ML services
 2. ✅ Added 15 missing API endpoints (suggestion, clarification, review)
 3. ✅ Created 6 missing backend services
-4. ✅ Integrated rie-ml package with backend
+4. ✅ Integrated rie_ml package with backend
 5. ✅ Fixed main.py to use RealClassifier/RealExtractor
 6. ✅ Added proper duplicate/conflict detection
 
@@ -170,7 +170,7 @@ From documentation requirements:
 ### Immediate (Next 2 hours)
 1. **Install Dependencies**
    ```bash
-   cd rie-ml
+   cd rie_ml
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
@@ -207,7 +207,7 @@ From documentation requirements:
 ## 📝 KNOWN ISSUES TO FIX
 
 ### Import/Dependency Issues
-1. ⚠️ `rie_ml` package needs to be installed via `pip install -e rie-ml/`
+1. ⚠️ `rie_ml` package needs to be installed via `pip install -e rie_ml/`
 2. ⚠️ scikit-learn needs system installation or venv
 3. ⚠️ Some circular import risks in main.py (to be tested)
 4. ⚠️ Database models may need schema validation
@@ -266,7 +266,7 @@ From documentation requirements:
 ### Share These Files
 1. `BACKEND_AUDIT_REPORT.md` - Shows what was missing
 2. `WEEK1_3_STATUS.md` - Current progress
-3. `rie-ml/back_end_integration.md` - How to integrate
+3. `rie_ml/back_end_integration.md` - How to integrate
 4. This file - Final status report
 
 ### Questions for Person 1

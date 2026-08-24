@@ -1,4 +1,4 @@
-"""RIE-ML baseline package.
+"""rie_ml baseline package.
 
 Exports the deterministic baseline models that the backend services
 (`app/services/classifier.py`, `app/services/rule_extractor.py`)

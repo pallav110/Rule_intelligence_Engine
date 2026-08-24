@@ -12,7 +12,7 @@ class DomainPackNotFoundError(FileNotFoundError):
 class DomainPackLoader:
     def __init__(self, repo_root: Path | None = None) -> None:
         self.repo_root = repo_root or Path(__file__).resolve().parents[2]
-        self.domain_packs_root = self.repo_root / "rie-ml" / "domain-packs"
+        self.domain_packs_root = self.repo_root / "rie_ml" / "domain-packs"
 
     def list_available_packs(self) -> list[dict[str, Any]]:
         packs: list[dict[str, Any]] = []

@@ -1,4 +1,4 @@
-"""Baseline rule extraction for RIE-ML (package: rie-ml/src/baseline/).
+"""Baseline rule extraction for rie_ml (package: rie_ml/src/baseline/).
 
 Matches the interface expected by ``app/services/rule_extractor.py``.
 

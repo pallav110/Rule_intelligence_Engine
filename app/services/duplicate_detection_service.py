@@ -1,4 +1,4 @@
-"""Real duplicate detection service integrating rie-ml duplicate detector.
+"""Real duplicate detection service integrating rie_ml duplicate detector.
 
 Replaces Mock duplicate detection with semantic similarity-based detection.
 """
@@ -7,15 +7,15 @@ from typing import List, Dict, Any
 import sys
 from pathlib import Path
 
-# Add rie-ml to path
-rie_ml_path = Path(__file__).parent.parent.parent / "rie-ml"
+# Add rie_ml to path
+rie_ml_path = Path(__file__).parent.parent.parent / "rie_ml"
 sys.path.insert(0, str(rie_ml_path))
 
 from src.duplicate_detection import DuplicateDetector
 
 
 class RealDuplicateDetectionService:
-    """Production duplicate detection backed by rie-ml."""
+    """Production duplicate detection backed by rie_ml."""
 
     def __init__(self, threshold: float = 0.85):
         self.detector = DuplicateDetector(threshold=threshold)

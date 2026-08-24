@@ -160,7 +160,7 @@ Conditions are **not** stored as a single text span - the Rule Builder construct
 1. Annotator labels record independently.
 2. Second reviewer validates labels and schema references.
 3. Disagreements escalated to senior review before inclusion in frozen evaluation set.
-4. Run `python3 rie-ml/scripts/validate_domain_pack.py` before committing new examples.
+4. Run `python3 rie_ml/scripts/validate_domain_pack.py` before committing new examples.
 
 ---
 

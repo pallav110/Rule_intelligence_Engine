@@ -32,7 +32,7 @@ def test_get_metrics_for_evaluation_run():
         domain_pack_version="ecommerce-2.0",
         annotation_version="gen_v1",
         source="synthetic_jsonl",
-        path="rie-ml/datasets/generated/v1/test.jsonl",
+        path="rie_ml/datasets/generated/v1/test.jsonl",
         status="READY",
     )
 

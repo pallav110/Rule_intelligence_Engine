@@ -12,8 +12,8 @@ from app.db.models.clarification import Clarification
 import sys
 from pathlib import Path
 
-# Add rie-ml to path
-rie_ml_path = Path(__file__).parent.parent.parent / "rie-ml"
+# Add rie_ml to path
+rie_ml_path = Path(__file__).parent.parent.parent / "rie_ml"
 sys.path.insert(0, str(rie_ml_path))
 
 from src.clarification import ClarificationGenerator

@@ -25,7 +25,7 @@ from evaluation import EvaluationHarness
 
 
 def main():
-    parser = argparse.ArgumentParser(description="RIE-ML End-to-End Pipeline")
+    parser = argparse.ArgumentParser(description="rie_ml End-to-End Pipeline")
     parser.add_argument("--train", action="store_true", help="Train classifier on train.jsonl")
     parser.add_argument("--evaluate", action="store_true", help="Run evaluation on test.jsonl")
     parser.add_argument("--test-feedback", type=str, help="Test single feedback text")
@@ -41,7 +41,7 @@ def main():
     model_path.parent.mkdir(exist_ok=True)
 
     # Initialize components
-    print("=== Initializing RIE-ML Pipeline ===")
+    print("=== Initializing rie_ml Pipeline ===")
     classifier = BaselineClassifier()
     extractor = BaselineRuleExtractor()
     dup_detector = DuplicateDetector(threshold=0.85)

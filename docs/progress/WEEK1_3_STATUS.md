@@ -8,21 +8,21 @@
 
 ## ✅ COMPLETED TODAY (Aug 24)
 
-### 1. ML Package (rie-ml) - DONE
-- ✅ `rie-ml/src/baseline/classifier.py` - TF-IDF + Logistic Regression
-- ✅ `rie-ml/src/baseline/extractor.py` - Regex-based rule extraction
-- ✅ `rie-ml/src/baseline/__init__.py` - Package exports
-- ✅ `rie-ml/src/duplicate_detection.py` - Semantic similarity detector
-- ✅ `rie-ml/src/conflict_detection.py` - Rule conflict detector
-- ✅ `rie-ml/src/clarification.py` - Clarification question generator
-- ✅ `rie-ml/src/evaluation.py` - Evaluation harness
-- ✅ `rie-ml/run_e2e_pipeline.py` - End-to-end pipeline runner
-- ✅ `rie-ml/back_end_integration.md` - Integration contract
-- ✅ `rie-ml/requirements.txt` - Updated with sklearn, numpy, joblib
+### 1. ML Package (rie_ml) - DONE
+- ✅ `rie_ml/src/baseline/classifier.py` - TF-IDF + Logistic Regression
+- ✅ `rie_ml/src/baseline/extractor.py` - Regex-based rule extraction
+- ✅ `rie_ml/src/baseline/__init__.py` - Package exports
+- ✅ `rie_ml/src/duplicate_detection.py` - Semantic similarity detector
+- ✅ `rie_ml/src/conflict_detection.py` - Rule conflict detector
+- ✅ `rie_ml/src/clarification.py` - Clarification question generator
+- ✅ `rie_ml/src/evaluation.py` - Evaluation harness
+- ✅ `rie_ml/run_e2e_pipeline.py` - End-to-end pipeline runner
+- ✅ `rie_ml/back_end_integration.md` - Integration contract
+- ✅ `rie_ml/requirements.txt` - Updated with sklearn, numpy, joblib
 
 ### 2. Backend Service Fixes - IN PROGRESS
-- ✅ `app/services/classifier.py` - Created `RealClassifier` (imports from rie-ml)
-- ✅ `app/services/rule_extractor.py` - Created `RealRuleExtractor` (imports from rie-ml)
+- ✅ `app/services/classifier.py` - Created `RealClassifier` (imports from rie_ml)
+- ✅ `app/services/rule_extractor.py` - Created `RealRuleExtractor` (imports from rie_ml)
 - ✅ Backend audit report created (`BACKEND_AUDIT_REPORT.md`)
 - 🚧 `app/main.py` - Partially updated (imports changed, need to update instantiation)
 
@@ -101,7 +101,7 @@ Replace Mock services in:
 ### Next 30 minutes:
 ```bash
 # 1. Install dependencies (needs venv or system packages)
-cd rie-ml
+cd rie_ml
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -145,7 +145,7 @@ python3 run_e2e_pipeline.py --test-feedback "Revenue should exclude cancelled or
 
 ## 🎯 SUCCESS CRITERIA (Week 3 Completion)
 
-- [ ] All Mock services replaced with real rie-ml imports
+- [ ] All Mock services replaced with real rie_ml imports
 - [ ] Baseline classifier trained and loaded
 - [ ] `/v1/feedback/analyze` returns real ML predictions
 - [ ] Duplicate detection working with semantic similarity

@@ -31,7 +31,7 @@ def create_model_and_dataset():
         domain_pack_version="ecommerce-2.0",
         annotation_version="gen_v1",
         source="synthetic_jsonl",
-        path="rie-ml/datasets/generated/v1/test.jsonl",
+        path="rie_ml/datasets/generated/v1/test.jsonl",
         status="READY",
     )
 
