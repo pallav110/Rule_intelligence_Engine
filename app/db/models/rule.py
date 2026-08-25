@@ -19,12 +19,22 @@ class Rule(Base):
         nullable=False,
     )
 
+    domain_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
     suggestion_id: Mapped[str | None] = mapped_column(
         ForeignKey("rule_suggestions.suggestion_id"),
         nullable=True,
     )
 
     rule_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    business_term: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
@@ -42,16 +52,40 @@ class Rule(Base):
     conditions: Mapped[list] = mapped_column(
         JSON,
         nullable=False,
+        default=list,
+    )
+
+    scope: Mapped[dict | str | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    threshold: Mapped[dict | str | int | float | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    time_window: Mapped[dict | str | None] = mapped_column(
+        JSON,
+        nullable=True,
     )
 
     affected_tables: Mapped[list] = mapped_column(
         JSON,
         nullable=False,
+        default=list,
     )
 
     affected_columns: Mapped[list] = mapped_column(
         JSON,
         nullable=False,
+        default=list,
+    )
+
+    affected_entities: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
     )
 
     rule_definition: Mapped[dict | None] = mapped_column(
@@ -73,4 +107,10 @@ class Rule(Base):
     activated_at: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
     )

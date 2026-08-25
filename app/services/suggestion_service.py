@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.rule_suggestion import RuleSuggestion
 from app.db.models.feedback import Feedback
-from app.services.rule_extractor import RealRuleExtractor
+from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
 from app.services.classifier import RealClassifier
 
 
@@ -21,7 +21,7 @@ class SuggestionService:
     def __init__(self):
         """Initialize suggestion service with extractors."""
         self.classifier = RealClassifier()
-        self.extractor = RealRuleExtractor()
+        self.extractor = EnhancedRuleExtractor()
 
     def extract(
         self,

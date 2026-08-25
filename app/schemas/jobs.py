@@ -1,13 +1,19 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
 class WorkspaceCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    description: str | None = None
 
 
 class WorkspaceResponse(BaseModel):
     workspace_id: str
     name: str
+    description: str | None = None
+    status: str
+    created_at: datetime
 
 
 class JobCreateRequest(BaseModel):
@@ -22,3 +28,5 @@ class JobResponse(BaseModel):
     job_type: str
     status: str
     idempotency_key: str
+    progress: int = 0
+    completed_at: datetime | None = None

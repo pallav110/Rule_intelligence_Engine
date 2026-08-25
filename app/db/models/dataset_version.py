@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models.workspace import Base
@@ -30,6 +30,21 @@ class DatasetVersion(Base):
     version: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    num_samples: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    domain_pack_id: Mapped[str | None] = mapped_column(
+        ForeignKey("domain_packs.pack_id"),
+        nullable=True,
     )
 
     domain_pack_version: Mapped[str] = mapped_column(
@@ -63,3 +78,11 @@ class DatasetVersion(Base):
         nullable=False,
         default=datetime.utcnow,
     )
+
+    @property
+    def version_name(self) -> str:
+        return self.dataset_name
+
+    @version_name.setter
+    def version_name(self, value: str) -> None:
+        self.dataset_name = value

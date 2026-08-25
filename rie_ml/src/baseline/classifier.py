@@ -86,7 +86,7 @@ class BaselineClassifier:
         -------
         dict
             ``feedback_type``, ``rule_category``, ``is_actionable``,
-            ``requires_clarification``, ``confidence``.
+            ``confidence``.
         """
         if not self._fitted:
             raise RuntimeError("Classifier not trained. Call .train() first.")
@@ -125,12 +125,14 @@ class BaselineClassifier:
             # If prediction is already a string, use it directly
             rule_category = str(preds[1])
 
-        # Simple heuristic for the remaining booleans
+        # Determine actionability - all extracted feedback types are actionable
         is_actionable = feedback_type in {
             "business_rule_correction",
             "data_quality_issue",
+            "access_rule",
+            "filter_rule",
+            "calculation_correction",
         }
-        requires_clarification = "unclear" in feedback.lower() or "?" in feedback
 
         # Compute confidence - use predict_proba if available, otherwise use heuristic
         try:
@@ -145,7 +147,6 @@ class BaselineClassifier:
             "feedback_type": feedback_type,
             "rule_category": rule_category,
             "is_actionable": is_actionable,
-            "requires_clarification": requires_clarification,
             "confidence": round(confidence, 4),
         }
 

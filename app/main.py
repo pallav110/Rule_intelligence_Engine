@@ -5,6 +5,7 @@ from typing import List, Optional
 import redis
 import csv
 import io
+import json
 from uuid import uuid4
 from fastapi import File, UploadFile
 from sqlalchemy import text
@@ -26,12 +27,14 @@ from app.schemas.feedback import (
     RuleComparisonRequest,
     RuleCompareRequest,
     RuleComparisonResponse,
-)
-from app.schemas.jobs import (
-    JobCreateRequest,
-    JobResponse,
-    WorkspaceCreateRequest,
-    WorkspaceResponse,
+    ClassificationResponse,
+    ExtractionResponse,
+    SchemaValidationResponse,
+    DuplicateDetectionResponse,
+    ConflictDetectionResponse,
+    ClarificationResponse as FeedbackClarificationResponse,
+    RoutingDecisionResponse,
+    PerFieldConfidence,
 )
 from app.schemas.suggestion import (
     SuggestionCreateRequest,
@@ -46,19 +49,37 @@ from app.schemas.suggestion import (
     ReviewCompleteRequest,
     ReviewAssignRequest,
 )
-from app.services.classifier import RealClassifier
-from app.services.domain_pack_loader import (
-    DomainPackLoader,
-    DomainPackNotFoundError,
+from app.schemas.jobs import (
+    JobCreateRequest,
+    JobResponse,
+    WorkspaceCreateRequest,
+    WorkspaceResponse,
 )
+from app.schemas.evaluation import (
+    EvaluationCreateRequest,
+    EvaluationMetricResponse,
+    EvaluationResponse,
+)
+from app.schemas.suggestion import (
+    SuggestionCreateRequest,
+    SuggestionResponse,
+    SuggestionApproveRequest,
+    SuggestionRejectRequest,
+    ClarificationCreateRequest,
+    ClarificationRespondRequest,
+    ReviewCreateRequest,
+    ReviewResponse,
+    ReviewCompleteRequest,
+    ReviewAssignRequest,
+)
+from app.services.classifier import RealClassifier
 from app.services.feedback_service import FeedbackService
-from app.services.rule_extractor import RealRuleExtractor
 from app.services.suggestion_service import SuggestionService
 from app.services.clarification_service import ClarificationService
 from app.services.review_routing_service import ReviewRoutingService
 from app.services.conflict_detection_service import RealConflictDetectionService
 from app.services.duplicate_detection_service import RealDuplicateDetectionService
-from app.services.entity_extractor import RealEntityExtractor
+from app.services.domain_pack_detector import detect_domain_pack
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
 
@@ -75,6 +96,15 @@ async def root():
     if ui_file.exists():
         return FileResponse(str(ui_file), media_type="text/html")
     return {"message": "Rule Intelligence Engine API - Visit /docs for Swagger UI"}
+
+# Phase 2 testing endpoint
+@app.get("/test/phase2", include_in_schema=False)
+async def phase2_test():
+    """Serve Phase 2 testing UI for classification, extraction, validation."""
+    ui_file = static_dir / "phase2-test.html"
+    if ui_file.exists():
+        return FileResponse(str(ui_file), media_type="text/html")
+    return {"message": "Phase 2 test UI not found"}
 
 # Dependency injection setup
 def get_db():
@@ -105,6 +135,21 @@ def health_check():
 def readiness_check():
     return {"status": "ready"}
 
+# --- Helper APIs ---
+
+@app.post("/api/detect-domain-pack")
+def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
+    """Auto-detect which domain pack feedback belongs to based on content analysis."""
+    feedback_text = payload.feedback_text or ""
+    detected_domain, confidence = detect_domain_pack(feedback_text)
+
+    return {
+        "detected_domain": detected_domain,
+        "confidence": round(confidence, 3),
+        "recommended": detected_domain if confidence > 0.3 else None,
+        "reasoning": f"Domain auto-detected with {confidence*100:.1f}% confidence"
+    }
+
 # --- Feedback Analysis Endpoints ---
 
 @app.post(
@@ -116,23 +161,33 @@ def analyze_feedback(
     db=Depends(get_db),
 ):
     """
-    Analyze feedback text through complete Week 3 pipeline:
+    Analyze feedback through complete 8-step Phase 2 pipeline:
     1. Classify feedback
-    2. Extract rules with NER from domain pack
-    3. Detect duplicates against existing rules
-    4. Detect conflicts against existing rules
-    5. Generate clarification if needed
-    6. Route for review (auto-approve if eligible)
+    2. Extract rules with enhanced evidence & confidence
+    3. Schema validation (PASS/PARTIAL/FAIL + coverage)
+    4. Duplicate detection
+    5. Conflict detection
+    6. Clarification generation
+    7. Review routing
+    8. Persist suggestion
     """
     from uuid import uuid4
     from datetime import datetime
+    from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
+    from app.services.schema_validation_service import SchemaValidationService
+    from app.services.duplicate_detection_service import RealDuplicateDetectionService
+    from app.services.conflict_detection_service import RealConflictDetectionService
+    from app.services.clarification_service import RealClarificationService
+    from app.services.review_routing_service import RealReviewRoutingService
 
     # Step 1: Create Feedback record
     feedback_id = payload.feedback_id or str(uuid4())
     feedback = Feedback(
         feedback_id=feedback_id,
         workspace_id=payload.workspace_id,
-        content=payload.feedback_text,
+        feedback_text=payload.feedback_text,
+        submitted_by=payload.submitted_by,
+        processing_status="processing",
         created_at=datetime.utcnow(),
     )
     db.add(feedback)
@@ -140,6 +195,7 @@ def analyze_feedback(
 
     # Step 2: Create AnalysisRun record
     analysis_run_id = str(uuid4())
+    suggestion_id = str(uuid4())
     analysis_run = AnalysisRun(
         analysis_run_id=analysis_run_id,
         feedback_id=feedback_id,
@@ -151,91 +207,57 @@ def analyze_feedback(
     db.add(analysis_run)
     db.flush()
 
-    # Step 3: Get domain pack for NER extraction
-    domain_pack_loader = DomainPackLoader()
+    # STEP 1: Classification (with domain-aware baseline model)
     domain_pack_id = payload.schema_context.get("domain_pack_id", "customer_support")
-    try:
-        domain_pack = domain_pack_loader.load(domain_pack_id)
-    except DomainPackNotFoundError:
-        domain_pack = {}
-
-    # Step 4: Classification + Extraction with NER
-    suggestion_service = SuggestionService()
-    extract_result = suggestion_service.extract(
-        feedback=payload.feedback_text,
-        domain_context=payload.schema_context,
-    )
-
-    classification_result_dict = extract_result["classification"]
-    extracted_rules = extract_result["extraction"]
-
-    # Step 5: Entity extraction using domain pack
-    from app.services.entity_extractor import RealEntityExtractor
-
-    entity_extractor = RealEntityExtractor(domain_pack)
-    entity_extraction = entity_extractor.extract_with_context(
+    classifier = RealClassifier(domain=domain_pack_id)
+    classification_result = classifier.classify(
         payload.feedback_text, payload.schema_context
     )
+    classification_result_dict = {
+        "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
+        "rule_category": classification_result.get("rule_category", "unknown"),
+        "is_actionable": classification_result.get("is_actionable", False),
+        "confidence": classification_result.get("confidence", 0.5),
+    }
 
-    # Enhance extracted rules with entity information
+    # STEP 2: Rule Extraction (with glossary, evidence, per-field confidence)
+    extractor = EnhancedRuleExtractor()
+    extraction_result = extractor.extract(payload.feedback_text, payload.schema_context)
+    extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+
+    # STEP 3: Schema Validation
+    # Load actual schema from domain pack for validation
+    domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce")
+    domain_schema = {}
+    try:
+        schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
+        if schema_path.exists():
+            with open(schema_path, 'r') as f:
+                domain_schema = json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
+
+    # Pass domain_pack_schema in schema_context to ensure validator has access
+    full_schema_context = dict(payload.schema_context) if payload.schema_context else {}
+    full_schema_context["domain_pack_schema"] = domain_schema
+
+    schema_validator = SchemaValidationService(schema_context=full_schema_context)
+    schema_validation_results = []
     for rule in extracted_rules:
-        if "affected_entities" not in rule or not rule.get("affected_entities"):
-            rule["affected_entities"] = entity_extraction.get("affected_entities", {})
+        validation = schema_validator.validate_rule(rule, domain_schema)
+        schema_validation_results.append(validation)
 
-    # Step 6: Duplicate Detection
-    from app.services.duplicate_detection_service import RealDuplicateDetectionService
+    # Aggregate schema validation
+    schema_validation = {
+        "status": "PASS" if all(v["status"] == "PASS" for v in schema_validation_results) else
+                  "PARTIAL" if any(v["status"] in ["PASS", "PARTIAL"] for v in schema_validation_results) else "FAIL",
+        "coverage": sum(v["coverage"] for v in schema_validation_results) / len(schema_validation_results) if schema_validation_results else 0.0,
+        "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in schema_validation_results),
+        "validation_errors": [e for v in schema_validation_results for e in v["validation_errors"]],
+    }
 
-    duplicate_service = RealDuplicateDetectionService()
+    # STEP 4: Persist Suggestion (BEFORE clarification/routing to satisfy FK constraints)
     primary_rule = extracted_rules[0] if extracted_rules else {}
-    duplicate_check = duplicate_service.check_duplicate(
-        suggested_rule=primary_rule,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        db=db,
-    )
-
-    # Step 7: Conflict Detection
-    from app.services.conflict_detection_service import RealConflictDetectionService
-
-    conflict_service = RealConflictDetectionService()
-    conflict_check = conflict_service.check_conflict(
-        suggested_rule=primary_rule,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        db=db,
-    )
-
-    # Step 8: Clarification Generation
-    from app.services.clarification_service import RealClarificationService
-
-    clarification_service = RealClarificationService()
-    clarification_result = clarification_service.generate_clarification(
-        feedback_id=feedback_id,
-        feedback_text=payload.feedback_text,
-        classification=classification_result_dict,
-        extraction=extract_result,
-        workspace_id=payload.workspace_id,
-        db=db,
-    )
-
-    # Step 9: Review Routing
-    from app.services.review_routing_service import RealReviewRoutingService
-
-    routing_service = RealReviewRoutingService()
-    suggestion_id = str(uuid4())
-    routing_decision = routing_service.route_suggestion(
-        suggestion_id=suggestion_id,
-        suggestion=primary_rule,
-        classification=classification_result_dict,
-        extraction=extract_result,
-        conflict_check=conflict_check,
-        duplicate_check=duplicate_check,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        db=db,
-    )
-
-    # Step 10: Create RuleSuggestion record with all intelligence
     rule_suggestion = RuleSuggestion(
         suggestion_id=suggestion_id,
         workspace_id=payload.workspace_id,
@@ -245,47 +267,142 @@ def analyze_feedback(
         rule_category=classification_result_dict.get("rule_category"),
         classification_result=classification_result_dict,
         extraction_result="completed",
-        clarification_required=clarification_result.get("created", False),
-        review_status=routing_decision.get("review_status", "pending_review"),
+        clarification_required=False,  # Will update after clarification check
+        review_status="pending_review",  # Will update after routing
         suggested_rule=primary_rule,
         created_at=datetime.utcnow(),
     )
     db.add(rule_suggestion)
+    db.flush()  # Flush to ensure suggestion is persisted before FK references
 
-    # Step 11: Mark AnalysisRun as completed
+    # STEP 5: Duplicate Detection
+    duplicate_service = RealDuplicateDetectionService()
+    duplicate_check = duplicate_service.check_duplicate(
+        suggested_rule=primary_rule,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # STEP 6: Conflict Detection
+    conflict_service = RealConflictDetectionService()
+    conflict_check = conflict_service.check_conflict(
+        suggested_rule=primary_rule,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # STEP 7: Clarification Generation (NOW safe to reference suggestion)
+    clarification_service = RealClarificationService()
+    clarification_result = clarification_service.generate_clarification(
+        feedback_id=feedback_id,
+        feedback_text=payload.feedback_text,
+        classification=classification_result_dict,
+        extraction=extraction_result,
+        workspace_id=payload.workspace_id,
+        suggestion_id=suggestion_id,
+        analysis_run_id=analysis_run_id,
+        db=db,
+    )
+
+    # STEP 8: Review Routing
+    routing_service = RealReviewRoutingService()
+    routing_decision = routing_service.route_suggestion(
+        suggestion_id=suggestion_id,
+        suggestion=primary_rule,
+        classification=classification_result_dict,
+        extraction=extraction_result,
+        conflict_check=conflict_check,
+        duplicate_check=duplicate_check,
+        workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
+        db=db,
+    )
+
+    # Update suggestion with clarification and routing results
+    rule_suggestion.clarification_required = clarification_result.get("created", False)
+    rule_suggestion.review_status = routing_decision.get("review_status", "pending_review")
+
     analysis_run.status = "completed"
     analysis_run.completed_at = datetime.utcnow()
-
     db.commit()
 
-    # Step 12: Build comprehensive response
+    # Build spec-compliant response with per-module confidence
+    clarification_required = clarification_result.get("created", False)
+
+    # Build extraction confidence with semantic labels
+    per_field_confidence = extraction_result.get("extraction", {}).get("confidence", {})
+    if per_field_confidence:
+        extraction_confidence = PerFieldConfidence(**per_field_confidence)
+    else:
+        # Fallback from overall confidence
+        overall = extraction_result.get("extraction_confidence", 0.5)
+        extraction_confidence = PerFieldConfidence(
+            business_term=overall,
+            operation=overall,
+            conditions=overall,
+            scope=overall,
+            affected_entities=overall
+        )
+
+    # Schema validation with schema_loaded flag
+    schema_validation_results = schema_validation_results  # Already computed
+    schema_loaded = schema_validation_results[0].get("schema_loaded", False) if schema_validation_results else False
+    schema_validation_obj = SchemaValidationResponse(
+        status=schema_validation["status"],
+        coverage=schema_validation["coverage"],
+        mandatory_fields_valid=schema_validation["mandatory_fields_valid"],
+        validation_errors=schema_validation["validation_errors"],
+        schema_loaded=schema_loaded
+    )
+
+    # Build extraction response with proper structure
+    extraction_data = extraction_result.get("extraction", {})
+    extraction_response = ExtractionResponse(
+        extracted_rules=extraction_data.get("extracted_rules", []),
+        candidate_rules=extraction_data.get("candidate_rules", []),
+        rules=extraction_data.get("rules", []),
+        confidence=extraction_confidence,
+        evidence=extraction_result.get("evidence", ""),
+        rule_count=extraction_result.get("rule_count", {"extracted": 0, "candidates": 0})
+    )
+
     return FeedbackAnalysisResponse(
         feedback_id=feedback_id,
-        feedback_type=classification_result_dict["feedback_type"],
-        rule_category=classification_result_dict["rule_category"],
-        is_actionable=classification_result_dict["is_actionable"],
-        requires_clarification=clarification_result.get("created", False),
-        confidence=classification_result_dict["confidence"],
-        extracted_rules=extracted_rules,
-        suggestion={
-            "suggestion_id": suggestion_id,
-            "analysis_run_id": analysis_run_id,
-            "suggested_rule": primary_rule,
-            "extracted_entities": entity_extraction,
-            "duplicate_check": duplicate_check,
-            "conflict_check": conflict_check,
-            "routing_decision": routing_decision,
-            "review_status": routing_decision.get("review_status"),
-            "priority": routing_decision.get("priority"),
-            "auto_approved": routing_decision.get("review_status") == "auto_approved",
-        },
-        clarification={
-            "clarification_id": clarification_result.get("clarification_id"),
-            "required": clarification_result.get("created", False),
-            "questions": clarification_result.get("questions", []),
-            "reason": clarification_result.get("reason"),
-            "ambiguity_reasons": clarification_result.get("details", {}).get("ambiguity_reasons", []),
-        } if clarification_result.get("created") else None,
+        suggestion_id=suggestion_id,
+        status="PENDING_REVIEW",
+        classification=ClassificationResponse(
+            feedback_type=classification_result_dict["feedback_type"],
+            rule_category=classification_result_dict["rule_category"],
+            confidence=classification_result_dict["confidence"],
+            is_actionable=classification_result_dict["is_actionable"],
+        ),
+        extraction=extraction_response,
+        schema_validation=schema_validation_obj,
+        duplicate_detection=DuplicateDetectionResponse(
+            status=duplicate_check.get("status", "none"),
+            relationship=duplicate_check.get("relationship", "unrelated"),
+            similar_rules=duplicate_check.get("similar_rules", []),
+        ),
+        conflict_detection=ConflictDetectionResponse(
+            status=conflict_check.get("status", "no_conflict"),
+            relationship=conflict_check.get("relationship", "compatible"),
+            conflicting_rules=conflict_check.get("conflicting_rules", []),
+        ),
+        clarification_required=clarification_required,
+        clarification=FeedbackClarificationResponse(
+            clarification_id=clarification_result.get("clarification_id"),
+            required=clarification_required,
+            questions=clarification_result.get("questions", []),
+            reason=clarification_result.get("reason", ""),
+            ambiguity_reasons=clarification_result.get("ambiguity_reasons", []),
+        ) if clarification_required else None,
+        routing_decision=RoutingDecisionResponse(
+            review_status=routing_decision.get("review_status", "pending_review"),
+            priority=routing_decision.get("priority", "normal"),
+            reason=routing_decision.get("reason", "")
+        ),
     )
 
 
@@ -590,13 +707,25 @@ def create_workspace_route(
 ):
     from datetime import datetime
     from uuid import uuid4
-    # Return mock response
-    return WorkspaceResponse(
-        workspace_id=str(uuid4()),
+    from app.db.models.workspace import Workspace
+
+    workspace_id = str(uuid4())
+    workspace = Workspace(
+        workspace_id=workspace_id,
         name=payload.name,
         description=payload.description,
         status="active",
         created_at=datetime.utcnow(),
+    )
+    db.add(workspace)
+    db.commit()
+
+    return WorkspaceResponse(
+        workspace_id=workspace.workspace_id,
+        name=workspace.name,
+        description=workspace.description,
+        status=workspace.status,
+        created_at=workspace.created_at,
     )
 
 
@@ -605,9 +734,8 @@ def get_workspace_route(
     workspace_id: str,
     db=Depends(get_db),
 ):
-    from app.services.workspace_service import WorkspaceService
-    workspace_service = WorkspaceService()
-    workspace = workspace_service.get_workspace(db=db, workspace_id=workspace_id)
+    from app.db.models.workspace import Workspace
+    workspace = db.get(Workspace, workspace_id)
     if workspace is None:
         raise HTTPException(status_code=404, detail=f"Workspace not found: {workspace_id}")
     return WorkspaceResponse(

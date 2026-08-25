@@ -24,18 +24,41 @@ class Review(Base):
         nullable=False,
     )
 
-    reviewer_id: Mapped[str] = mapped_column(
+    reviewer_id: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
     )
 
-    decision: Mapped[str] = mapped_column(
+    status: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
+        default="assigned",
     )
 
-    comment: Mapped[str | None] = mapped_column(
+    priority: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="normal",
+    )
+
+    decision: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    notes: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True,
+    )
+
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
         nullable=True,
     )
 
@@ -44,3 +67,19 @@ class Review(Base):
         nullable=False,
         default=datetime.utcnow,
     )
+
+    @property
+    def comment(self) -> str | None:
+        return self.notes
+
+    @comment.setter
+    def comment(self, value: str | None) -> None:
+        self.notes = value
+
+    @property
+    def reviewed_at(self) -> datetime | None:
+        return self.completed_at
+
+    @reviewed_at.setter
+    def reviewed_at(self, value: datetime | None) -> None:
+        self.completed_at = value

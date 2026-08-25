@@ -19,6 +19,11 @@ class RuleComparison(Base):
         nullable=False,
     )
 
+    extracted_rule_id: Mapped[str | None] = mapped_column(
+        ForeignKey("extracted_rules.extracted_rule_id"),
+        nullable=True,
+    )
+
     suggestion_id: Mapped[str | None] = mapped_column(
         ForeignKey("rule_suggestions.suggestion_id"),
         nullable=True,
@@ -32,6 +37,11 @@ class RuleComparison(Base):
     relationship: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+    )
+
+    compared_rule_id: Mapped[str | None] = mapped_column(
+        ForeignKey("rules.rule_id"),
+        nullable=True,
     )
 
     matching_rule_id: Mapped[str | None] = mapped_column(
@@ -58,3 +68,27 @@ class RuleComparison(Base):
         nullable=False,
         default=datetime.utcnow,
     )
+
+    @property
+    def relationship_type(self) -> str:
+        return self.relationship
+
+    @relationship_type.setter
+    def relationship_type(self, value: str) -> None:
+        self.relationship = value
+
+    @property
+    def similarity_score(self) -> float | None:
+        return self.confidence
+
+    @similarity_score.setter
+    def similarity_score(self, value: float | None) -> None:
+        self.confidence = value
+
+    @property
+    def comparison_summary(self) -> dict | None:
+        return self.details
+
+    @comparison_summary.setter
+    def comparison_summary(self, value: dict | None) -> None:
+        self.details = value

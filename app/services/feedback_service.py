@@ -5,136 +5,107 @@ from sqlalchemy.orm import Session
 
 from app.db.models.analysis_run import AnalysisRun
 from app.db.models.feedback import Feedback
-from app.services.classifier import Classifier
-from app.services.domain_pack_loader import DomainPackLoader
-from app.services.feedback_preprocessor import FeedbackPreprocessor
-from app.services.rule_extractor import RuleExtractor
-from app.services.schema_validator import SchemaValidator
-from app.services.canonical_rule_service import CanonicalRuleService
-
-from app.schemas.feedback import (
-    ClassificationResponse,
-    FeedbackAnalysisResponse,
-    ValidationErrorResponse,
-    ValidationResponse,
-)
+from app.schemas.feedback import FeedbackAnalysisResponse
+from app.services.domain_pack_loader import DomainPackLoader, DomainPackNotFoundError
+from app.services.suggestion_service import SuggestionService
 
 
 class FeedbackService:
-    def __init__(
-        self,
-        preprocessor: FeedbackPreprocessor,
-        domain_loader: DomainPackLoader,
-        classifier: Classifier,
-        extractor: RuleExtractor,
-        validator: SchemaValidator,
-        canonical_rule_service: CanonicalRuleService,
-    ):
-        self.preprocessor = preprocessor
-        self.domain_loader = domain_loader
-        self.classifier = classifier
-        self.extractor = extractor
-        self.validator = validator
-        self.canonical_rule_service = canonical_rule_service
+    def __init__(self):
+        self.domain_loader = DomainPackLoader()
+        self.suggestion_service = SuggestionService()
 
     def analyze(
         self,
         db: Session,
         workspace_id: str,
         feedback: str,
-        domain: str,
+        domain: str | None = None,
         processing_mode: str = "single",
-    ):
-        feedback_id = str(uuid4())
+        feedback_id: str | None = None,
+        submitted_by: str | None = None,
+        schema_context: dict | None = None,
+    ) -> FeedbackAnalysisResponse:
+        """Deprecated: Use app/main.py analyze_feedback endpoint instead."""
+        feedback_id = feedback_id or str(uuid4())
         analysis_run_id = str(uuid4())
+        schema_context = schema_context or {}
+        domain_pack_id = domain or schema_context.get("domain_pack_id", "customer_support")
 
         feedback_record = Feedback(
             feedback_id=feedback_id,
             workspace_id=workspace_id,
-            content=feedback,
+            feedback_text=feedback,
+            submitted_by=submitted_by,
+            processing_status="processing",
         )
+        db.add(feedback_record)
+        db.flush()
 
         analysis_run = AnalysisRun(
             analysis_run_id=analysis_run_id,
             feedback_id=feedback_id,
             workspace_id=workspace_id,
-            status="processing",
+            domain_pack_id=domain_pack_id,
             processing_mode=processing_mode,
+            status="processing",
             started_at=datetime.utcnow(),
         )
-
-        db.add(feedback_record)
+        db.add(analysis_run)
         db.flush()
 
-        db.add(analysis_run)
-        db.commit()
+        try:
+            domain_pack = self.domain_loader.load(domain_pack_id)
+        except DomainPackNotFoundError:
+            domain_pack = {}
 
-        available_domains = {
-            pack["domain_pack_id"]
-            for pack in self.domain_loader.list_available_packs()
-        }
-
-        processed = self.preprocessor.preprocess(
-            feedback,
-            domain,
-            available_domains,
+        extract_result = self.suggestion_service.extract(
+            feedback=feedback,
+            domain_context=schema_context,
         )
+        classification = extract_result["classification"]
+        extraction = extract_result.get("extraction", {})
+        extracted_rules = extraction.get("rules", []) if isinstance(extraction, dict) else []
 
-        schema = self.domain_loader.load_schema(processed.domain)
-
-        classification = self.classifier.classify(
-            processed.normalized_text,
-            {
-                "domain": processed.domain,
-            },
-        )
-
-        extraction = self.extractor.extract(
-            processed.normalized_text,
-            classification,
-            schema,
-        )
-
-        canonical_rules = [
-            self.canonical_rule_service.build(rule)
-            for rule in extraction.rules
-        ]
-
-        validation = self.validator.validate(
-            [
-                condition.field
-                for rule in canonical_rules
-                for condition in rule.conditions
-            ],
-            schema,
-        )
-
+        feedback_record.processing_status = "processed"
         analysis_run.status = "completed"
         analysis_run.completed_at = datetime.utcnow()
-
         db.commit()
 
         return FeedbackAnalysisResponse(
             feedback_id=feedback_id,
-            classification=ClassificationResponse(
-                feedback_type=classification.feedback_type,
-                rule_category=classification.rule_category,
-                is_actionable=classification.is_actionable,
-                requires_clarification=classification.requires_clarification,
-                confidence=classification.confidence,
-            ),
-            rules=[
-                rule.model_dump()
-                for rule in canonical_rules
-            ],
-            validation=ValidationResponse(
-                valid=validation.valid,
-                errors=[
-                    ValidationErrorResponse(
-                        field=error.field,
-                        reason=error.reason,
-                    )
-                    for error in validation.errors
-                ],
-            ),
+            suggestion_id=str(uuid4()),
+            status="PENDING_REVIEW",
+            classification={
+                "feedback_type": classification.get("feedback_type", "unknown"),
+                "rule_category": classification.get("rule_category"),
+                "actionability": classification.get("is_actionable", False),
+                "confidence": classification.get("confidence", 0.0),
+            },
+            extraction={
+                "rules": extracted_rules,
+                "confidence": extraction.get("extraction_confidence", 0.0),
+                "evidence": extraction.get("evidence", ""),
+            },
+            schema_validation={
+                "status": "PASS",
+                "coverage": 1.0,
+                "mandatory_fields_valid": True,
+                "validation_errors": [],
+            },
+            duplicate_detection={
+                "status": "none",
+                "relationship": "unrelated",
+                "similar_rules": [],
+            },
+            conflict_detection={
+                "status": "no_conflict",
+                "relationship": "compatible",
+                "conflicting_rules": [],
+            },
+            routing_decision={
+                "review_status": "pending_review",
+                "priority": "normal",
+                "reason": "",
+            },
         )

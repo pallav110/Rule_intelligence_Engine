@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models.workspace import Base
@@ -33,6 +33,31 @@ class EvaluationRun(Base):
         String(30),
         nullable=False,
         default="pending",
+    )
+
+    classification_accuracy: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    classification_f1: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    complete_rule_accuracy: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    duplicate_f1: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    conflict_f1: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    calibration_error: Mapped[float | None] = mapped_column(
+        nullable=True,
     )
 
     started_at: Mapped[datetime | None] = mapped_column(

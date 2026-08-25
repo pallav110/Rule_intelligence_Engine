@@ -2,12 +2,6 @@ from app.db.database import SessionLocal
 from app.db.models.background_job import BackgroundJob
 from app.worker import celery_app
 from app.services.feedback_service import FeedbackService
-from app.services.feedback_preprocessor import FeedbackPreprocessor
-from app.services.domain_pack_loader import DomainPackLoader
-from app.services.classifier import MockClassifier
-from app.services.rule_extractor import MockRuleExtractor
-from app.services.schema_validator import SchemaValidator
-from app.services.canonical_rule_service import CanonicalRuleService
 
 
 @celery_app.task(
@@ -48,14 +42,7 @@ def process_background_job(
                 "status": "completed",
             }
 
-        feedback_service = FeedbackService(
-            preprocessor=FeedbackPreprocessor(),
-            domain_loader=DomainPackLoader(),
-            classifier=MockClassifier(),
-            extractor=MockRuleExtractor(),
-            validator=SchemaValidator(),
-            canonical_rule_service=CanonicalRuleService(),
-        )
+        feedback_service = FeedbackService()
 
         for feedback in feedback_rows:
             feedback_service.analyze(
