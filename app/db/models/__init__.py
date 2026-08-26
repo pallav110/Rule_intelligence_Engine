@@ -4,7 +4,9 @@ from app.db.models.analysis_run import AnalysisRun
 from app.db.models.rule_suggestion import RuleSuggestion
 from app.db.models.extracted_rule import ExtractedRule
 from app.db.models.rule import Rule
+from app.db.models.rule_embedding import RuleEmbedding
 from app.db.models.clarification import Clarification
+from app.db.models.suggestion_audit import SuggestionAudit
 from app.db.models.model_version import ModelVersion
 from app.db.models.dataset_version import DatasetVersion
 from app.db.models.background_job import BackgroundJob

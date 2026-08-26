@@ -405,8 +405,9 @@ class EnhancedRuleExtractor:
         """Build extraction evidence text."""
         evidence_parts = [
             f"Identified business term '{term['term']}' in feedback",
-            f"Extracted operation: {operation.upper()}",
         ]
+        if operation:
+            evidence_parts.append(f"Extracted operation: {operation.upper()}")
 
         if conditions:
             evidence_parts.append(f"Conditions: {len(conditions)} extracted")
@@ -433,7 +434,7 @@ class EnhancedRuleExtractor:
         """Calculate per-field confidence scores."""
         return {
             "business_term": min(0.95, term.get("confidence", 0.5)),
-            "operation": 0.85 if operation != "exclude" else 0.95,
+            "operation": 0.85 if operation and operation != "exclude" else (0.95 if operation == "exclude" else 0.50),
             "conditions": 0.70 if conditions else 0.40,
             "scope": 0.80,
             "affected_entities": 0.75,

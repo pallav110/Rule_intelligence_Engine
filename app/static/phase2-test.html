@@ -275,6 +275,9 @@
         <div class="header">
             <div class="title">🧠 Phase 2 Testing - Core Intelligence Engine</div>
             <div class="subtitle">Classification | Rule Extraction | Schema Validation | End-to-End Pipeline</div>
+            <div style="margin-top: 10px;">
+                <a href="/ui/phase3-test.html" style="color: var(--accent); font-size: 12px; text-decoration: none;">🔄 View Phase 3 Complete Pipeline →</a>
+            </div>
         </div>
 
         <div class="grid">
@@ -682,26 +685,82 @@
                     ` : ''}
                 </div>
                 <div class="step">
-                    <div class="step-title">Duplicate Detection</div>
+                    <div class="step-title">Duplicate Detection (Two-Stage)</div>
                     <div class="field">
-                        <div class="field-label">Status</div>
-                        <div class="field-value"><span class="status-badge ${duplicateDetection.status === 'none' ? 'status-success' : 'status-warning'}">${duplicateDetection.status || 'none'}</span></div>
+                        <div class="field-label">Is Duplicate</div>
+                        <div class="field-value"><span class="status-badge ${duplicateDetection.is_duplicate ? 'status-warning' : 'status-success'}">${duplicateDetection.is_duplicate ? '⚠ YES' : '✅ NO'}</span></div>
                     </div>
                     <div class="field">
                         <div class="field-label">Relationship</div>
-                        <div class="field-value">${duplicateDetection.relationship || 'N/A'}</div>
+                        <div class="field-value">${duplicateDetection.relationship || 'unrelated'}</div>
                     </div>
+                    ${duplicateDetection.matching_rule_id ? `
+                    <div class="field">
+                        <div class="field-label">Matching Rule ID</div>
+                        <div class="field-value">${duplicateDetection.matching_rule_id}</div>
+                    </div>
+                    ` : ''}
+                    <div class="field">
+                        <div class="field-label">Stage 1: Candidates Retrieved</div>
+                        <div class="field-value">${duplicateDetection.retrieval_stage || 0}</div>
+                    </div>
+                    ${duplicateDetection.semantic_similarity !== undefined && duplicateDetection.semantic_similarity !== null ? `
+                    <div class="field">
+                        <div class="field-label">Semantic Similarity</div>
+                        <div class="field-value">${(duplicateDetection.semantic_similarity * 100).toFixed(1)}%</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${(duplicateDetection.semantic_similarity || 0) * 100}%"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${duplicateDetection.confidence !== undefined && duplicateDetection.confidence !== null ? `
+                    <div class="field">
+                        <div class="field-label">Duplicate Confidence</div>
+                        <div class="field-value">${(duplicateDetection.confidence * 100).toFixed(1)}%</div>
+                    </div>
+                    ` : ''}
                 </div>
                 <div class="step">
-                    <div class="step-title">Conflict Detection</div>
+                    <div class="step-title">Conflict Detection (Two-Stage)</div>
                     <div class="field">
-                        <div class="field-label">Status</div>
-                        <div class="field-value"><span class="status-badge ${conflictDetection.status === 'no_conflict' ? 'status-success' : 'status-warning'}">${conflictDetection.status || 'no_conflict'}</span></div>
+                        <div class="field-label">Has Conflict</div>
+                        <div class="field-value"><span class="status-badge ${conflictDetection.has_conflict ? 'status-warning' : 'status-success'}">${conflictDetection.has_conflict ? '⚠ YES' : '✅ NO'}</span></div>
                     </div>
                     <div class="field">
-                        <div class="field-label">Relationship</div>
-                        <div class="field-value">${conflictDetection.relationship || 'N/A'}</div>
+                        <div class="field-label">Conflict Type</div>
+                        <div class="field-value">${conflictDetection.conflict_type || 'no_conflict'}</div>
                     </div>
+                    ${conflictDetection.conflicting_rule_ids && conflictDetection.conflicting_rule_ids.length > 0 ? `
+                    <div class="field">
+                        <div class="field-label">Conflicting Rule IDs</div>
+                        <div class="field-value">${conflictDetection.conflicting_rule_ids.join(', ')}</div>
+                    </div>
+                    ` : ''}
+                    ${conflictDetection.related_compatible_rule_ids && conflictDetection.related_compatible_rule_ids.length > 0 ? `
+                    <div class="field">
+                        <div class="field-label">Related Compatible Rule IDs</div>
+                        <div class="field-value">${conflictDetection.related_compatible_rule_ids.join(', ')}</div>
+                    </div>
+                    ` : ''}
+                    <div class="field">
+                        <div class="field-label">Stage 1: Candidates Retrieved</div>
+                        <div class="field-value">${conflictDetection.retrieval_stage || 0}</div>
+                    </div>
+                    ${conflictDetection.semantic_similarity !== undefined && conflictDetection.semantic_similarity !== null ? `
+                    <div class="field">
+                        <div class="field-label">Semantic Similarity</div>
+                        <div class="field-value">${(conflictDetection.semantic_similarity * 100).toFixed(1)}%</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${(conflictDetection.semantic_similarity || 0) * 100}%"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${conflictDetection.confidence !== undefined && conflictDetection.confidence !== null ? `
+                    <div class="field">
+                        <div class="field-label">Conflict Confidence</div>
+                        <div class="field-value">${(conflictDetection.confidence * 100).toFixed(1)}%</div>
+                    </div>
+                    ` : ''}
                 </div>
                 <div class="step">
                     <div class="step-title">Review Routing</div>

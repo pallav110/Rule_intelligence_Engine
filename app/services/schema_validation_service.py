@@ -70,12 +70,13 @@ class SchemaValidationService:
         valid_operations = [
             "exclude", "include", "restrict", "map", "replace", "add", "subtract"
         ]
-        if rule.get("operation", "").lower() in valid_operations:
+        operation = rule.get("operation")
+        if operation and operation.lower() in valid_operations:
             validated_fields.append("operation")
         else:
             invalid_fields.append("operation")
             validation_errors.append(
-                f"Invalid operation: {rule.get('operation')}. "
+                f"Invalid or missing operation: {operation}. "
                 f"Valid operations: {valid_operations}"
             )
 

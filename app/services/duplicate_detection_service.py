@@ -90,8 +90,8 @@ class DuplicateDetector:
         details["business_term_match"] = term_similarity > 0.85
 
         # 2. Check operation match
-        new_op = new_rule.get("operation", "").lower()
-        existing_op = existing_rule.get("operation", "").lower()
+        new_op = (new_rule.get("operation") or "").lower()
+        existing_op = (existing_rule.get("operation") or "").lower()
         details["operation_match"] = new_op == existing_op
 
         # 3. Check scope match
@@ -248,9 +248,10 @@ class DuplicateDetector:
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
 
-        # EXTENSION: same operation/scope but more conditions or entities
+        # EXTENSION: same business term, same operation, more conditions or entities
         if (
-            operation_match
+            business_term_match
+            and operation_match
             and scope_match
             and len(new_rule.get("conditions", [])) >= len(existing_rule.get("conditions", []))
             and condition_sim > 0.4
@@ -258,15 +259,20 @@ class DuplicateDetector:
             confidence = min(0.8, condition_sim + 0.3)
             return self.EXTENSION, confidence
 
-        # SUBSET: existing rule is superset of new rule
-        if condition_sim > 0.6 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
+        # SUBSET: existing rule is superset of new rule (same business term)
+        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.8
             return self.SUBSET, confidence
 
-        # SUPERSET: new rule is superset of existing
-        if condition_sim > 0.6 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
+        # SUPERSET: new rule is superset of existing (same business term)
+        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.75
             return self.SUPERSET, confidence
+
+        # RELATED COMPATIBLE: same business term and operation but different conditions
+        if business_term_match and operation_match and not scope_match:
+            confidence = min(0.65, condition_sim * 0.7 + 0.2)
+            return "related_compatible", confidence
 
         # UNRELATED: low similarity across all dimensions
         confidence = 0.0
@@ -285,11 +291,31 @@ class DuplicateDetector:
 
 
 class RealDuplicateDetectionService:
-    """Production duplicate detection service with database integration."""
+    """Production duplicate detection service with pgvector semantic retrieval."""
+
+    # Top-K candidates to retrieve for detailed comparison
+    CANDIDATE_K = 10
+
+    # Similarity threshold for pgvector retrieval
+    SEMANTIC_SIMILARITY_THRESHOLD = 0.40
 
     def __init__(self):
         """Initialize service."""
         self.detector = DuplicateDetector()
+        self.embedding_service = None
+        self.pgvector_service = None
+        self._init_services()
+
+    def _init_services(self):
+        """Initialize embedding and pgvector services."""
+        try:
+            from app.services.embedding_service import get_embedding_service
+            from app.services.pgvector_service import get_pgvector_service
+
+            self.embedding_service = get_embedding_service()
+            self.pgvector_service = get_pgvector_service()
+        except Exception as e:
+            print(f"Warning: Could not initialize embedding services: {e}")
 
     def check_duplicate(
         self,
@@ -299,21 +325,179 @@ class RealDuplicateDetectionService:
         db=None,
     ) -> Dict[str, Any]:
         """
-        Check if suggested rule duplicates existing rules in the workspace.
-        """
-        from sqlalchemy import text
+        Check if suggested rule duplicates existing rules using two-stage pipeline.
 
+        Stage 1 (NEW): Semantic retrieval via pgvector
+        - Generate embedding for suggested rule
+        - Query pgvector for Top-K semantically similar rules
+        - Filters from 100+ rules to ~10 candidates
+
+        Stage 2 (EXISTING): Structural comparison
+        - Detailed comparison of candidate rules only
+        - Determines exact duplicate vs semantic duplicate vs modification
+
+        Returns:
+            {
+                "relationship": "exact_duplicate|semantic_duplicate|modification|extension|unrelated",
+                "is_duplicate": bool,
+                "matching_rule_id": str or None,
+                "confidence": float (0.0-1.0),
+                "semantic_similarity": float (from pgvector),
+                "retrieval_stage": int (number of candidates retrieved),
+                "details": {...}
+            }
+        """
         if not db:
             return {
                 "is_duplicate": False,
                 "relationship": "unrelated",
                 "matching_rule_id": None,
                 "confidence": 0.0,
-                "details": {},
+                "semantic_similarity": 0.0,
+                "retrieval_stage": 0,
+                "details": {"reason": "No database connection"},
             }
 
         try:
-            # Query existing rules from database for this workspace/domain
+            # STAGE 1: Semantic Retrieval via pgvector
+            candidates = self._retrieve_candidates(
+                suggested_rule,
+                workspace_id,
+                domain_id,
+                db,
+            )
+
+            # If no candidates found, not a duplicate
+            if not candidates:
+                return {
+                    "is_duplicate": False,
+                    "relationship": "unrelated",
+                    "matching_rule_id": None,
+                    "confidence": 0.0,
+                    "semantic_similarity": 0.0,
+                    "retrieval_stage": 0,
+                    "details": {"reason": "No semantically similar rules found"},
+                }
+
+            # STAGE 2: Structural Comparison on Candidates
+            result = self.detector.detect(suggested_rule, candidates)
+
+            # Enhance result with pgvector data
+            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
+                "exact_duplicate",
+                "semantic_duplicate",
+            ]
+            result["semantic_similarity"] = round(
+                candidates[0].get("similarity_score", 0.0) if candidates else 0.0,
+                3
+            )
+            result["retrieval_stage"] = len(candidates)
+
+            return result
+
+        except Exception as e:
+            print(f"Error in duplicate detection: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "is_duplicate": False,
+                "relationship": "unrelated",
+                "matching_rule_id": None,
+                "confidence": 0.0,
+                "semantic_similarity": 0.0,
+                "retrieval_stage": 0,
+                "details": {"error": str(e)},
+            }
+
+    def _retrieve_candidates(
+        self,
+        suggested_rule: Dict[str, Any],
+        workspace_id: str,
+        domain_id: str,
+        db,
+    ) -> List[Dict[str, Any]]:
+        """
+        STAGE 1: Retrieve Top-K semantically similar candidates using pgvector.
+
+        This is the optimization: instead of comparing against all 100+ rules,
+        we pre-filter to ~10 most similar rules.
+
+        Args:
+            suggested_rule: The new rule to check
+            workspace_id: Workspace to search in
+            domain_id: Domain to filter by
+            db: SQLAlchemy session
+
+        Returns:
+            List of candidate rules with similarity_score, or empty list if none found
+        """
+        # If no embedding service, fall back to fetching all rules
+        if not self.embedding_service or not self.pgvector_service:
+            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+
+        try:
+            # Generate embedding for the suggested rule
+            rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
+            if not rule_text:
+                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+
+            embedding = self.embedding_service.generate_embedding(rule_text)
+            if not embedding:
+                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+
+            # Query pgvector for Top-K similar rules
+            # Search in BOTH user workspace AND domain pack workspace (reference rules)
+            user_candidates = self.pgvector_service.retrieve_similar_rules(
+                embedding=embedding,
+                workspace_id=workspace_id,
+                domain_id=domain_id,
+                top_k=self.CANDIDATE_K,
+                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
+                db=db,
+            )
+
+            # Also search domain pack workspace for reference rules
+            domain_pack_candidates = self.pgvector_service.retrieve_similar_rules(
+                embedding=embedding,
+                workspace_id="domain_pack_workspace",
+                domain_id=domain_id,
+                top_k=self.CANDIDATE_K,
+                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
+                db=db,
+            )
+
+            # Merge and deduplicate candidates (domain pack + user workspace)
+            candidates_dict = {}
+            for c in user_candidates + domain_pack_candidates:
+                rule_id = c.get("rule_id")
+                if rule_id not in candidates_dict or c.get("similarity_score", 0) > candidates_dict[rule_id].get("similarity_score", 0):
+                    candidates_dict[rule_id] = c
+
+            candidates = list(candidates_dict.values())
+            # Sort by similarity descending and take top K
+            candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+            candidates = candidates[:self.CANDIDATE_K]
+
+            return candidates
+
+        except Exception as e:
+            print(f"Warning: pgvector retrieval failed, falling back to all rules: {e}")
+            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+
+    def _fallback_retrieve_all_rules(
+        self,
+        workspace_id: str,
+        domain_id: str,
+        db,
+    ) -> List[Dict[str, Any]]:
+        """
+        Fallback: Retrieve all rules when pgvector is not available.
+
+        Used if embedding service fails or pgvector extension not installed.
+        """
+        try:
+            from sqlalchemy import text
+
             query = text(
                 """
                 SELECT rule_id, business_term, operation, conditions, scope,
@@ -331,7 +515,6 @@ class RealDuplicateDetectionService:
             existing_rules = []
 
             for row in result:
-                # Reconstruct rule dict from database
                 rule = {
                     "rule_id": row[0],
                     "business_term": row[1],
@@ -341,26 +524,12 @@ class RealDuplicateDetectionService:
                     "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
                     "threshold": row[6],
                     "time_window": row[7],
+                    "similarity_score": 0.0,  # No semantic score in fallback
                 }
                 existing_rules.append(rule)
 
-            # Run duplicate detection
-            result = self.detector.detect(suggested_rule, existing_rules)
-
-            # Mark as duplicate if confidence > threshold
-            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
-                "exact_duplicate",
-                "semantic_duplicate",
-            ]
-
-            return result
+            return existing_rules
 
         except Exception as e:
-            # If DB query fails, return conservative result
-            return {
-                "is_duplicate": False,
-                "relationship": "unrelated",
-                "matching_rule_id": None,
-                "confidence": 0.0,
-                "details": {"error": str(e)},
-            }
+            print(f"Error in fallback retrieval: {e}")
+            return []

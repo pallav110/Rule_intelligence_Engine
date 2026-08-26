@@ -1,0 +1,133 @@
+{
+  "ecommerce": {
+    "scope": [
+      "Should this rule apply to all products, specific categories, or price ranges?",
+      "Does this apply to all customer segments or specific tiers (VIP, new, inactive)?",
+      "Should this include international orders or only specific regions?",
+      "Are there seasonal or promotional period exceptions?"
+    ],
+    "conditions": [
+      "What order status or payment method triggers this rule?",
+      "Are there minimum/maximum order value thresholds?",
+      "Should this consider inventory levels or availability?",
+      "Does the customer's purchase history matter?"
+    ],
+    "timeline": [
+      "Should this apply in real-time or batched (daily, weekly)?",
+      "Are there peak/off-peak times when this should/shouldn't apply?",
+      "Is there a campaign or promotion date range?"
+    ],
+    "entities": [
+      "Which tables: orders, customers, products, inventory, or combinations?",
+      "Do we need to join payment_methods, shipping_addresses, or promotions?",
+      "Should this consider product_variants or just product_ids?"
+    ],
+    "priority": [
+      "Is this a critical rule (affects revenue) or informational?",
+      "How should this interact with existing discount or pricing rules?"
+    ],
+    "impact": [
+      "How many orders per day would this affect (estimate)?",
+      "What's the business value (cost savings, revenue impact)?",
+      "Could this create negative customer experiences?"
+    ],
+    "operation": [
+      "Should orders be excluded from revenue, included, or modified?",
+      "Should customers be notified if their orders are affected?",
+      "Is this a hard rule (always apply) or soft (best effort)?"
+    ]
+  },
+  "saas_subscription": {
+    "scope": [
+      "Should this apply to all subscription tiers or specific plans?",
+      "Does this affect trial accounts, paid accounts, or both?",
+      "Should this apply to all regions or specific geographies?",
+      "Does churn risk or account age matter?"
+    ],
+    "conditions": [
+      "What subscription status triggers this (active, paused, at-risk)?",
+      "Are there usage-based thresholds (API calls, seat count)?",
+      "Should this consider payment renewal date?",
+      "Does feature usage or feature adoption matter?"
+    ],
+    "timeline": [
+      "Should this run continuously or at billing cycles?",
+      "Are there quiet hours (don't process at certain times)?",
+      "Should this look at historical trends or real-time data?"
+    ],
+    "entities": [
+      "Which tables: subscriptions, accounts, usage, billing, or features?",
+      "Do we need account_admins, team_members, or org_hierarchy?",
+      "Should this consider feature_flags or feature_usage?"
+    ],
+    "priority": [
+      "Is this about retention, upsell, or cost optimization?",
+      "How does this prioritize against support or compliance rules?"
+    ],
+    "impact": [
+      "How many subscriptions per month would this affect?",
+      "What's the annual contract value (ACV) impact?",
+      "Could this affect Net Revenue Retention (NRR)?"
+    ],
+    "operation": [
+      "Should accounts be excluded from metrics, included, or flagged?",
+      "Should this trigger automated workflows (emails, discounts)?",
+      "Is this a hard rule or recommendation?"
+    ]
+  },
+  "customer_support": {
+    "scope": [
+      "Should this apply to all support channels (email, chat, phone)?",
+      "Does this affect all customer tiers or premium-only customers?",
+      "Should this include internal support staff or partner tickets?",
+      "Are there regional support guidelines?"
+    ],
+    "conditions": [
+      "What ticket priority or severity triggers this rule?",
+      "Should this consider wait time or response SLA?",
+      "Does customer sentiment (negative, urgent) matter?",
+      "Should this look at ticket category or keywords?"
+    ],
+    "timeline": [
+      "Should this apply 24/7 or business hours only?",
+      "Are there escalation time windows (2hr, 4hr)?",
+      "Should historical ticket patterns matter?"
+    ],
+    "entities": [
+      "Which tables: tickets, customers, agents, teams, or conversations?",
+      "Do we need customer_satisfaction_score or support_history?",
+      "Should this consider agent_expertise or agent_availability?"
+    ],
+    "priority": [
+      "Is this about SLA compliance, satisfaction, or cost?",
+      "How should this work with existing triage rules?"
+    ],
+    "impact": [
+      "How many tickets per day would this affect?",
+      "What's the impact on first-response time or CSAT?",
+      "Could this create bottlenecks or staffing needs?"
+    ],
+    "operation": [
+      "Should tickets be routed, prioritized, or escalated?",
+      "Should this trigger notifications or automations?",
+      "Should agents be alerted or is this background processing?"
+    ]
+  },
+  "common": {
+    "clarification_intent": [
+      "Is this rule about: filtering data, transforming values, alerting users, or something else?",
+      "What's the primary business goal this rule achieves?",
+      "Why is this rule needed now?"
+    ],
+    "edge_cases": [
+      "What should happen with null/missing values?",
+      "How should this handle duplicate or inconsistent data?",
+      "What's the fallback behavior if conditions can't be evaluated?"
+    ],
+    "dependencies": [
+      "Does this rule depend on other rules running first?",
+      "Are there data freshness or consistency requirements?",
+      "Should this rule be evaluated in a specific order?"
+    ]
+  }
+}

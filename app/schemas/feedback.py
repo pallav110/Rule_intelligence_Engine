@@ -47,13 +47,27 @@ class SchemaValidationResponse(BaseModel):
 class DuplicateDetectionResponse(BaseModel):
     status: str  # none, exact_duplicate, semantic_duplicate, extension, modification
     relationship: str
+    is_duplicate: bool = False
+    matching_rule_id: str | None = None
+    confidence: float = 0.0
+    semantic_similarity: float = 0.0
+    retrieval_stage: int = 0
     similar_rules: list[dict[str, Any]] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConflictDetectionResponse(BaseModel):
     status: str  # no_conflict, potential_conflict, direct_conflict
     relationship: str
+    has_conflict: bool = False
+    conflict_type: str | None = None
+    confidence: float = 0.0
+    semantic_similarity: float = 0.0
+    retrieval_stage: int = 0
+    conflicting_rule_ids: list[str] = Field(default_factory=list)
+    related_compatible_rule_ids: list[str] = Field(default_factory=list)
     conflicting_rules: list[dict[str, Any]] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ClarificationResponse(BaseModel):

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIE Phase 3: Complete Intelligence Pipeline</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #0f172a;
+            --secondary: #1e293b;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+        }
+        body {
+            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            background: linear-gradient(135deg, var(--primary) 0%, #0a0e27 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { margin-bottom: 30px; text-align: center; }
+        .title { font-size: 32px; font-weight: 700; margin-bottom: 10px; background: linear-gradient(135deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+        .input-section { background: var(--secondary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+        textarea, select, input { width: 100%; padding: 10px; background: var(--primary); border: 1px solid var(--border); color: var(--text); border-radius: 4px; font-family: monospace; font-size: 13px; }
+        textarea { min-height: 100px; resize: vertical; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        button { padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.3s; }
+        button:hover { background: #2563eb; transform: translateY(-2px); }
+        button:disabled { background: var(--text-secondary); cursor: not-allowed; transform: none; }
+        .button-group { display: flex; gap: 10px; }
+        .loading { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .results-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+        .result-card { background: var(--secondary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+        .result-card.success { border-left: 4px solid var(--success); }
+        .result-card.warning { border-left: 4px solid var(--warning); }
+        .result-card.danger { border-left: 4px solid var(--danger); }
+        .result-card h3 { margin-bottom: 15px; font-size: 14px; font-weight: 600; }
+        .result-item { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        .result-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+        .value { font-size: 13px; font-weight: 600; color: var(--text); }
+        .confidence { display: inline-block; padding: 4px 8px; background: var(--accent); color: white; border-radius: 3px; font-size: 11px; font-weight: 600; }
+        .relationship { display: inline-block; padding: 4px 8px; background: var(--warning); color: white; border-radius: 3px; font-size: 11px; font-weight: 600; }
+        .conflict { display: inline-block; padding: 4px 8px; background: var(--danger); color: white; border-radius: 3px; font-size: 11px; font-weight: 600; }
+        .json-output { background: var(--primary); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 15px; font-size: 11px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        .error { color: var(--danger); font-size: 12px; margin-top: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 4px; border-left: 2px solid var(--danger); }
+        .success-msg { color: var(--success); font-size: 12px; margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 4px; border-left: 2px solid var(--success); }
+        .pipeline-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; font-size: 11px; }
+        .pipeline-step { background: var(--secondary); border: 1px solid var(--border); padding: 8px; border-radius: 4px; text-align: center; font-weight: 600; }
+        .pipeline-step.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .pipeline-step.done { background: var(--success); color: white; border-color: var(--success); }
+        .full-width { grid-column: 1 / -1; }
+        @media (max-width: 1024px) { .results-section { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">⚡ Phase 3: Complete Intelligence Pipeline</div>
+            <div class="subtitle">Feedback → Classification → Extraction → Schema Validation → Duplicate Detection → Conflict Detection</div>
+            <div style="margin-top: 10px;">
+                <a href="/ui/phase2-test.html" style="color: var(--accent); font-size: 14px; text-decoration: none;">🔄 View Phase 2 Core Engine →</a>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <h2 style="margin-bottom: 15px;">📝 Raw Feedback Input</h2>
+            
+            <div class="form-group">
+                <label>Feedback Text *</label>
+                <textarea id="feedbackText" placeholder="Example: Revenue should exclude cancelled orders from all regions"></textarea>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label>Workspace ID *</label>
+                    <input type="text" id="workspaceId" value="WS001" />
+                </div>
+                <div class="form-group">
+                    <label>Domain *</label>
+                    <select id="domain">
+                        <option value="ecommerce">E-Commerce</option>
+                        <option value="saas_subscription">SaaS Subscription</option>
+                        <option value="customer_support">Customer Support</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="runFullPipeline()" id="runBtn">🚀 Run Full Pipeline</button>
+                <button onclick="clearAll()">🗑️ Clear</button>
+            </div>
+        </div>
+
+        <!-- Pipeline Visualization -->
+        <div class="pipeline-flow" id="pipelineFlow" style="display: none;">
+            <div class="pipeline-step" id="step1">1. Classification</div>
+            <div class="pipeline-step" id="step2">2. Extraction</div>
+            <div class="pipeline-step" id="step3">3. Schema Validation</div>
+            <div class="pipeline-step" id="step4">4. Duplicate Detection</div>
+            <div class="pipeline-step" id="step5">5. Conflict Detection</div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <!-- Classification & Extraction -->
+            <div class="result-card success">
+                <h3>📊 Classification & Extraction</h3>
+                <div class="result-item">
+                    <div class="label">Feedback Type</div>
+                    <div class="value" id="feedbackType">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Actionable</div>
+                    <div class="value" id="actionable">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Classification Confidence</div>
+                    <div class="value"><span class="confidence" id="classificationConfidence">0%</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Extracted Rules</div>
+                    <div class="value" id="rulesCount">0</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Business Term</div>
+                    <div class="value" id="businessTerm">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Operation</div>
+                    <div class="value" id="operation">-</div>
+                </div>
+            </div>
+
+            <!-- Schema Validation -->
+            <div class="result-card">
+                <h3>✅ Schema Validation</h3>
+                <div class="result-item">
+                    <div class="label">Validation Status</div>
+                    <div class="value" id="validationStatus">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Coverage %</div>
+                    <div class="value" id="validationCoverage">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Validated Fields</div>
+                    <div class="value" id="validatedFields">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Invalid Fields</div>
+                    <div class="value" id="invalidFields">-</div>
+                </div>
+            </div>
+
+            <!-- Duplicate Detection -->
+            <div class="result-card warning">
+                <h3>🔄 Duplicate Detection (Two-Stage)</h3>
+                <div class="result-item">
+                    <div class="label">Is Duplicate</div>
+                    <div class="value" id="isDuplicate">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Relationship</div>
+                    <div class="value"><span class="relationship" id="duplicateRelationship">-</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Stage 1: Candidates Retrieved</div>
+                    <div class="value" id="retrievalStage">0</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Semantic Similarity</div>
+                    <div class="value"><span class="confidence" id="semanticSimilarity">0%</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Duplicate Confidence</div>
+                    <div class="value"><span class="confidence" id="duplicateConfidence">0%</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Matching Rule ID</div>
+                    <div class="value" id="matchingRuleId">-</div>
+                </div>
+            </div>
+
+            <!-- Conflict Detection -->
+            <div class="result-card danger">
+                <h3>⚠️ Conflict Detection (Two-Stage)</h3>
+                <div class="result-item">
+                    <div class="label">Has Conflict</div>
+                    <div class="value" id="hasConflict">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Conflict Type</div>
+                    <div class="value"><span class="conflict" id="conflictType">-</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Stage 1: Candidates Retrieved</div>
+                    <div class="value" id="conflictRetrievalStage">0</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Conflicting Rule IDs</div>
+                    <div class="value" id="conflictingRuleIds">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Conflict Confidence</div>
+                    <div class="value"><span class="confidence" id="conflictConfidence">0%</span></div>
+                </div>
+            </div>
+
+            <!-- Clarification -->
+            <div class="result-card">
+                <h3>💬 Clarification</h3>
+                <div class="result-item">
+                    <div class="label">Requires Clarification</div>
+                    <div class="value" id="requiresClarification">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Questions</div>
+                    <div class="value" id="clarificationQuestions">-</div>
+                </div>
+            </div>
+
+            <!-- Review Routing -->
+            <div class="result-card">
+                <h3>📤 Review Routing</h3>
+                <div class="result-item">
+                    <div class="label">Status</div>
+                    <div class="value" id="reviewStatus">-</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Priority</div>
+                    <div class="value" id="reviewPriority">-</div>
+                </div>
+            </div>
+
+            <!-- Response Time & Raw JSON -->
+            <div class="result-card full-width">
+                <h3>⏱️ Performance & Raw Response</h3>
+                <div class="result-item">
+                    <div class="label">Total Pipeline Time</div>
+                    <div class="value" id="responseTime">-</div>
+                </div>
+                <div class="label" style="margin-top: 15px;">Full JSON Response</div>
+                <div class="json-output" id="jsonOutput">Waiting for response...</div>
+            </div>
+        </div>
+
+        <div id="errorContainer"></div>
+    </div>
+
+    <script>
+        async function runFullPipeline() {
+            const feedbackText = document.getElementById('feedbackText').value.trim();
+            const workspaceId = document.getElementById('workspaceId').value.trim();
+            const domain = document.getElementById('domain').value;
+
+            if (!feedbackText) {
+                showError('Please enter feedback text');
+                return;
+            }
+
+            if (!workspaceId) {
+                showError('Please enter workspace ID');
+                return;
+            }
+
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<span class="loading">⏳</span> Running Pipeline...';
+
+            document.getElementById('pipelineFlow').style.display = 'grid';
+            document.getElementById('errorContainer').innerHTML = '';
+            updatePipelineStep(1);
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch('/v1/feedback/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        feedback_text: feedbackText,
+                        workspace_id: workspaceId,
+                        schema_context: { domain_pack_id: domain },
+                        submitted_by: 'phase3_test'
+                    })
+                });
+
+                const data = await response.json();
+                const endTime = performance.now();
+                const responseTime = (endTime - startTime).toFixed(2);
+
+                if (data) {
+                    displayResults(data, responseTime);
+                    document.getElementById('resultsSection').style.display = 'grid';
+                } else {
+                    showError('Pipeline failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '🚀 Run Full Pipeline';
+            }
+        }
+
+        function displayResults(data, responseTime) {
+            const results = data;
+
+            // Step 1: Classification
+            document.getElementById('feedbackType').textContent = results.classification.feedback_type || '-';
+            document.getElementById('actionable').textContent = results.classification.is_actionable ? '✅ Yes' : '⚠️ No';
+            document.getElementById('classificationConfidence').textContent = Math.round(results.classification.confidence * 100) + '%';
+            updatePipelineStep(1);
+
+            // Step 2: Extraction
+            const extractedRules = results.extraction.extracted_rules || [];
+            document.getElementById('rulesCount').textContent = extractedRules.length;
+            if (extractedRules.length > 0) {
+                const rule = extractedRules[0];
+                document.getElementById('businessTerm').textContent = rule.business_term || '-';
+                document.getElementById('operation').textContent = rule.operation || '-';
+            }
+            updatePipelineStep(2);
+
+            // Step 3: Schema Validation (real data)
+            document.getElementById('validationStatus').textContent = results.schema_validation.status || 'FAIL';
+            document.getElementById('validationCoverage').textContent = Math.round((results.schema_validation.coverage || 0) * 100) + '%';
+            updatePipelineStep(3);
+
+            // Step 4: Duplicate Detection
+            if (results.duplicate_detection) {
+                document.getElementById('isDuplicate').textContent = results.duplicate_detection.is_duplicate ? '🔴 YES' : '✅ NO';
+                document.getElementById('duplicateRelationship').textContent = results.duplicate_detection.relationship || 'unrelated';
+                document.getElementById('retrievalStage').textContent = results.duplicate_detection.retrieval_stage || 0;
+                document.getElementById('semanticSimilarity').textContent = Math.round((results.duplicate_detection.semantic_similarity || 0) * 100) + '%';
+                document.getElementById('duplicateConfidence').textContent = Math.round(results.duplicate_detection.confidence * 100) + '%';
+                document.getElementById('matchingRuleId').textContent = results.duplicate_detection.matching_rule_id || 'None';
+            }
+            updatePipelineStep(4);
+
+            // Step 5: Conflict Detection
+            if (results.conflict_detection) {
+                document.getElementById('hasConflict').textContent = results.conflict_detection.has_conflict ? '🔴 YES' : '✅ NO';
+                document.getElementById('conflictType').textContent = results.conflict_detection.conflict_type || 'compatible';
+                document.getElementById('conflictRetrievalStage').textContent = results.conflict_detection.retrieval_stage || 0;
+                document.getElementById('conflictingRuleIds').textContent = results.conflict_detection.conflicting_rule_ids ? results.conflict_detection.conflicting_rule_ids.join(', ') : 'None';
+                document.getElementById('conflictConfidence').textContent = Math.round(results.conflict_detection.confidence * 100) + '%';
+            }
+            updatePipelineStep(5);
+
+            // Clarification
+            document.getElementById('requiresClarification').textContent = results.clarification_required ? '✅ Yes' : '❌ No';
+            const questions = results.clarification ? results.clarification.questions || [] : [];
+            document.getElementById('clarificationQuestions').textContent = questions.length > 0 ? questions.join(' | ') : 'None';
+
+            // Review Routing
+            const routing = results.routing_decision || {};
+            document.getElementById('reviewStatus').textContent = routing.review_status || '-';
+            document.getElementById('reviewPriority').textContent = routing.priority || '-';
+
+            // Performance
+            document.getElementById('responseTime').textContent = responseTime + 'ms';
+
+            // JSON
+            document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
+        }
+
+        function updatePipelineStep(step) {
+            for (let i = 1; i <= 5; i++) {
+                const elem = document.getElementById('step' + i);
+                elem.classList.remove('active', 'done');
+                if (i < step) {
+                    elem.classList.add('done');
+                } else if (i === step) {
+                    elem.classList.add('active');
+                }
+            }
+        }
+
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+
+        function clearAll() {
+            document.getElementById('feedbackText').value = '';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('pipelineFlow').style.display = 'none';
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

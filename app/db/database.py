@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://rie_user:rie_password@localhost:5432/rie_db"
+    "postgresql://rie_user:rie_password@localhost:5432/rule_intelligence_engine"
 )
 
 engine = create_engine(DATABASE_URL)

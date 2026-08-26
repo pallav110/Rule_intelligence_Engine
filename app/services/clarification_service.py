@@ -1,8 +1,10 @@
 """Real clarification generation service for ambiguous feedback."""
 
 from typing import Any, Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
+import json
+from pathlib import Path
 
 
 class ClarificationGenerator:
@@ -10,6 +12,7 @@ class ClarificationGenerator:
 
     def __init__(self):
         self.question_templates = self._load_question_templates()
+        self.domain_templates = self._load_domain_templates()
 
     def _load_question_templates(self) -> Dict[str, List[str]]:
         return {
@@ -49,15 +52,31 @@ class ClarificationGenerator:
             ],
         }
 
+    def _load_domain_templates(self) -> Dict[str, Dict[str, List[str]]]:
+        """Load domain-specific clarification templates from config."""
+        try:
+            config_path = Path(__file__).parent.parent / "config" / "clarification_templates.json"
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load domain templates: {e}")
+        return {}
+
     def generate(
         self,
         feedback_text: str,
         classification: Dict[str, Any],
         extraction: Dict[str, Any],
+        domain_id: str = "ecommerce",
     ) -> Dict[str, Any]:
         ambiguity_reasons = []
         extraction_gaps = []
         suggested_questions = []
+
+        # Get domain-specific templates
+        domain_questions = self.domain_templates.get(domain_id, {})
+        common_questions = self.domain_templates.get("common", {})
 
         classification_confidence = classification.get("confidence", 0.0)
         is_actionable = classification.get("is_actionable", False)
@@ -65,72 +84,76 @@ class ClarificationGenerator:
         # Only add ambiguity reasons if actually applicable
         if classification_confidence < 0.6:
             ambiguity_reasons.append(f"Low classification confidence ({classification_confidence:.2%})")
-            suggested_questions.extend(self.question_templates["scope"])
+            # Use domain-specific scope questions if available
+            if "scope" in domain_questions:
+                suggested_questions.extend(domain_questions["scope"])
+            else:
+                suggested_questions.extend(self.question_templates["scope"])
 
         # Only add non-actionable reason if actually non-actionable
         if not is_actionable:
             ambiguity_reasons.append("Feedback flagged as non-actionable")
-            suggested_questions.extend(self.question_templates["conditions"])
+            if "conditions" in domain_questions:
+                suggested_questions.extend(domain_questions["conditions"])
+            else:
+                suggested_questions.extend(self.question_templates["conditions"])
 
         extracted_rules = extraction.get("extracted_rules") or extraction.get("rules") or []
         if isinstance(extraction.get("extraction"), dict):
             extracted_rules = extraction["extraction"].get("extracted_rules", extracted_rules)
-            # Also get candidate rules count
-            candidate_rules = extraction["extraction"].get("candidate_rules", [])
 
         if not extracted_rules:
             ambiguity_reasons.append("No concrete rules could be extracted")
             extraction_gaps.append("No business terms identified")
-            suggested_questions.extend(self.question_templates["entities"])
-            suggested_questions.extend(self.question_templates["operation"])
+            if "entities" in domain_questions:
+                suggested_questions.extend(domain_questions["entities"])
+            else:
+                suggested_questions.extend(self.question_templates["entities"])
+            if "operation" in domain_questions:
+                suggested_questions.extend(domain_questions["operation"])
+            else:
+                suggested_questions.extend(self.question_templates["operation"])
         else:
             # Check for ambiguity in extracted rules
             for rule in extracted_rules:
                 if not rule.get("business_term"):
                     extraction_gaps.append("Missing business term")
-                    suggested_questions.extend(self.question_templates["scope"])
+                    if "scope" in domain_questions:
+                        suggested_questions.extend(domain_questions["scope"])
+                    else:
+                        suggested_questions.extend(self.question_templates["scope"])
 
-                # Missing conditions is NOT necessarily an ambiguity - some rules don't need conditions
-                # Only flag if there's a condition mentioned in feedback but not extracted
+                # Missing conditions is NOT necessarily an ambiguity
                 feedback_lower = feedback_text.lower()
                 has_condition_mention = any(word in feedback_lower for word in ["when", "if", "status", "equals", "greater", "less", "before", "after"])
                 if not rule.get("conditions") and has_condition_mention:
                     extraction_gaps.append("Conditions mentioned but not extracted")
-                    suggested_questions.extend(self.question_templates["conditions"])
+                    if "conditions" in domain_questions:
+                        suggested_questions.extend(domain_questions["conditions"])
+                    else:
+                        suggested_questions.extend(self.question_templates["conditions"])
 
                 if not rule.get("affected_entities", {}).get("tables"):
                     extraction_gaps.append("Affected entities not identified")
-                    suggested_questions.extend(self.question_templates["entities"])
+                    if "entities" in domain_questions:
+                        suggested_questions.extend(domain_questions["entities"])
+                    else:
+                        suggested_questions.extend(self.question_templates["entities"])
 
                 if not rule.get("operation"):
                     extraction_gaps.append("Operation/action not specified")
-                    suggested_questions.extend(self.question_templates["operation"])
+                    if "operation" in domain_questions:
+                        suggested_questions.extend(domain_questions["operation"])
+                    else:
+                        suggested_questions.extend(self.question_templates["operation"])
 
                 scope = str(rule.get("scope", "")).lower()
                 if not scope or scope == "unknown":
                     ambiguity_reasons.append("Rule scope is ambiguous")
-                    suggested_questions.extend(self.question_templates["scope"])
-            for rule in extracted_rules:
-                if not rule.get("business_term"):
-                    extraction_gaps.append("Missing business term")
-                    suggested_questions.extend(self.question_templates["scope"])
-
-                if not rule.get("conditions"):
-                    extraction_gaps.append("Missing conditions or thresholds")
-                    suggested_questions.extend(self.question_templates["conditions"])
-
-                if not rule.get("affected_entities", {}).get("tables"):
-                    extraction_gaps.append("Affected entities not identified")
-                    suggested_questions.extend(self.question_templates["entities"])
-
-                if not rule.get("operation"):
-                    extraction_gaps.append("Operation/action not specified")
-                    suggested_questions.extend(self.question_templates["operation"])
-
-                scope = str(rule.get("scope", "")).lower()
-                if not scope or scope == "unknown":
-                    ambiguity_reasons.append("Rule scope is ambiguous")
-                    suggested_questions.extend(self.question_templates["scope"])
+                    if "scope" in domain_questions:
+                        suggested_questions.extend(domain_questions["scope"])
+                    else:
+                        suggested_questions.extend(self.question_templates["scope"])
 
         if "time" in feedback_text.lower() or "when" in feedback_text.lower():
             has_time_info = any(
@@ -139,8 +162,12 @@ class ClarificationGenerator:
             if not has_time_info:
                 ambiguity_reasons.append("Temporal aspects mentioned but not captured")
                 extraction_gaps.append("Time window not specified")
-                suggested_questions.extend(self.question_templates["timeline"])
+                if "timeline" in domain_questions:
+                    suggested_questions.extend(domain_questions["timeline"])
+                else:
+                    suggested_questions.extend(self.question_templates["timeline"])
 
+        # Remove duplicates while preserving order
         seen = set()
         unique_questions = []
         for question in suggested_questions:
@@ -163,6 +190,7 @@ class ClarificationGenerator:
             "ambiguity_reasons": ambiguity_reasons,
             "extraction_gaps": extraction_gaps,
             "suggested_focus_areas": self._identify_focus_areas(ambiguity_reasons, extraction_gaps),
+            "domain_id": domain_id,
         }
 
     def _identify_focus_areas(self, ambiguity_reasons: List[str], extraction_gaps: List[str]) -> List[str]:
@@ -196,11 +224,18 @@ class RealClarificationService:
         classification: Dict[str, Any],
         extraction: Dict[str, Any],
         workspace_id: str,
+        domain_id: str = "ecommerce",
         suggestion_id: str | None = None,
         analysis_run_id: str | None = None,
         db=None,
     ) -> Dict[str, Any]:
-        clarification_data = self.generator.generate(feedback_text, classification, extraction)
+        """Generate clarification questions using domain-specific templates."""
+        clarification_data = self.generator.generate(
+            feedback_text,
+            classification,
+            extraction,
+            domain_id=domain_id
+        )
 
         if not clarification_data["requires_clarification"]:
             return {
@@ -227,7 +262,7 @@ class RealClarificationService:
                     reason="; ".join(clarification_data["ambiguity_reasons"]),
                     processing_status="pending",
                     clarification_response=None,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc) if hasattr(datetime, 'now') else datetime.utcnow(),
                     responded_at=None,
                 )
                 db.add(clarification)
@@ -240,6 +275,7 @@ class RealClarificationService:
                     "questions": questions,
                     "status": "pending",
                     "reason": clarification.reason,
+                    "domain_id": domain_id,
                     "details": clarification_data,
                 }
             except Exception as e:
@@ -255,6 +291,7 @@ class RealClarificationService:
             "created": False,
             "persisted": False,
             "questions": clarification_data["questions"],
+            "domain_id": domain_id,
             "details": clarification_data,
         }
 
@@ -265,6 +302,7 @@ class RealClarificationService:
         responded_by: str | None = None,
         db=None,
     ) -> Dict[str, Any]:
+        """Record clarification response and prepare for re-analysis."""
         if not db:
             return {
                 "success": False,
@@ -274,17 +312,18 @@ class RealClarificationService:
         try:
             from app.db.models.clarification import Clarification
 
-            clarification = db.get(Clarification, clarification_id)
+            clarification = db.query(Clarification).filter_by(clarification_id=clarification_id).first()
             if clarification is None:
                 return {
                     "success": False,
                     "message": "Clarification not found",
                 }
 
+            # Preserve immutable original feedback
             clarification.processing_status = "answered"
             clarification.clarification_response = response_text
             clarification.responded_by = responded_by
-            clarification.responded_at = datetime.utcnow()
+            clarification.responded_at = datetime.now(timezone.utc) if hasattr(datetime, 'now') else datetime.utcnow()
             db.commit()
 
             return {
@@ -292,9 +331,46 @@ class RealClarificationService:
                 "clarification_id": clarification_id,
                 "feedback_id": clarification.feedback_id,
                 "workspace_id": clarification.workspace_id,
+                "suggestion_id": clarification.suggestion_id,
                 "message": "Clarification response received. Ready for re-analysis.",
                 "next_step": "re_analyze_with_clarification",
             }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+    def re_analyze_with_clarification(
+        self,
+        feedback_id: str,
+        clarification_response: str,
+        original_feedback: str,
+        workspace_id: str,
+        domain_id: str = "ecommerce",
+        db=None,
+    ) -> Dict[str, Any]:
+        """
+        Re-analyze feedback with clarification response.
+        Preserves original feedback immutability by keeping both versions.
+        """
+        try:
+            # Augmented feedback combines original + clarification
+            augmented_feedback = f"{original_feedback}\n\n[CLARIFICATION PROVIDED]\n{clarification_response}"
+
+            # The re-analysis will use this augmented text but keep original feedback intact
+            return {
+                "success": True,
+                "feedback_id": feedback_id,
+                "augmented_feedback": augmented_feedback,
+                "original_feedback_preserved": True,
+                "clarification_response": clarification_response,
+                "workspace_id": workspace_id,
+                "domain_id": domain_id,
+                "next_step": "rerun_full_pipeline",
+                "message": "Ready to re-run classification, extraction, and validation with clarified feedback"
+            }
+
         except Exception as e:
             return {
                 "success": False,

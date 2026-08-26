@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import redis
 import csv
 import io
@@ -11,7 +11,7 @@ from fastapi import File, UploadFile
 from sqlalchemy import text
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import engine
 from app.db.database import get_db
 from app.db.models.rule import Rule
@@ -88,6 +88,10 @@ static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
 
+# Register Phase 3 E2E endpoints
+from app.services.phase3_e2e_service import register_phase3_e2e_endpoints
+register_phase3_e2e_endpoints(app)
+
 # Root endpoint to serve custom UI
 @app.get("/", include_in_schema=False)
 async def root():
@@ -105,6 +109,15 @@ async def phase2_test():
     if ui_file.exists():
         return FileResponse(str(ui_file), media_type="text/html")
     return {"message": "Phase 2 test UI not found"}
+
+# Phase 3 testing endpoint
+@app.get("/test/phase3", include_in_schema=False)
+async def phase3_test():
+    """Serve Phase 3 testing UI for duplicate & conflict detection."""
+    ui_file = static_dir / "phase3-test.html"
+    if ui_file.exists():
+        return FileResponse(str(ui_file), media_type="text/html")
+    return {"message": "Phase 3 test UI not found"}
 
 # Dependency injection setup
 def get_db():
@@ -150,6 +163,585 @@ def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
         "reasoning": f"Domain auto-detected with {confidence*100:.1f}% confidence"
     }
 
+# --- Phase 3 Testing Endpoints (Duplicate & Conflict Detection) ---
+
+@app.post("/v1/rules/check-duplicate")
+def check_duplicate_endpoint(
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Dedicated endpoint for testing duplicate detection with pgvector.
+
+    Request:
+    {
+        "rule": {...suggested rule...},
+        "workspace_id": "WS001",
+        "domain_id": "ecommerce"
+    }
+
+    Response:
+    {
+        "is_duplicate": bool,
+        "relationship": "exact_duplicate|semantic_duplicate|modification|...",
+        "matching_rule_id": str or null,
+        "confidence": float (0.0-1.0),
+        "semantic_similarity": float (from pgvector),
+        "retrieval_stage": int (number of candidates),
+        "details": {...}
+    }
+    """
+    try:
+        suggested_rule = payload.get("rule", {})
+        workspace_id = payload.get("workspace_id", "default")
+        domain_id = payload.get("domain_id", "ecommerce")
+
+        service = RealDuplicateDetectionService()
+        result = service.check_duplicate(
+            suggested_rule=suggested_rule,
+            workspace_id=workspace_id,
+            domain_id=domain_id,
+            db=db,
+        )
+
+        return result
+    except Exception as e:
+        print(f"Error in duplicate detection: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "is_duplicate": False,
+            "relationship": "unrelated",
+            "matching_rule_id": None,
+            "confidence": 0.0,
+            "semantic_similarity": 0.0,
+            "retrieval_stage": 0,
+            "details": {"error": str(e)},
+        }
+
+
+@app.post("/v1/rules/check-conflict")
+def check_conflict_endpoint(
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Dedicated endpoint for testing conflict detection with pgvector.
+
+    Request:
+    {
+        "rule": {...suggested rule...},
+        "workspace_id": "WS001",
+        "domain_id": "ecommerce"
+    }
+
+    Response:
+    {
+        "has_conflict": bool,
+        "conflict_type": "direct_conflict|potential_conflict|temporal_conflict|scope_conflict|no_conflict",
+        "conflicting_rule_ids": [str, ...],
+        "confidence": float (0.0-1.0),
+        "semantic_similarity": float (from pgvector),
+        "retrieval_stage": int (number of candidates),
+        "details": {...}
+    }
+    """
+    try:
+        suggested_rule = payload.get("rule", {})
+        workspace_id = payload.get("workspace_id", "default")
+        domain_id = payload.get("domain_id", "ecommerce")
+
+        service = RealConflictDetectionService()
+        result = service.check_conflict(
+            suggested_rule=suggested_rule,
+            workspace_id=workspace_id,
+            domain_id=domain_id,
+            db=db,
+        )
+
+        return result
+    except Exception as e:
+        print(f"Error in conflict detection: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "has_conflict": False,
+            "conflict_type": "no_conflict",
+            "conflicting_rule_ids": [],
+            "confidence": 0.0,
+            "semantic_similarity": 0.0,
+            "retrieval_stage": 0,
+            "details": {"error": str(e)},
+        }
+
+# --- Task 4: Clarification & Re-analysis Endpoints ---
+
+@app.post("/v1/clarifications/{clarification_id}/respond")
+def respond_to_clarification(
+    clarification_id: str,
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Respond to a clarification question.
+
+    Request:
+    {
+        "response_text": "user's clarification response",
+        "responded_by": "user_id or email"
+    }
+
+    Response:
+    {
+        "success": true,
+        "clarification_id": "...",
+        "feedback_id": "...",
+        "next_step": "re_analyze_with_clarification"
+    }
+    """
+    try:
+        from app.services.clarification_service import RealClarificationService
+
+        service = RealClarificationService()
+        result = service.respond_to_clarification(
+            clarification_id=clarification_id,
+            response_text=payload.get("response_text", ""),
+            responded_by=payload.get("responded_by"),
+            db=db,
+        )
+
+        return result
+    except Exception as e:
+        print(f"Error responding to clarification: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/v1/feedback/{feedback_id}/re-analyze")
+def re_analyze_feedback(
+    feedback_id: str,
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Re-analyze feedback with clarification response.
+    Preserves original feedback immutability.
+
+    Request:
+    {
+        "clarification_response": "clarified feedback",
+        "workspace_id": "WS001",
+        "domain_id": "ecommerce"
+    }
+
+    Response: Full FeedbackAnalysisResponse with updated results
+    """
+    try:
+        from app.db.models.feedback import Feedback
+        from app.services.clarification_service import RealClarificationService
+        from app.services.classifier import RealClassifier
+        from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
+        from app.services.schema_validation_service import SchemaValidationService
+        from app.services.duplicate_detection_service import RealDuplicateDetectionService
+        from app.services.conflict_detection_service import RealConflictDetectionService
+        from app.services.review_routing_service import RealReviewRoutingService
+
+        # Get original feedback
+        feedback = db.query(Feedback).filter_by(feedback_id=feedback_id).first()
+        if not feedback:
+            return {"error": f"Feedback {feedback_id} not found"}
+
+        workspace_id = payload.get("workspace_id", feedback.workspace_id)
+        domain_id = payload.get("domain_id", "ecommerce")
+        clarification_response = payload.get("clarification_response", "")
+
+        # Augmented feedback with clarification
+        augmented_feedback = f"{feedback.feedback_text}\n\n[CLARIFICATION PROVIDED]\n{clarification_response}"
+
+        # Re-run full pipeline with augmented feedback
+        schema_context = {"domain_pack_id": domain_id}
+
+        # Classification
+        classifier = RealClassifier(domain=domain_id)
+        classification_result = classifier.classify(augmented_feedback, schema_context)
+        classification_result_dict = {
+            "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
+            "rule_category": classification_result.get("rule_category", "unknown"),
+            "is_actionable": classification_result.get("is_actionable", False),
+            "confidence": classification_result.get("confidence", 0.5),
+        }
+
+        # Extraction
+        extractor = EnhancedRuleExtractor()
+        extraction_result = extractor.extract(augmented_feedback, schema_context)
+        extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+        primary_rule = extracted_rules[0] if extracted_rules else {}
+
+        # Duplicate Detection
+        duplicate_service = RealDuplicateDetectionService()
+        duplicate_check = duplicate_service.check_duplicate(
+            suggested_rule=primary_rule,
+            workspace_id=workspace_id,
+            domain_id=domain_id,
+            db=db,
+        )
+
+        # Conflict Detection
+        conflict_service = RealConflictDetectionService()
+        conflict_check = conflict_service.check_conflict(
+            suggested_rule=primary_rule,
+            workspace_id=workspace_id,
+            domain_id=domain_id,
+            db=db,
+        )
+
+        # Review Routing
+        routing_service = RealReviewRoutingService()
+        routing_decision = routing_service.route_suggestion(
+            suggestion_id=None,
+            suggestion=primary_rule,
+            classification=classification_result_dict,
+            extraction=extraction_result,
+            conflict_check=conflict_check,
+            duplicate_check=duplicate_check,
+            workspace_id=workspace_id,
+            domain_id=domain_id,
+            db=db,
+        )
+
+        return {
+            "success": True,
+            "feedback_id": feedback_id,
+            "original_feedback_preserved": True,
+            "clarification_response": clarification_response,
+            "augmented_feedback_used": True,
+            "re_analysis_results": {
+                "classification": classification_result_dict,
+                "extracted_rules_count": len(extracted_rules),
+                "duplicate_check": duplicate_check,
+                "conflict_check": conflict_check,
+                "routing_decision": routing_decision,
+            }
+        }
+
+    except Exception as e:
+        print(f"Error re-analyzing feedback: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+# --- Task 6: Human Review Workflow APIs ---
+
+@app.post("/v1/suggestions/{suggestion_id}/approve")
+def approve_suggestion(
+    suggestion_id: str,
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Approve a suggestion and transition to APPROVED status.
+
+    Request:
+    {
+        "approved_by": "reviewer_email",
+        "comments": "Looks good for production",
+        "create_rule": true
+    }
+
+    Response:
+    {
+        "success": true,
+        "suggestion_id": "...",
+        "new_status": "approved",
+        "rule_id": "..." (if create_rule=true)
+    }
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        # Get current suggestion
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
+        if not suggestion:
+            return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+
+        # Transition to APPROVED
+        lifecycle_service = SuggestionLifecycleService()
+        transition_result = lifecycle_service.transition_status(
+            suggestion_id=suggestion_id,
+            from_status=suggestion.review_status,
+            to_status="approved",
+            transitioned_by=payload.get("approved_by", "system"),
+            reason=payload.get("comments", "Approved for rule creation"),
+            metadata={"comments": payload.get("comments"), "create_rule": payload.get("create_rule", True)},
+            db=db,
+        )
+
+        if not transition_result["success"]:
+            return transition_result
+
+        # Optionally create rule immediately
+        rule_id = None
+        if payload.get("create_rule", True):
+            rule_result = create_rule_from_suggestion(suggestion_id, payload.get("approved_by"), db)
+            if rule_result["success"]:
+                rule_id = rule_result["rule_id"]
+                # Transition to RULE_CREATED
+                lifecycle_service.transition_status(
+                    suggestion_id=suggestion_id,
+                    from_status="approved",
+                    to_status="rule_created",
+                    transitioned_by=payload.get("approved_by", "system"),
+                    reason="Rule created from approved suggestion",
+                    metadata={"rule_id": rule_id},
+                    db=db,
+                )
+
+        return {
+            "success": True,
+            "suggestion_id": suggestion_id,
+            "new_status": "rule_created" if rule_id else "approved",
+            "rule_id": rule_id,
+            "audit_entry_id": transition_result["audit_entry_id"],
+        }
+
+    except Exception as e:
+        print(f"Error approving suggestion: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/v1/suggestions/{suggestion_id}/reject")
+def reject_suggestion(
+    suggestion_id: str,
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Reject a suggestion and transition to REJECTED status.
+
+    Request:
+    {
+        "rejected_by": "reviewer_email",
+        "reason": "Conflicts with existing policy",
+        "comments": "Cannot approve due to..."
+    }
+
+    Response:
+    {
+        "success": true,
+        "suggestion_id": "...",
+        "new_status": "rejected"
+    }
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        # Get current suggestion
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
+        if not suggestion:
+            return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+
+        # Transition to REJECTED
+        lifecycle_service = SuggestionLifecycleService()
+        transition_result = lifecycle_service.transition_status(
+            suggestion_id=suggestion_id,
+            from_status=suggestion.review_status,
+            to_status="rejected",
+            transitioned_by=payload.get("rejected_by", "system"),
+            reason=payload.get("reason", "Rejected by reviewer"),
+            metadata={"comments": payload.get("comments"), "reason": payload.get("reason")},
+            db=db,
+        )
+
+        return transition_result
+
+    except Exception as e:
+        print(f"Error rejecting suggestion: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/v1/rules/{rule_id}/activate")
+def activate_rule(
+    rule_id: str,
+    payload: dict,
+    db=Depends(get_db),
+):
+    """
+    Activate a created rule and transition suggestion to RULE_ACTIVATED.
+
+    Request:
+    {
+        "activated_by": "admin_email",
+        "effective_date": "2026-08-26",
+        "comments": "Activating for production"
+    }
+
+    Response:
+    {
+        "success": true,
+        "rule_id": "...",
+        "status": "active",
+        "suggestion_id": "..." (if linked)
+    }
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule import Rule
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        # Get rule
+        rule = db.query(Rule).filter_by(rule_id=rule_id).first()
+        if not rule:
+            return {"success": False, "error": f"Rule {rule_id} not found"}
+
+        # Activate rule
+        rule.status = "active"
+        rule.activated_by = payload.get("activated_by", "system")
+        rule.activated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        # Find linked suggestion and transition to RULE_ACTIVATED
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=rule.suggestion_id).first()
+        suggestion_id = None
+        if suggestion:
+            suggestion_id = suggestion.suggestion_id
+            lifecycle_service = SuggestionLifecycleService()
+            lifecycle_service.transition_status(
+                suggestion_id=suggestion_id,
+                from_status=suggestion.review_status,
+                to_status="rule_activated",
+                transitioned_by=payload.get("activated_by", "system"),
+                reason="Rule activated in production",
+                metadata={"rule_id": rule_id, "comments": payload.get("comments")},
+                db=db,
+            )
+
+        return {
+            "success": True,
+            "rule_id": rule_id,
+            "status": "active",
+            "suggestion_id": suggestion_id,
+            "activated_by": rule.activated_by,
+            "activated_at": rule.activated_at.isoformat(),
+        }
+
+    except Exception as e:
+        print(f"Error activating rule: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/v1/suggestions/{suggestion_id}/lifecycle")
+def get_suggestion_lifecycle(
+    suggestion_id: str,
+    db=Depends(get_db),
+):
+    """
+    Get complete lifecycle and audit history for a suggestion.
+
+    Response:
+    {
+        "success": true,
+        "suggestion_id": "...",
+        "current_status": "approved",
+        "valid_next_statuses": ["rule_created"],
+        "history": [
+            {
+                "from_status": "pending_review",
+                "to_status": "approved",
+                "transitioned_by": "reviewer@example.com",
+                "created_at": "2026-08-26T06:00:00Z"
+            }
+        ]
+    }
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+
+        lifecycle_service = SuggestionLifecycleService()
+
+        # Get current status
+        status_result = lifecycle_service.get_current_status(suggestion_id, db)
+        if not status_result["success"]:
+            return status_result
+
+        # Get audit history
+        history_result = lifecycle_service.get_audit_history(suggestion_id, db)
+        if not history_result["success"]:
+            return history_result
+
+        return {
+            "success": True,
+            "suggestion_id": suggestion_id,
+            "current_status": status_result["current_status"],
+            "valid_next_statuses": status_result["valid_next_statuses"],
+            "history": history_result["history"],
+            "total_transitions": history_result["total_transitions"],
+        }
+
+    except Exception as e:
+        print(f"Error getting lifecycle: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict[str, Any]:
+    """Helper function to create a rule from an approved suggestion."""
+    try:
+        from app.db.models.rule_suggestion import RuleSuggestion
+        from app.db.models.rule import Rule
+
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
+        if not suggestion:
+            return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+
+        # Create rule from suggestion
+        rule_id = f"RULE_{str(uuid4())[:8].upper()}"
+        suggested_rule = suggestion.suggested_rule or {}
+
+        rule = Rule(
+            rule_id=rule_id,
+            workspace_id=suggestion.workspace_id,
+            domain_id="ecommerce",  # TODO: Get from suggestion
+            suggestion_id=suggestion_id,
+            business_term=suggested_rule.get("business_term", ""),
+            rule_category=suggestion.rule_category or "unknown",
+            operation=suggested_rule.get("operation", ""),
+            conditions=suggested_rule.get("conditions", []),
+            scope=suggested_rule.get("scope", "global"),
+            affected_entities=suggested_rule.get("affected_entities", {}),
+            status="draft",
+            created_at=datetime.now(timezone.utc),
+        )
+
+        db.add(rule)
+        db.commit()
+
+        return {
+            "success": True,
+            "rule_id": rule_id,
+            "suggestion_id": suggestion_id,
+            "status": "draft",
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
 # --- Feedback Analysis Endpoints ---
 
 @app.post(
@@ -179,6 +771,19 @@ def analyze_feedback(
     from app.services.conflict_detection_service import RealConflictDetectionService
     from app.services.clarification_service import RealClarificationService
     from app.services.review_routing_service import RealReviewRoutingService
+    from app.db.models.workspace import Workspace
+
+    # AUTO-CREATE WORKSPACE if it doesn't exist in THIS session
+    existing_workspace = db.query(Workspace).filter_by(workspace_id=payload.workspace_id).first()
+    if not existing_workspace:
+        workspace = Workspace(
+            workspace_id=payload.workspace_id,
+            name=f"Workspace {payload.workspace_id[:8]}",
+            description="Auto-created workspace on first feedback submission",
+            status="active",
+        )
+        db.add(workspace)
+        db.flush()
 
     # Step 1: Create Feedback record
     feedback_id = payload.feedback_id or str(uuid4())
@@ -301,6 +906,7 @@ def analyze_feedback(
         classification=classification_result_dict,
         extraction=extraction_result,
         workspace_id=payload.workspace_id,
+        domain_id=domain_pack_id,
         suggestion_id=suggestion_id,
         analysis_run_id=analysis_run_id,
         db=db,
@@ -383,12 +989,26 @@ def analyze_feedback(
         duplicate_detection=DuplicateDetectionResponse(
             status=duplicate_check.get("status", "none"),
             relationship=duplicate_check.get("relationship", "unrelated"),
+            is_duplicate=duplicate_check.get("is_duplicate", False),
+            matching_rule_id=duplicate_check.get("matching_rule_id"),
+            confidence=duplicate_check.get("confidence", 0.0),
+            semantic_similarity=duplicate_check.get("semantic_similarity", 0.0),
+            retrieval_stage=duplicate_check.get("retrieval_stage", 0),
             similar_rules=duplicate_check.get("similar_rules", []),
+            details=duplicate_check.get("details", {}),
         ),
         conflict_detection=ConflictDetectionResponse(
             status=conflict_check.get("status", "no_conflict"),
             relationship=conflict_check.get("relationship", "compatible"),
+            has_conflict=conflict_check.get("has_conflict", False),
+            conflict_type=conflict_check.get("conflict_type"),
+            confidence=conflict_check.get("confidence", 0.0),
+            semantic_similarity=conflict_check.get("semantic_similarity", 0.0),
+            retrieval_stage=conflict_check.get("retrieval_stage", 0),
+            conflicting_rule_ids=conflict_check.get("conflicting_rule_ids", []),
+            related_compatible_rule_ids=conflict_check.get("related_compatible_rule_ids", []),
             conflicting_rules=conflict_check.get("conflicting_rules", []),
+            details=conflict_check.get("details", {}),
         ),
         clarification_required=clarification_required,
         clarification=FeedbackClarificationResponse(

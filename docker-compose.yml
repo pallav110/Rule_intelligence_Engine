@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with pgvector
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg18
     container_name: rie_postgres
     environment:
       POSTGRES_USER: rie_user
@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: rule_intelligence_engine
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
@@ -56,6 +56,7 @@ services:
       ENV: production
     volumes:
       - ./app:/app/app
+      - ./app/static:/app/app/static
       - ./rie_ml:/app/rie_ml
       - ./logs:/app/logs
       - ./rie_ml/models:/app/rie_ml/models
