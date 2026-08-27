@@ -25,23 +25,24 @@ class RealClassifier:
         self._load_baseline_model()
 
     def _load_baseline_model(self):
-        """Load trained baseline classifier if available."""
+        """Load trained unified baseline classifier."""
         try:
             import joblib
 
-            model_path = Path(__file__).parent.parent.parent / "rie_ml" / "models" / f"baseline_classifier_{self.domain}.pkl"
+            # Use unified model (new approach - works for all domains)
+            model_path = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "baseline_classifier_unified.pkl"
 
             if model_path.exists():
                 bundle = joblib.load(str(model_path))
                 self.vectorizer = bundle.get("vectorizer")
                 self.model = bundle.get("model")
                 self.is_trained = True
-                print(f"✅ Loaded baseline classifier for domain: {self.domain}")
+                print(f"✅ Loaded unified baseline classifier (cross-domain)")
             else:
-                print(f"⚠️  No baseline model found at {model_path}, using regex fallback")
+                print(f"⚠️  No unified model found at {model_path}, using regex fallback")
                 self._fallback_to_regex = True
         except Exception as e:
-            print(f"⚠️  Failed to load baseline model: {e}, using regex fallback")
+            print(f"⚠️  Failed to load unified model: {e}, using regex fallback")
             self._fallback_to_regex = True
 
     def classify(
