@@ -60,7 +60,12 @@ class RealClassifier:
             }
         """
         if self.is_trained and self.model and not self._fallback_to_regex:
-            return self._classify_with_model(feedback)
+            result = self._classify_with_model(feedback)
+            # Fall back to regex if model confidence is low (< 0.6)
+            # This helps catch non-actionable inputs that the model wasn't trained on
+            if result["confidence"] < 0.6:
+                return self._classify_with_regex(feedback)
+            return result
         else:
             return self._classify_with_regex(feedback)
 
@@ -129,15 +134,16 @@ class RealClassifier:
 
     def _classify_with_regex(self, feedback: str) -> Dict[str, Any]:
         """Classify using regex patterns (fallback)."""
-        feedback_lower = feedback.lower()
+        feedback_lower = feedback.lower().strip()
 
         # Rule classification patterns
         rule_patterns = [
-            (r"\b(revenue|metric|sum|total|count|average|amount)\b.*\b(exclude|include|restrict)\b", "metric_definition", 0.90),
+            (r"\b(revenue|metric|sum|total|count|average|amount)\b", "metric_definition", 0.90),
+            (r"\b(exclude|include|restrict|should|must|contribute|not contribute)\b.*\b(revenue|metric|sum|total|count|average|amount)\b", "metric_definition", 0.90),
             (r"\b(should|must|only).*\b(access|view|edit|delete)\b", "access_scope_rule", 0.85),
             (r"\b(status|state|phase)\b.*\b(map|equals|is)\b", "status_mapping", 0.88),
             (r"\b(time|date|period|quarter|month|week)\b.*\b(rule|condition|apply)\b", "time_rule", 0.82),
-            (r"\b(exclude|filter|remove).*\b(order|record|transaction)\b", "filter_rule", 0.92),
+            (r"\b(exclude|filter|remove|should not|must not).*\b(order|record|transaction)\b", "filter_rule", 0.92),
             (r"\b(calculate|compute|derive)\b.*\b(from|by|using)\b", "calculation_correction", 0.85),
         ]
 
@@ -155,15 +161,19 @@ class RealClassifier:
                 feedback_type = "business_rule_correction"
                 break
 
-        # Check for non-actionable patterns
-        if any(word in feedback_lower for word in ["what", "how", "why", "explain", "describe"]):
+        # Check for non-actionable patterns (questions, unclear feedback)
+        question_words = ["what", "how", "why", "explain", "describe", "who", "when", "where"]
+        if any(word in feedback_lower.split() for word in question_words):
+            # Check if it's a question about rules (should still be actionable)
             if "should" not in feedback_lower and "must" not in feedback_lower:
                 feedback_type = "unclear_feedback"
                 is_actionable = False
-                confidence = 0.4
+                confidence = 0.3  # Lower confidence for questions
 
-        # Check for spam/irrelevant
-        if len(feedback) < 10 or feedback_lower in ["ok", "yes", "no", "thanks"]:
+        # Check for spam/irrelevant/gibberish
+        if (len(feedback) < 10 or
+            feedback_lower in ["ok", "yes", "no", "thanks", "thank you", "hi", "hello"] or
+            not any(c.isalpha() for c in feedback)):  # No alphabetic characters
             feedback_type = "irrelevant_spam"
             is_actionable = False
             confidence = 0.95

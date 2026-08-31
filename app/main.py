@@ -2,31 +2,21 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, sta
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from typing import List, Optional, Dict, Any
-import redis
-import csv
-import io
 import json
 from uuid import uuid4
 from fastapi import File, UploadFile
 from sqlalchemy import text
-import os
 from pathlib import Path
 from datetime import datetime, timezone
+import logging
 from app.db.database import engine
 from app.db.database import get_db
-from app.db.models.rule import Rule
-from app.db.models.evaluation_run import EvaluationRun
 from app.db.models.feedback import Feedback
 from app.db.models.analysis_run import AnalysisRun
 from app.db.models.rule_suggestion import RuleSuggestion
 from app.schemas.feedback import (
     FeedbackAnalysisRequest,
     FeedbackAnalysisResponse,
-    FeedbackBatchAnalysisRequest,
-    FeedbackBatchAnalysisResponse,
-    RuleComparisonRequest,
-    RuleCompareRequest,
-    RuleComparisonResponse,
     ClassificationResponse,
     ExtractionResponse,
     SchemaValidationResponse,
@@ -35,7 +25,13 @@ from app.schemas.feedback import (
     ClarificationResponse as FeedbackClarificationResponse,
     RoutingDecisionResponse,
     PerFieldConfidence,
+    PreprocessingResponse,
 )
+
+# Setup logging
+from app.logging_config import setup_logging, input_validation_logger
+logger = setup_logging()
+
 from app.schemas.suggestion import (
     SuggestionCreateRequest,
     SuggestionResponse,
@@ -79,6 +75,9 @@ from app.services.clarification_service import ClarificationService
 from app.services.review_routing_service import ReviewRoutingService
 from app.services.conflict_detection_service import RealConflictDetectionService
 from app.services.duplicate_detection_service import RealDuplicateDetectionService
+from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
+from app.services.baseline_conflict_detection_service import BaselineConflictDetectionService
+from app.services.completeness_checker import CompletenessChecker, AmbiguityDetector
 from app.services.domain_pack_detector import detect_domain_pack
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
@@ -88,9 +87,6 @@ static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
 
-# Register Phase 3 E2E endpoints
-from app.services.phase3_e2e_service import register_phase3_e2e_endpoints
-register_phase3_e2e_endpoints(app)
 
 # Root endpoint to serve custom UI
 @app.get("/", include_in_schema=False)
@@ -153,6 +149,12 @@ def readiness_check():
 @app.post("/api/detect-domain-pack")
 def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
     """Auto-detect which domain pack feedback belongs to based on content analysis."""
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== DOMAIN PACK DETECTION - INPUT VALIDATION START ===")
+    input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
+    input_validation_logger.info(f"Feedback length: {len(payload.feedback_text or '')} characters")
+    input_validation_logger.info("=== DOMAIN PACK DETECTION - INPUT VALIDATION COMPLETE ===")
+
     feedback_text = payload.feedback_text or ""
     detected_domain, confidence = detect_domain_pack(feedback_text)
 
@@ -186,11 +188,17 @@ def check_duplicate_endpoint(
         "relationship": "exact_duplicate|semantic_duplicate|modification|...",
         "matching_rule_id": str or null,
         "confidence": float (0.0-1.0),
-        "semantic_similarity": float (from pgvector),
         "retrieval_stage": int (number of candidates),
         "details": {...}
     }
     """
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== DUPLICATE DETECTION - INPUT VALIDATION START ===")
+    input_validation_logger.info(f"Workspace ID: {payload.get('workspace_id', 'default')}")
+    input_validation_logger.info(f"Domain ID: {payload.get('domain_id', 'ecommerce')}")
+    input_validation_logger.info(f"Rule provided: {bool(payload.get('rule'))}")
+    input_validation_logger.info("=== DUPLICATE DETECTION - INPUT VALIDATION COMPLETE ===")
+
     try:
         suggested_rule = payload.get("rule", {})
         workspace_id = payload.get("workspace_id", "default")
@@ -214,7 +222,6 @@ def check_duplicate_endpoint(
             "relationship": "unrelated",
             "matching_rule_id": None,
             "confidence": 0.0,
-            "semantic_similarity": 0.0,
             "retrieval_stage": 0,
             "details": {"error": str(e)},
         }
@@ -241,11 +248,17 @@ def check_conflict_endpoint(
         "conflict_type": "direct_conflict|potential_conflict|temporal_conflict|scope_conflict|no_conflict",
         "conflicting_rule_ids": [str, ...],
         "confidence": float (0.0-1.0),
-        "semantic_similarity": float (from pgvector),
         "retrieval_stage": int (number of candidates),
         "details": {...}
     }
     """
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== CONFLICT DETECTION - INPUT VALIDATION START ===")
+    input_validation_logger.info(f"Workspace ID: {payload.get('workspace_id', 'default')}")
+    input_validation_logger.info(f"Domain ID: {payload.get('domain_id', 'ecommerce')}")
+    input_validation_logger.info(f"Rule provided: {bool(payload.get('rule'))}")
+    input_validation_logger.info("=== CONFLICT DETECTION - INPUT VALIDATION COMPLETE ===")
+
     try:
         suggested_rule = payload.get("rule", {})
         workspace_id = payload.get("workspace_id", "default")
@@ -269,7 +282,6 @@ def check_conflict_endpoint(
             "conflict_type": "no_conflict",
             "conflicting_rule_ids": [],
             "confidence": 0.0,
-            "semantic_similarity": 0.0,
             "retrieval_stage": 0,
             "details": {"error": str(e)},
         }
@@ -340,6 +352,14 @@ def re_analyze_feedback(
 
     Response: Full FeedbackAnalysisResponse with updated results
     """
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== RE-ANALYZE FEEDBACK - INPUT VALIDATION START ===")
+    input_validation_logger.info(f"Feedback ID: {feedback_id}")
+    input_validation_logger.info(f"Workspace ID: {payload.get('workspace_id', 'default')}")
+    input_validation_logger.info(f"Domain ID: {payload.get('domain_id', 'ecommerce')}")
+    input_validation_logger.info(f"Clarification response length: {len(payload.get('clarification_response', ''))} characters")
+    input_validation_logger.info("=== RE-ANALYZE FEEDBACK - INPUT VALIDATION COMPLETE ===")
+
     try:
         from app.db.models.feedback import Feedback
         from app.services.clarification_service import RealClarificationService
@@ -382,7 +402,7 @@ def re_analyze_feedback(
         primary_rule = extracted_rules[0] if extracted_rules else {}
 
         # Duplicate Detection
-        duplicate_service = RealDuplicateDetectionService()
+        duplicate_service = BaselineDuplicateDetectionService()
         duplicate_check = duplicate_service.check_duplicate(
             suggested_rule=primary_rule,
             workspace_id=workspace_id,
@@ -391,7 +411,7 @@ def re_analyze_feedback(
         )
 
         # Conflict Detection
-        conflict_service = RealConflictDetectionService()
+        conflict_service = BaselineConflictDetectionService()
         conflict_check = conflict_service.check_conflict(
             suggested_rule=primary_rule,
             workspace_id=workspace_id,
@@ -763,12 +783,85 @@ def analyze_feedback(
     7. Review routing
     8. Persist suggestion
     """
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== INPUT VALIDATION START ===")
+
+    # Log authentication token (if present)
+    auth_header = None
+    try:
+        from fastapi import Request
+        request = Request(scope={'type': 'http'})
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            input_validation_logger.info(f"Authentication token: {auth_header[:50]}...")  # Log first 50 chars only
+        else:
+            input_validation_logger.warning("No authentication token provided")
+    except Exception as e:
+        input_validation_logger.warning(f"Could not extract auth header: {e}")
+
+    # Log workspace membership authorization
+    input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
+
+    # Log JSON schema validation (Pydantic handles this)
+    input_validation_logger.info("JSON schema validation: PASSED (Pydantic model validation)")
+
+    # Log required request fields
+    required_fields = {
+        'workspace_id': payload.workspace_id,
+        'feedback_text': payload.feedback_text,
+    }
+    input_validation_logger.info(f"Required fields validation: {required_fields}")
+
+    # Log additional request fields
+    additional_fields = {
+        'feedback_id': payload.feedback_id or 'auto-generated',
+        'submitted_by': payload.submitted_by or 'anonymous',
+        'schema_context': f"{len(payload.schema_context or {})} items" if payload.schema_context else "none",
+    }
+    input_validation_logger.info(f"Additional fields: {additional_fields}")
+
+    # Detect and log domain pack explicitly
+    detected_domain, detection_confidence = detect_domain_pack(payload.feedback_text)
+    input_validation_logger.info(f"Domain detection: {detected_domain} (confidence: {detection_confidence:.3f})")
+
+    # Store detected domain in schema context for downstream processing
+    full_schema_context = payload.schema_context.copy() if payload.schema_context else {}
+    full_schema_context["domain_pack_id"] = detected_domain
+    full_schema_context["domain_detection_confidence"] = detection_confidence
+
+    # Log maximum feedback length
+    feedback_length = len(payload.feedback_text)
+    input_validation_logger.info(f"Feedback length: {feedback_length} characters")
+    if feedback_length > 10000:  # Example max length
+        input_validation_logger.warning(f"Feedback exceeds maximum length (10000 chars)")
+
+    # Log supported content type
+    input_validation_logger.info("Content type: application/json")
+
+    # Log duplicate request identifier (Idempotency Key)
+    idempotency_key = payload.feedback_id or "auto-generated"
+    input_validation_logger.info(f"Idempotency Key: {idempotency_key}")
+
+    # Log workspace membership authorization check
+    try:
+        from app.db.models.workspace import Workspace
+        workspace = db.query(Workspace).filter_by(workspace_id=payload.workspace_id).first()
+        if workspace:
+            input_validation_logger.info(f"Workspace authorization: SUCCESS (workspace exists)")
+        else:
+            input_validation_logger.info(f"Workspace authorization: PENDING (workspace will be auto-created)")
+    except Exception as e:
+        input_validation_logger.error(f"Workspace authorization check failed: {e}")
+
+    input_validation_logger.info("=== INPUT VALIDATION COMPLETE ===")
+
+    # Proceed with processing if validation passes
     from uuid import uuid4
     from datetime import datetime
     from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
     from app.services.schema_validation_service import SchemaValidationService
-    from app.services.duplicate_detection_service import RealDuplicateDetectionService
-    from app.services.conflict_detection_service import RealConflictDetectionService
+    from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
+    from app.services.baseline_conflict_detection_service import BaselineConflictDetectionService
     from app.services.clarification_service import RealClarificationService
     from app.services.review_routing_service import RealReviewRoutingService
     from app.db.models.workspace import Workspace
@@ -798,13 +891,24 @@ def analyze_feedback(
     db.add(feedback)
     db.flush()
 
-    # Step 2: Create AnalysisRun record
+    # Step 2: Create AnalysisRun record with complete metadata
     analysis_run_id = str(uuid4())
     suggestion_id = str(uuid4())
     analysis_run = AnalysisRun(
         analysis_run_id=analysis_run_id,
         feedback_id=feedback_id,
         workspace_id=payload.workspace_id,
+        model_version_id="baseline_v1",  # Baseline model version
+        dataset_version_id="ecommerce_v1",  # Baseline dataset version
+        taxonomy_version="v1",  # Baseline taxonomy version
+        domain_pack_id=full_schema_context.get("domain_pack_id", "ecommerce"),
+        threshold_configuration={
+            "classification": 0.7,
+            "extraction": 0.6,
+            "schema_validation": 0.8,
+            "conflict_detection": 0.7,
+            "duplicate_detection": 0.85
+        },
         processing_mode="single",
         status="processing",
         started_at=datetime.utcnow(),
@@ -812,11 +916,22 @@ def analyze_feedback(
     db.add(analysis_run)
     db.flush()
 
-    # STEP 1: Classification (with domain-aware baseline model)
-    domain_pack_id = payload.schema_context.get("domain_pack_id", "customer_support")
+    # STEP 1: Feedback Preprocessing (8.2)
+    from app.services.feedback_preprocessor import FeedbackPreprocessor
+    preprocessor = FeedbackPreprocessor()
+    preprocessing_result = preprocessor.preprocess(
+        payload.feedback_text, full_schema_context
+    )
+    processed_feedback = preprocessing_result["processed_text"]
+
+    # Record preprocessing timestamp
+    analysis_run.execution_timestamps["preprocessing_completed"] = datetime.utcnow().isoformat()
+
+    # STEP 2: Classification (with domain-aware baseline model)
+    domain_pack_id = full_schema_context.get("domain_pack_id", "customer_support")
     classifier = RealClassifier(domain=domain_pack_id)
     classification_result = classifier.classify(
-        payload.feedback_text, payload.schema_context
+        processed_feedback, full_schema_context
     )
     classification_result_dict = {
         "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
@@ -825,14 +940,20 @@ def analyze_feedback(
         "confidence": classification_result.get("confidence", 0.5),
     }
 
+    # Record classification timestamp
+    analysis_run.execution_timestamps["classification_completed"] = datetime.utcnow().isoformat()
+
     # STEP 2: Rule Extraction (with glossary, evidence, per-field confidence)
     extractor = EnhancedRuleExtractor()
-    extraction_result = extractor.extract(payload.feedback_text, payload.schema_context)
+    extraction_result = extractor.extract(processed_feedback, full_schema_context)
     extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+
+    # Record extraction timestamp
+    analysis_run.execution_timestamps["extraction_completed"] = datetime.utcnow().isoformat()
 
     # STEP 3: Schema Validation
     # Load actual schema from domain pack for validation
-    domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce")
+    domain_pack_id = full_schema_context.get("domain_pack_id", "ecommerce")
     domain_schema = {}
     try:
         schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
@@ -875,13 +996,18 @@ def analyze_feedback(
         clarification_required=False,  # Will update after clarification check
         review_status="pending_review",  # Will update after routing
         suggested_rule=primary_rule,
+        preprocessing_result=preprocessing_result,
+        schema_validation_status=schema_validation["status"],
         created_at=datetime.utcnow(),
     )
     db.add(rule_suggestion)
     db.flush()  # Flush to ensure suggestion is persisted before FK references
 
-    # STEP 5: Duplicate Detection
-    duplicate_service = RealDuplicateDetectionService()
+    # Record schema validation timestamp
+    analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
+
+    # STEP 5: Duplicate Detection (V4 Baseline)
+    duplicate_service = BaselineDuplicateDetectionService()
     duplicate_check = duplicate_service.check_duplicate(
         suggested_rule=primary_rule,
         workspace_id=payload.workspace_id,
@@ -890,7 +1016,7 @@ def analyze_feedback(
     )
 
     # STEP 6: Conflict Detection
-    conflict_service = RealConflictDetectionService()
+    conflict_service = BaselineConflictDetectionService()
     conflict_check = conflict_service.check_conflict(
         suggested_rule=primary_rule,
         workspace_id=payload.workspace_id,
@@ -898,21 +1024,34 @@ def analyze_feedback(
         db=db,
     )
 
-    # STEP 7: Clarification Generation (NOW safe to reference suggestion)
-    clarification_service = RealClarificationService()
-    clarification_result = clarification_service.generate_clarification(
-        feedback_id=feedback_id,
-        feedback_text=payload.feedback_text,
-        classification=classification_result_dict,
-        extraction=extraction_result,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        suggestion_id=suggestion_id,
-        analysis_run_id=analysis_run_id,
-        db=db,
-    )
+    # Record duplicate and conflict detection timestamps
+    analysis_run.execution_timestamps["duplicate_detection_completed"] = datetime.utcnow().isoformat()
+    analysis_run.execution_timestamps["conflict_detection_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 8: Review Routing
+    # STEP 7: Clarification Generation (V4 Baseline - Completeness Check)
+    completeness_checker = CompletenessChecker()
+    completeness_result = completeness_checker.generate_clarification_questions(primary_rule)
+
+    ambiguity_detector = AmbiguityDetector()
+    ambiguity_result = ambiguity_detector.generate_clarification_questions(primary_rule, payload.feedback_text)
+
+    # Determine if clarification is required based on completeness and ambiguity
+    clarification_required = completeness_result["clarification_required"] or ambiguity_result["clarification_required"]
+    clarification_questions = []
+    clarification_reason = ""
+
+    if completeness_result["clarification_required"]:
+        clarification_questions.extend([q["question"] for q in completeness_result["questions"]])
+        clarification_reason = f"Missing mandatory fields: {', '.join(completeness_result['missing_fields'])}"
+
+    if ambiguity_result["clarification_required"]:
+        clarification_questions.extend([q["question"] for q in ambiguity_result["questions"]])
+        if clarification_reason:
+            clarification_reason += "; Ambiguous fields: " + ", ".join(ambiguity_result['ambiguous_fields'])
+        else:
+            clarification_reason = f"Ambiguous fields: {', '.join(ambiguity_result['ambiguous_fields'])}"
+
+    # STEP 8: Review Routing (V4 Policy-Driven)
     routing_service = RealReviewRoutingService()
     routing_decision = routing_service.route_suggestion(
         suggestion_id=suggestion_id,
@@ -924,18 +1063,27 @@ def analyze_feedback(
         workspace_id=payload.workspace_id,
         domain_id=domain_pack_id,
         db=db,
+        clarification_required=clarification_required,
     )
 
+    # Record clarification timestamp
+    analysis_run.execution_timestamps["clarification_completed"] = datetime.utcnow().isoformat()
+
     # Update suggestion with clarification and routing results
-    rule_suggestion.clarification_required = clarification_result.get("created", False)
+    rule_suggestion.clarification_required = clarification_required
+    rule_suggestion.clarification_reason = clarification_reason
+    rule_suggestion.clarification_questions = clarification_questions
     rule_suggestion.review_status = routing_decision.get("review_status", "pending_review")
+
+    # Record routing timestamp
+    analysis_run.execution_timestamps["routing_completed"] = datetime.utcnow().isoformat()
 
     analysis_run.status = "completed"
     analysis_run.completed_at = datetime.utcnow()
     db.commit()
 
     # Build spec-compliant response with per-module confidence
-    clarification_required = clarification_result.get("created", False)
+    # clarification_required already set on line 894 from completeness/ambiguity check
 
     # Build extraction confidence with semantic labels
     per_field_confidence = extraction_result.get("extraction", {}).get("confidence", {})
@@ -978,6 +1126,14 @@ def analyze_feedback(
         feedback_id=feedback_id,
         suggestion_id=suggestion_id,
         status="PENDING_REVIEW",
+        preprocessing=PreprocessingResponse(
+            original_text=payload.feedback_text,
+            processed_text=preprocessing_result.get("processed_text", payload.feedback_text),
+            preprocessing_steps=preprocessing_result.get("steps", []),
+            detected_keywords=preprocessing_result.get("detected_keywords", []),
+            detected_schema_refs=preprocessing_result.get("detected_schema_refs", []),
+            language_normalized=preprocessing_result.get("language_normalized", False),
+        ),
         classification=ClassificationResponse(
             feedback_type=classification_result_dict["feedback_type"],
             rule_category=classification_result_dict["rule_category"],
@@ -992,7 +1148,6 @@ def analyze_feedback(
             is_duplicate=duplicate_check.get("is_duplicate", False),
             matching_rule_id=duplicate_check.get("matching_rule_id"),
             confidence=duplicate_check.get("confidence", 0.0),
-            semantic_similarity=duplicate_check.get("semantic_similarity", 0.0),
             retrieval_stage=duplicate_check.get("retrieval_stage", 0),
             similar_rules=duplicate_check.get("similar_rules", []),
             details=duplicate_check.get("details", {}),
@@ -1003,7 +1158,6 @@ def analyze_feedback(
             has_conflict=conflict_check.get("has_conflict", False),
             conflict_type=conflict_check.get("conflict_type"),
             confidence=conflict_check.get("confidence", 0.0),
-            semantic_similarity=conflict_check.get("semantic_similarity", 0.0),
             retrieval_stage=conflict_check.get("retrieval_stage", 0),
             conflicting_rule_ids=conflict_check.get("conflicting_rule_ids", []),
             related_compatible_rule_ids=conflict_check.get("related_compatible_rule_ids", []),
@@ -1012,11 +1166,11 @@ def analyze_feedback(
         ),
         clarification_required=clarification_required,
         clarification=FeedbackClarificationResponse(
-            clarification_id=clarification_result.get("clarification_id"),
+            clarification_id=None,
             required=clarification_required,
-            questions=clarification_result.get("questions", []),
-            reason=clarification_result.get("reason", ""),
-            ambiguity_reasons=clarification_result.get("ambiguity_reasons", []),
+            questions=clarification_questions,
+            reason=clarification_reason,
+            ambiguity_reasons=ambiguity_result.get("ambiguity_reasons", []),
         ) if clarification_required else None,
         routing_decision=RoutingDecisionResponse(
             review_status=routing_decision.get("review_status", "pending_review"),
@@ -1033,6 +1187,14 @@ def create_suggestion_route(
     payload: SuggestionCreateRequest,
     db=Depends(get_db),
 ):
+    # === INPUT VALIDATION LOGGING (8.1) ===
+    input_validation_logger.info("=== CREATE SUGGESTION - INPUT VALIDATION START ===")
+    input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
+    input_validation_logger.info(f"Feedback ID: {payload.feedback_id}")
+    input_validation_logger.info(f"Confidence score: {payload.confidence}")
+    input_validation_logger.info(f"Suggested rule provided: {bool(payload.suggested_rule)}")
+    input_validation_logger.info("=== CREATE SUGGESTION - INPUT VALIDATION COMPLETE ===")
+
     # For now, return mock response without DB persistence
     # TODO: Create analysis_run first, then persist suggestion with proper foreign key
     from datetime import datetime

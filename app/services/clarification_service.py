@@ -125,13 +125,37 @@ class ClarificationGenerator:
 
                 # Missing conditions is NOT necessarily an ambiguity
                 feedback_lower = feedback_text.lower()
-                has_condition_mention = any(word in feedback_lower for word in ["when", "if", "status", "equals", "greater", "less", "before", "after"])
-                if not rule.get("conditions") and has_condition_mention:
+                has_condition_mention = any(word in feedback_lower for word in ["when", "if", "status", "equals", "greater", "less", "before", "after", "exclude", "include", "filter", "remove", "add", "apply"])
+
+                # Check for candidate conditions to generate more intelligent questions
+                candidate_conditions = rule.get("candidate_conditions", [])
+
+                # Also consider candidate conditions as evidence of condition mention
+                if candidate_conditions and not has_condition_mention:
+                    has_condition_mention = True
+
+                if not rule.get("conditions") and (has_condition_mention or candidate_conditions):
                     extraction_gaps.append("Conditions mentioned but not extracted")
-                    if "conditions" in domain_questions:
-                        suggested_questions.extend(domain_questions["conditions"])
+
+                    # If we have candidate conditions, ask targeted questions
+                    if candidate_conditions:
+                        for candidate in candidate_conditions:
+                            condition_text = candidate.get("text", "")
+                            if condition_text:
+                                # Generate a targeted question about this specific candidate
+                                targeted_question = f"How should '{condition_text}' be identified in the data? For example, is there a specific field, flag, or threshold that defines this condition?"
+                                suggested_questions.insert(0, targeted_question)
+
+                                # Add a follow-up question about the field
+                                followup_question = f"What field or attribute should be used to check for '{condition_text}'?"
+                                suggested_questions.insert(1, followup_question)
+                                break  # Ask about the first candidate
                     else:
-                        suggested_questions.extend(self.question_templates["conditions"])
+                        # Fallback to generic questions if no candidate conditions
+                        if "conditions" in domain_questions:
+                            suggested_questions.extend(domain_questions["conditions"])
+                        else:
+                            suggested_questions.extend(self.question_templates["conditions"])
 
                 if not rule.get("affected_entities", {}).get("tables"):
                     extraction_gaps.append("Affected entities not identified")

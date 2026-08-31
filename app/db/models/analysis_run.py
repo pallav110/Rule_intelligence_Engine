@@ -49,6 +49,12 @@ class AnalysisRun(Base):
         nullable=True,
     )
 
+    execution_timestamps: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+        default={},
+    )
+
     processing_mode: Mapped[str] = mapped_column(
         String(30),
         nullable=False,

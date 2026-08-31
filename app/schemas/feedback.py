@@ -50,7 +50,6 @@ class DuplicateDetectionResponse(BaseModel):
     is_duplicate: bool = False
     matching_rule_id: str | None = None
     confidence: float = 0.0
-    semantic_similarity: float = 0.0
     retrieval_stage: int = 0
     similar_rules: list[dict[str, Any]] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
@@ -62,7 +61,6 @@ class ConflictDetectionResponse(BaseModel):
     has_conflict: bool = False
     conflict_type: str | None = None
     confidence: float = 0.0
-    semantic_similarity: float = 0.0
     retrieval_stage: int = 0
     conflicting_rule_ids: list[str] = Field(default_factory=list)
     related_compatible_rule_ids: list[str] = Field(default_factory=list)
@@ -84,11 +82,21 @@ class RoutingDecisionResponse(BaseModel):
     reason: str = ""
 
 
+class PreprocessingResponse(BaseModel):
+    original_text: str
+    processed_text: str
+    preprocessing_steps: list[dict[str, Any]]
+    detected_keywords: list[str]
+    detected_schema_refs: list[str]
+    language_normalized: bool
+
+
 # Spec-compliant response per Section 5.2
 class FeedbackAnalysisResponse(BaseModel):
     suggestion_id: str
     feedback_id: str
     status: str = "PENDING_REVIEW"
+    preprocessing: PreprocessingResponse
     classification: ClassificationResponse
     extraction: ExtractionResponse
     schema_validation: SchemaValidationResponse

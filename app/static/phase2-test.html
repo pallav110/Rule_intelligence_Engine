@@ -245,6 +245,8 @@
             font-family: 'Roboto Mono', monospace;
             font-size: 10px;
             overflow-x: auto;
+            white-space: pre;
+            tab-size: 2;
         }
 
         .examples {
@@ -274,7 +276,7 @@
     <div class="container">
         <div class="header">
             <div class="title">🧠 Phase 2 Testing - Core Intelligence Engine</div>
-            <div class="subtitle">Classification | Rule Extraction (Baseline) | Schema Validation (Baseline) | End-to-End Pipeline</div>
+            <div class="subtitle">Preprocessing | Classification | Rule Extraction (Baseline) | Schema Validation (Baseline) | End-to-End Pipeline</div>
             <div style="margin-top: 10px;">
                 <a href="/ui/phase3-test.html" style="color: var(--accent); font-size: 12px; text-decoration: none;">🔄 View Phase 3 Complete Pipeline →</a>
             </div>
@@ -356,6 +358,12 @@
             </div>
 
             <div id="detailed-results" style="display: none;">
+                <!-- Preprocessing Results -->
+                <div class="output-section" style="margin-bottom: 20px;">
+                    <div class="output-title">Step 0: Preprocessing</div>
+                    <div id="preprocessing-output"></div>
+                </div>
+
                 <!-- Classification Results -->
                 <div class="output-section" style="margin-bottom: 20px;">
                     <div class="output-title">Step 1: Classification</div>
@@ -387,6 +395,18 @@
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let detectedDomain = null;
         let detectionConfidence = 0;
+
+        // JSON formatting with syntax highlighting
+        function formatJson(data) {
+            const jsonString = JSON.stringify(data, null, 2);
+            return jsonString
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/("(\u[a-zA-Z0-9]{4}|\.[^\\"\n\r]|[^\\"])*")/g, '<span style="color: #fbbf24">$1</span>')
+                .replace(/:\s*(true|false|null)/g, ': <span style="color: #3b82f6">$1</span>')
+                .replace(/:\s*(-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, ': <span style="color: #10b981">$1</span>');
+        }
 
         // Auto-detect domain when feedback text changes
         document.addEventListener('DOMContentLoaded', () => {
@@ -547,6 +567,7 @@
 
         function displayResults(data) {
             // Handle both old mock format and new spec-compliant format
+            const preprocessing = data.preprocessing || {};
             const classification = data.classification || {};
             const extraction = data.extraction || {};
             const schemaValidation = data.schema_validation || {};
@@ -562,6 +583,42 @@
                 schemaValidation.status === 'PASS' ? '✓ PASS' : (schemaValidation.status === 'PARTIAL' ? '⚠ PARTIAL' : '✗ FAIL');
             document.getElementById('result-confidence').textContent =
                 `${(classification.confidence * 100).toFixed(1)}%`;
+
+            // Preprocessing details
+            const preprocessingHtml = `
+                <div class="field">
+                    <div class="field-label">Original Text</div>
+                    <div class="field-value">${preprocessing.original_text || 'N/A'}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Processed Text</div>
+                    <div class="field-value">${preprocessing.processed_text || 'N/A'}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Detected Keywords</div>
+                    <div class="field-value">${preprocessing.detected_keywords ? preprocessing.detected_keywords.join(', ') : 'None'}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Detected Schema References</div>
+                    <div class="field-value">${preprocessing.detected_schema_refs ? preprocessing.detected_schema_refs.join(', ') : 'None'}</div>
+                </div>
+                <div class="field">
+                    <div class="field-label">Language Normalized</div>
+                    <div class="field-value">${preprocessing.language_normalized ? 'YES' : 'NO'}</div>
+                </div>
+                ${preprocessing.preprocessing_steps && preprocessing.preprocessing_steps.length > 0 ? `
+                <div class="field">
+                    <div class="field-label">Preprocessing Steps</div>
+                    <div class="field-value">
+                        <ul style="margin-top: 5px; padding-left: 20px;">
+                            ${preprocessing.preprocessing_steps.map(step => `
+                                <li>${step.step}: ${step.description}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                </div>
+                ` : ''}
+            `;
 
             // Classification details
             const classificationHtml = `
@@ -593,6 +650,7 @@
                     </div>
                 </div>
             `;
+            document.getElementById('preprocessing-output').innerHTML = preprocessingHtml;
             document.getElementById('classification-output').innerHTML = classificationHtml;
 
             // Extraction details
@@ -704,15 +762,6 @@
                         <div class="field-label">Stage 1: Candidates Retrieved</div>
                         <div class="field-value">${duplicateDetection.retrieval_stage || 0}</div>
                     </div>
-                    ${duplicateDetection.semantic_similarity !== undefined && duplicateDetection.semantic_similarity !== null ? `
-                    <div class="field">
-                        <div class="field-label">Semantic Similarity</div>
-                        <div class="field-value">${(duplicateDetection.semantic_similarity * 100).toFixed(1)}%</div>
-                        <div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${(duplicateDetection.semantic_similarity || 0) * 100}%"></div>
-                        </div>
-                    </div>
-                    ` : ''}
                     ${duplicateDetection.confidence !== undefined && duplicateDetection.confidence !== null ? `
                     <div class="field">
                         <div class="field-label">Duplicate Confidence</div>
@@ -746,15 +795,6 @@
                         <div class="field-label">Stage 1: Candidates Retrieved</div>
                         <div class="field-value">${conflictDetection.retrieval_stage || 0}</div>
                     </div>
-                    ${conflictDetection.semantic_similarity !== undefined && conflictDetection.semantic_similarity !== null ? `
-                    <div class="field">
-                        <div class="field-label">Semantic Similarity</div>
-                        <div class="field-value">${(conflictDetection.semantic_similarity * 100).toFixed(1)}%</div>
-                        <div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${(conflictDetection.semantic_similarity || 0) * 100}%"></div>
-                        </div>
-                    </div>
-                    ` : ''}
                     ${conflictDetection.confidence !== undefined && conflictDetection.confidence !== null ? `
                     <div class="field">
                         <div class="field-label">Conflict Confidence</div>
@@ -789,8 +829,8 @@
                 document.getElementById('entity-output').innerHTML += clarificationHtml;
             }
 
-            // Full response
-            document.getElementById('full-response').textContent = JSON.stringify(data, null, 2);
+            // Full response with syntax highlighting
+            document.getElementById('full-response').innerHTML = formatJson(data);
 
             // Show results
             document.getElementById('detailed-results').style.display = 'block';

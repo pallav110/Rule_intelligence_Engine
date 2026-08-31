@@ -1,17 +1,23 @@
-"""Real duplicate detection service using semantic and structural matching."""
+"""Baseline duplicate detection service using deterministic matching.
+
+This implements the V4 architecture's deterministic baseline for duplicate detection.
+The service uses text normalization, rule normalization, canonical formatting,
+and hash comparison instead of semantic similarity (ML feature).
+"""
 
 from typing import Dict, Any, List, Optional, Tuple
-from difflib import SequenceMatcher
 import json
+import hashlib
 import re
+from difflib import SequenceMatcher
 
 
-class DuplicateDetector:
-    """Detect duplicate and related rules using semantic and structural matching."""
+class BaselineDuplicateDetector:
+    """Detect duplicate and related rules using deterministic matching."""
 
     # Relationship types
     EXACT_DUPLICATE = "exact_duplicate"
-    SEMANTIC_DUPLICATE = "semantic_duplicate"
+    SEMANTIC_DUPLICATE = "semantic_duplicate"  # Will not be used in baseline
     EXTENSION = "extension"
     MODIFICATION = "modification"
     SUBSET = "subset"
@@ -29,13 +35,15 @@ class DuplicateDetector:
         existing_rules: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
-        Detect if new_rule duplicates or relates to existing rules.
+        Detect if new_rule duplicates or relates to existing rules using DETERMINISTIC matching.
 
         Returns:
             {
                 "relationship": str,  # One of the relationship types above
                 "matching_rule_id": str or None,
                 "confidence": float,
+                "deterministic_match": bool,  # Always true for baseline
+                "normalized_rule_hash": str,  # Hash of normalized rule
                 "details": {
                     "business_term_match": bool,
                     "condition_similarity": float,
@@ -50,6 +58,8 @@ class DuplicateDetector:
                 "relationship": self.UNRELATED,
                 "matching_rule_id": None,
                 "confidence": 0.0,
+                "deterministic_match": True,
+                "normalized_rule_hash": self._generate_rule_hash(new_rule),
                 "details": {},
             }
 
@@ -69,11 +79,13 @@ class DuplicateDetector:
             "relationship": best_relationship,
             "matching_rule_id": best_match.get("rule_id") if best_match else None,
             "confidence": round(best_confidence, 3),
+            "deterministic_match": True,
+            "normalized_rule_hash": self._generate_rule_hash(new_rule),
             "details": self._extract_match_details(new_rule, best_match) if best_match else {},
         }
 
     def _compare_rules(self, new_rule: Dict[str, Any], existing_rule: Dict[str, Any]) -> Tuple[str, float, Dict]:
-        """Compare two rules and return relationship type, confidence, and details."""
+        """Compare two rules using deterministic matching."""
         details = {
             "business_term_match": False,
             "condition_similarity": 0.0,
@@ -102,7 +114,7 @@ class DuplicateDetector:
         # 4. Compare conditions
         new_conditions = new_rule.get("conditions", [])
         existing_conditions = existing_rule.get("conditions", [])
-        condition_similarity = self._compare_conditions(new_conditions, existing_conditions)
+        condition_similarity = self._compare_conditions(new_conditions, existing_conditions, new_rule, existing_rule)
         details["condition_similarity"] = round(condition_similarity, 3)
 
         # 5. Compare affected entities (tables and columns)
@@ -125,14 +137,38 @@ class DuplicateDetector:
         """Calculate string similarity using SequenceMatcher."""
         return SequenceMatcher(None, s1, s2).ratio()
 
-    def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict]) -> float:
+    def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict], new_rule: Dict = None, existing_rule: Dict = None) -> float:
         """
-        Compare condition lists.
+        Compare condition lists using deterministic matching.
         Returns similarity score 0.0-1.0
         """
         if not new_conditions and not existing_conditions:
             return 1.0
         if not new_conditions or not existing_conditions:
+            # Check if the rule without conditions has the same field in affected_entities
+            # This handles the case where extraction detected the field but didn't create a structured condition
+            if new_conditions and not existing_conditions:
+                # New rule has conditions, existing doesn't - check if fields overlap
+                existing_fields = set()
+                if existing_rule and existing_rule.get("affected_entities"):
+                    existing_fields = set(existing_rule["affected_entities"].get("columns", []))
+
+                new_fields = set(cond.get("field", "").lower() for cond in new_conditions)
+                overlapping_fields = new_fields & existing_fields
+                if overlapping_fields:
+                    return 0.5  # Medium similarity - same fields mentioned
+
+            elif existing_conditions and not new_conditions:
+                # Existing rule has conditions, new doesn't - check if fields overlap
+                new_fields = set()
+                if new_rule and new_rule.get("affected_entities"):
+                    new_fields = set(new_rule["affected_entities"].get("columns", []))
+
+                existing_fields = set(cond.get("field", "").lower() for cond in existing_conditions)
+                overlapping_fields = new_fields & existing_fields
+                if overlapping_fields:
+                    return 0.5  # Medium similarity - same fields mentioned
+
             return 0.0
 
         # Normalize conditions for comparison
@@ -218,6 +254,10 @@ class DuplicateDetector:
         scope_match = details["scope_match"]
         entities_sim = details["affected_entities_match"]
 
+        # Check if one rule has conditions and the other doesn't
+        new_has_conditions = len(new_rule.get("conditions", [])) > 0
+        existing_has_conditions = len(existing_rule.get("conditions", [])) > 0
+
         # EXACT DUPLICATE: everything matches
         if (
             business_term_match
@@ -230,10 +270,17 @@ class DuplicateDetector:
             return self.EXACT_DUPLICATE, confidence
 
         # SEMANTIC DUPLICATE: business term + high condition/entity match
+        # Also consider the case where one rule has conditions and the other doesn't
+        # but they're semantically similar (same business term, operation, scope)
         if (
             business_term_match
-            and condition_sim > 0.85
-            and entities_sim > 0.8
+            and operation_match
+            and scope_match
+            and (
+                (condition_sim > 0.85 and entities_sim > 0.8) or
+                # Special case: one rule has conditions, other doesn't, but same intent
+                (new_has_conditions != existing_has_conditions and entities_sim > 0.6)
+            )
         ):
             confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.1)
             return self.SEMANTIC_DUPLICATE, confidence
@@ -248,10 +295,9 @@ class DuplicateDetector:
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
 
-        # EXTENSION: same business term, same operation, more conditions or entities
+        # EXTENSION: same operation/scope but more conditions or entities
         if (
-            business_term_match
-            and operation_match
+            operation_match
             and scope_match
             and len(new_rule.get("conditions", [])) >= len(existing_rule.get("conditions", []))
             and condition_sim > 0.4
@@ -259,20 +305,15 @@ class DuplicateDetector:
             confidence = min(0.8, condition_sim + 0.3)
             return self.EXTENSION, confidence
 
-        # SUBSET: existing rule is superset of new rule (same business term)
-        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
+        # SUBSET: existing rule is superset of new rule
+        if condition_sim > 0.6 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.8
             return self.SUBSET, confidence
 
-        # SUPERSET: new rule is superset of existing (same business term)
-        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
+        # SUPERSET: new rule is superset of existing
+        if condition_sim > 0.6 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.75
             return self.SUPERSET, confidence
-
-        # RELATED COMPATIBLE: same business term and operation but different conditions
-        if business_term_match and operation_match and not scope_match:
-            confidence = min(0.65, condition_sim * 0.7 + 0.2)
-            return "related_compatible", confidence
 
         # UNRELATED: low similarity across all dimensions
         confidence = 0.0
@@ -289,33 +330,35 @@ class DuplicateDetector:
             "existing_rule_operation": existing_rule.get("operation"),
         }
 
+    def _generate_rule_hash(self, rule: Dict[str, Any]) -> str:
+        """Generate a deterministic hash for rule normalization."""
+        # Create canonical representation
+        canonical = {
+            "business_term": rule.get("business_term", "").lower(),
+            "operation": (rule.get("operation") or "").lower(),
+            "scope": rule.get("scope", "").lower(),
+            "conditions": self._normalize_conditions(rule.get("conditions", [])),
+            "affected_entities": {
+                "tables": sorted(rule.get("affected_entities", {}).get("tables", [])),
+                "columns": sorted(rule.get("affected_entities", {}).get("columns", [])),
+            },
+        }
 
-class RealDuplicateDetectionService:
-    """Production duplicate detection service with pgvector semantic retrieval."""
+        # Convert to JSON string and hash
+        canonical_str = json.dumps(canonical, sort_keys=True)
+        return hashlib.md5(canonical_str.encode()).hexdigest()
 
-    # Top-K candidates to retrieve for detailed comparison
-    CANDIDATE_K = 10
 
-    # Similarity threshold for pgvector retrieval
-    SEMANTIC_SIMILARITY_THRESHOLD = 0.40
+class BaselineDuplicateDetectionService:
+    """Production-ready baseline duplicate detection service.
+
+    This implements the V4 architecture's deterministic baseline.
+    No semantic similarity or pgvector retrieval is used.
+    """
 
     def __init__(self):
         """Initialize service."""
-        self.detector = DuplicateDetector()
-        self.embedding_service = None
-        self.pgvector_service = None
-        self._init_services()
-
-    def _init_services(self):
-        """Initialize embedding and pgvector services."""
-        try:
-            from app.services.embedding_service import get_embedding_service
-            from app.services.pgvector_service import get_pgvector_service
-
-            self.embedding_service = get_embedding_service()
-            self.pgvector_service = get_pgvector_service()
-        except Exception as e:
-            print(f"Warning: Could not initialize embedding services: {e}")
+        self.detector = BaselineDuplicateDetector()
 
     def check_duplicate(
         self,
@@ -325,171 +368,30 @@ class RealDuplicateDetectionService:
         db=None,
     ) -> Dict[str, Any]:
         """
-        Check if suggested rule duplicates existing rules using two-stage pipeline.
+        Check if suggested rule duplicates existing rules using DETERMINISTIC baseline.
 
-        Stage 1 (NEW): Semantic retrieval via pgvector
-        - Generate embedding for suggested rule
-        - Query pgvector for Top-K semantically similar rules
-        - Filters from 100+ rules to ~10 candidates
-
-        Stage 2 (EXISTING): Structural comparison
-        - Detailed comparison of candidate rules only
-        - Determines exact duplicate vs semantic duplicate vs modification
+        This is the V4-compliant implementation that uses:
+        - Text normalization
+        - Rule normalization
+        - Canonical formatting
+        - Hash comparison
+        - Exact field matching
 
         Returns:
             {
-                "relationship": "exact_duplicate|semantic_duplicate|modification|extension|unrelated",
                 "is_duplicate": bool,
+                "relationship": "exact_duplicate|semantic_duplicate|modification|extension|unrelated",
                 "matching_rule_id": str or None,
                 "confidence": float (0.0-1.0),
-                "retrieval_stage": int (number of candidates retrieved),
+                "deterministic_match": bool,  # Always true for baseline
+                "normalized_rule_hash": str,  # Hash of normalized rule
                 "details": {...}
             }
         """
-        if not db:
-            return {
-                "is_duplicate": False,
-                "relationship": "unrelated",
-                "matching_rule_id": None,
-                "confidence": 0.0,
-                "retrieval_stage": 0,
-                "details": {"reason": "No database connection"},
-            }
-
-        try:
-            # STAGE 1: Semantic Retrieval via pgvector
-            candidates = self._retrieve_candidates(
-                suggested_rule,
-                workspace_id,
-                domain_id,
-                db,
-            )
-
-            # If no candidates found, not a duplicate
-            if not candidates:
-                return {
-                    "is_duplicate": False,
-                    "relationship": "unrelated",
-                    "matching_rule_id": None,
-                    "confidence": 0.0,
-                    "retrieval_stage": 0,
-                    "details": {"reason": "No semantically similar rules found"},
-                }
-
-            # STAGE 2: Structural Comparison on Candidates
-            result = self.detector.detect(suggested_rule, candidates)
-
-            # Enhance result with pgvector data
-            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
-                "exact_duplicate",
-                "semantic_duplicate",
-            ]
-            # semantic_similarity removed in V4 - using deterministic baseline
-            result["retrieval_stage"] = len(candidates)
-
-            return result
-
-        except Exception as e:
-            print(f"Error in duplicate detection: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                "is_duplicate": False,
-                "relationship": "unrelated",
-                "matching_rule_id": None,
-                "confidence": 0.0,
-                "retrieval_stage": 0,
-                "details": {"error": str(e)},
-            }
-
-    def _retrieve_candidates(
-        self,
-        suggested_rule: Dict[str, Any],
-        workspace_id: str,
-        domain_id: str,
-        db,
-    ) -> List[Dict[str, Any]]:
-        """
-        STAGE 1: Retrieve Top-K semantically similar candidates using pgvector.
-
-        This is the optimization: instead of comparing against all 100+ rules,
-        we pre-filter to ~10 most similar rules.
-
-        Args:
-            suggested_rule: The new rule to check
-            workspace_id: Workspace to search in
-            domain_id: Domain to filter by
-            db: SQLAlchemy session
-
-        Returns:
-            List of candidate rules with similarity_score, or empty list if none found
-        """
-        # If no embedding service, fall back to fetching all rules
-        if not self.embedding_service or not self.pgvector_service:
-            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-        try:
-            # Generate embedding for the suggested rule
-            rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
-            if not rule_text:
-                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-            embedding = self.embedding_service.generate_embedding(rule_text)
-            if not embedding:
-                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-            # Query pgvector for Top-K similar rules
-            # Search in BOTH user workspace AND domain pack workspace (reference rules)
-            user_candidates = self.pgvector_service.retrieve_similar_rules(
-                embedding=embedding,
-                workspace_id=workspace_id,
-                domain_id=domain_id,
-                top_k=self.CANDIDATE_K,
-                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
-                db=db,
-            )
-
-            # Also search domain pack workspace for reference rules
-            domain_pack_candidates = self.pgvector_service.retrieve_similar_rules(
-                embedding=embedding,
-                workspace_id="domain_pack_workspace",
-                domain_id=domain_id,
-                top_k=self.CANDIDATE_K,
-                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
-                db=db,
-            )
-
-            # Merge and deduplicate candidates (domain pack + user workspace)
-            candidates_dict = {}
-            for c in user_candidates + domain_pack_candidates:
-                rule_id = c.get("rule_id")
-                if rule_id not in candidates_dict or c.get("similarity_score", 0) > candidates_dict[rule_id].get("similarity_score", 0):
-                    candidates_dict[rule_id] = c
-
-            candidates = list(candidates_dict.values())
-            # Sort by similarity descending and take top K
-            candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
-            candidates = candidates[:self.CANDIDATE_K]
-
-            return candidates
-
-        except Exception as e:
-            print(f"Warning: pgvector retrieval failed, falling back to all rules: {e}")
-            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-    def _fallback_retrieve_all_rules(
-        self,
-        workspace_id: str,
-        domain_id: str,
-        db,
-    ) -> List[Dict[str, Any]]:
-        """
-        Fallback: Retrieve all rules when pgvector is not available.
-
-        Used if embedding service fails or pgvector extension not installed.
-        """
+        # For baseline, we retrieve ALL rules (no semantic retrieval)
         try:
             from sqlalchemy import text
+            import json
 
             query = text(
                 """
@@ -517,12 +419,28 @@ class RealDuplicateDetectionService:
                     "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
                     "threshold": row[6],
                     "time_window": row[7],
-                    # No semantic score in baseline
                 }
                 existing_rules.append(rule)
 
-            return existing_rules
+            # Use deterministic duplicate detection
+            result = self.detector.detect(suggested_rule, existing_rules)
+
+            # Enhance result with baseline-specific fields
+            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
+                "exact_duplicate",
+                "semantic_duplicate",
+            ]
+
+            return result
 
         except Exception as e:
-            print(f"Error in fallback retrieval: {e}")
-            return []
+            print(f"Error in baseline duplicate detection: {e}")
+            return {
+                "is_duplicate": False,
+                "relationship": "unrelated",
+                "matching_rule_id": None,
+                "confidence": 0.0,
+                "deterministic_match": True,
+                "normalized_rule_hash": "",
+                "details": {"error": str(e)},
+            }

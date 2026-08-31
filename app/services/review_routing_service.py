@@ -40,6 +40,7 @@ class ReviewRouter:
         duplicate_check: Dict[str, Any],
         workspace_id: str,
         domain_id: str,
+        clarification_required: bool = False,
     ) -> Dict[str, Any]:
         confidence = classification.get("confidence", 0.0)
         suggested_rule = suggestion or extraction.get("suggested_rule", {})
@@ -57,7 +58,17 @@ class ReviewRouter:
             and not is_duplicate
         )
 
-        if auto_approval_eligible:
+        # Clarification required takes precedence over everything else
+        if clarification_required:
+            review_status = "clarification_required"
+            priority = ReviewPriority.HIGH
+            suggested_reviewer_type = ReviewerType.QA
+            suggested_reviewer_id = self._select_reviewer(suggested_reviewer_type, domain_id)
+            reasoning_factors = [
+                "Mandatory rule information is missing",
+                "Clarification required from submitter",
+            ]
+        elif auto_approval_eligible:
             review_status = "auto_approved"
             priority = ReviewPriority.AUTO_APPROVE
             suggested_reviewer_type = ReviewerType.AUTOMATED
@@ -89,6 +100,8 @@ class ReviewRouter:
             )
 
         escalation_reasons = []
+        if clarification_required:
+            escalation_reasons.append("Mandatory rule information is missing")
         if has_conflict:
             escalation_reasons.append("Detected conflicts with existing rules")
         if is_duplicate:
@@ -287,6 +300,7 @@ class RealReviewRoutingService:
         workspace_id: str,
         domain_id: str,
         db=None,
+        clarification_required: bool = False,
     ) -> Dict[str, Any]:
         routing_decision = self.router.route(
             suggestion,
@@ -296,6 +310,7 @@ class RealReviewRoutingService:
             duplicate_check,
             workspace_id,
             domain_id,
+            clarification_required,
         )
 
         if db and routing_decision["review_status"] != "auto_approved":

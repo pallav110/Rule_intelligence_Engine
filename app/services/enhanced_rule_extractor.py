@@ -132,8 +132,9 @@ class EnhancedRuleExtractor:
         # Extract operations
         operations = self._extract_operations(feedback)
 
-        # Extract conditions
+        # Extract conditions and candidate conditions
         conditions = self._extract_conditions(feedback)
+        candidate_conditions = self._extract_candidate_conditions(feedback)
 
         # Extract scope
         scope = self._extract_scope(feedback)
@@ -165,6 +166,7 @@ class EnhancedRuleExtractor:
                 "business_term": term["term"],
                 "operation": operation,
                 "conditions": rule_conditions,
+                "candidate_conditions": candidate_conditions,
                 "scope": scope or "global",
                 "time_window": self._extract_time_window(feedback),
                 "affected_entities": affected_entities,
@@ -229,9 +231,27 @@ class EnhancedRuleExtractor:
         terms = []
         glossary = glossary_service.load_glossary_for_domain(domain_pack_id)
 
+        # First, try to find exact matches in the feedback
+        feedback_lower = feedback.lower()
+        exact_matches = []
+        partial_matches = []
+
+        for gloss_term in glossary_terms:
+            term_key = gloss_term["key"]
+            term_lower = term_key.lower()
+
+            # Check if the term appears exactly in the feedback
+            if term_lower in feedback_lower:
+                exact_matches.append(gloss_term)
+            else:
+                partial_matches.append(gloss_term)
+
+        # Prioritize exact matches over partial matches
+        all_glossary_terms = exact_matches + partial_matches
+
         # Only take the HIGHEST MATCH QUALITY term as the primary extracted term
         # The rest are candidates (alternative interpretations)
-        for gloss_term in glossary_terms:
+        for gloss_term in all_glossary_terms:
             term_data = glossary.get(gloss_term["key"], {})
             terms.append({
                 "term": gloss_term["term"],
@@ -289,8 +309,9 @@ class EnhancedRuleExtractor:
     def _extract_conditions(self, feedback: str) -> List[Dict[str, Any]]:
         """Extract conditions from feedback."""
         conditions = []
+        candidate_conditions = []
 
-        # Pattern: "field is/equals/contains value"
+        # Pattern 1: Explicit "field is/equals/contains value"
         condition_pattern = r"(\w+(?:\.\w+)?)\s+(is|equals|contains|matches)\s+['\"]?(\w+)['\"]?"
         matches = re.finditer(condition_pattern, feedback, re.IGNORECASE)
 
@@ -306,9 +327,125 @@ class EnhancedRuleExtractor:
                 "field": field if "." in field else f"unknown.{field}",
                 "operator": operator_map.get(operator_text.lower(), "equals"),
                 "value": value,
+                "type": "structured",
+                "confidence": 0.95
             })
 
+        # Pattern 2: Extract meaningful phrases after operations like "exclude", "include", "filter"
+        operation_keywords = ["exclude", "include", "filter", "remove", "add", "apply"]
+        for keyword in operation_keywords:
+            # Look for phrases like "exclude promotional discounts", "filter by region"
+            phrase_pattern = rf"{keyword}\s+(?:by\s+)?(.+?)(?:\s+from|\s+where|\.$)"
+            phrase_matches = re.finditer(phrase_pattern, feedback, re.IGNORECASE)
+
+            for phrase_match in phrase_matches:
+                condition_phrase = phrase_match.group(1).strip()
+                # Clean up the phrase
+                condition_phrase = re.sub(r'\s+', ' ', condition_phrase)
+
+                candidate_conditions.append({
+                    "text": condition_phrase,
+                    "type": "unresolved_condition",
+                    "confidence": 0.75,
+                    "source": f"detected after '{keyword}'"
+                })
+
+        # Pattern 3: Extract phrases with common condition indicators
+        condition_indicators = [
+            (r"when\s+(.+?)(?:\s+then|\.$)", "when clause"),
+            (r"where\s+(.+?)(?:\s+and|\s+or|\.$)", "where clause"),
+            (r"if\s+(.+?)(?:\s+then|\.$)", "if clause"),
+        ]
+
+        for pattern, source in condition_indicators:
+            indicator_matches = re.finditer(pattern, feedback, re.IGNORECASE)
+            for indicator_match in indicator_matches:
+                condition_phrase = indicator_match.group(1).strip()
+                condition_phrase = re.sub(r'\s+', ' ', condition_phrase)
+
+                candidate_conditions.append({
+                    "text": condition_phrase,
+                    "type": "unresolved_condition",
+                    "confidence": 0.70,
+                    "source": source
+                })
+
+        # Store candidate conditions in a separate field for clarification
+        # Only return structured conditions for now
         return conditions
+
+    def _extract_candidate_conditions(self, feedback: str) -> List[Dict[str, Any]]:
+        """Extract candidate conditions (unresolved phrases) from feedback."""
+        candidate_conditions = []
+
+        # Pattern 1: Extract meaningful phrases after operations like "exclude", "include", "filter"
+        operation_keywords = ["exclude", "include", "filter", "remove", "add", "apply"]
+        for keyword in operation_keywords:
+            # Look for phrases like "exclude promotional discounts", "filter by region"
+            # End the phrase at: "from", "where", period, or end of sentence
+            phrase_pattern = rf"{keyword}\s+(?:by\s+)?(.+?)(?:\s+from|\s+where|\.$|$)"
+            phrase_matches = re.finditer(phrase_pattern, feedback, re.IGNORECASE)
+
+            for phrase_match in phrase_matches:
+                condition_phrase = phrase_match.group(1).strip()
+                # Clean up the phrase
+                condition_phrase = re.sub(r'\s+', ' ', condition_phrase)
+
+                candidate_conditions.append({
+                    "text": condition_phrase,
+                    "type": "unresolved_condition",
+                    "confidence": 0.75,
+                    "source": f"detected after '{keyword}'"
+                })
+
+        # Pattern 2: Extract phrases with common condition indicators
+        condition_indicators = [
+            (r"when\s+(.+?)(?:\s+then|\.$)", "when clause"),
+            (r"where\s+(.+?)(?:\s+and|\s+or|\.$)", "where clause"),
+            (r"if\s+(.+?)(?:\s+then|\.$)", "if clause"),
+        ]
+
+        for pattern, source in condition_indicators:
+            indicator_matches = re.finditer(pattern, feedback, re.IGNORECASE)
+            for indicator_match in indicator_matches:
+                condition_phrase = indicator_match.group(1).strip()
+                condition_phrase = re.sub(r'\s+', ' ', condition_phrase)
+
+                candidate_conditions.append({
+                    "text": condition_phrase,
+                    "type": "unresolved_condition",
+                    "confidence": 0.70,
+                    "source": source
+                })
+
+        # Pattern 3: Extract noun phrases that might be conditions
+        # Look for phrases like "promotional discounts", "cancelled orders", etc.
+        noun_phrase_pattern = r"(?:\b(a|the)\s+)?(\w+(?:\s+\w+){1,3})\b(?=\s+from|\s+where|\s+that|\.$)"
+        noun_phrase_matches = re.finditer(noun_phrase_pattern, feedback, re.IGNORECASE)
+
+        for noun_phrase_match in noun_phrase_matches:
+            # Skip if it's just the business term itself
+            if noun_phrase_match.group(2).lower() in ["revenue", "calculation", "total"]:
+                continue
+
+            condition_phrase = noun_phrase_match.group(2).strip()
+            candidate_conditions.append({
+                "text": condition_phrase,
+                "type": "unresolved_condition",
+                "confidence": 0.65,
+                "source": "noun phrase detection"
+            })
+
+        # Remove duplicates
+        seen_phrases = set()
+        unique_candidates = []
+        for candidate in candidate_conditions:
+            phrase_key = candidate["text"].lower()
+            if phrase_key not in seen_phrases:
+                seen_phrases.add(phrase_key)
+                unique_candidates.append(candidate)
+
+        return unique_candidates
 
     def _extract_scope(self, feedback: str) -> str:
         """Extract scope from feedback."""
@@ -432,10 +569,21 @@ class EnhancedRuleExtractor:
         feedback: str
     ) -> Dict[str, float]:
         """Calculate per-field confidence scores."""
+        # Check if there are candidate conditions that weren't resolved
+        has_candidate_conditions = "exclude" in feedback.lower() or "include" in feedback.lower() or "filter" in feedback.lower()
+
+        # Calculate conditions confidence based on actual conditions and candidate detection
+        if conditions:
+            conditions_confidence = 0.70  # Structured conditions extracted
+        elif has_candidate_conditions:
+            conditions_confidence = 0.20  # Candidate conditions detected but not resolved
+        else:
+            conditions_confidence = 0.80  # No conditions needed for this rule type
+
         return {
             "business_term": min(0.95, term.get("confidence", 0.5)),
             "operation": 0.85 if operation and operation != "exclude" else (0.95 if operation == "exclude" else 0.50),
-            "conditions": 0.70 if conditions else 0.40,
+            "conditions": conditions_confidence,
             "scope": 0.80,
             "affected_entities": 0.75,
         }
