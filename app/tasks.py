@@ -75,3 +75,63 @@ def process_background_job(
 
     finally:
         db.close()
+
+@celery_app.task(
+    name="evaluations.run_evaluation_task",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def run_evaluation_task(self, evaluation_run_id: str):
+    import time, uuid, json
+    from datetime import datetime
+    from app.db.database import SessionLocal
+    from app.db.models.evaluation_run import EvaluationRun
+    from app.db.models.evaluation_metric import EvaluationMetric
+    
+    db = SessionLocal()
+    try:
+        run = db.get(EvaluationRun, evaluation_run_id)
+        if not run:
+            return {"status": "failed", "error": "Not found"}
+        
+        run.status = "running"
+        run.started_at = datetime.utcnow()
+        db.commit()
+        
+        # Mock long-running evaluation ML
+        time.sleep(2)
+        
+        # Emit mock metrics
+        db.add(EvaluationMetric(
+            metric_id=str(uuid.uuid4()),
+            evaluation_run_id=evaluation_run_id,
+            metric_name="accuracy",
+            metric_value=0.92,
+            metric_details={}
+        ))
+        
+        db.add(EvaluationMetric(
+            metric_id=str(uuid.uuid4()),
+            evaluation_run_id=evaluation_run_id,
+            metric_name="f1_score",
+            metric_value=0.88,
+            metric_details={"precision": 0.89, "recall": 0.87}
+        ))
+        
+        run.status = "completed"
+        run.completed_at = datetime.utcnow()
+        db.commit()
+        
+        return {"status": "completed", "evaluation_run_id": evaluation_run_id}
+        
+    except Exception as e:
+        db.rollback()
+        run = db.get(EvaluationRun, evaluation_run_id)
+        if run:
+            run.status = "failed"
+            db.commit()
+        raise
+    finally:
+        db.close()
