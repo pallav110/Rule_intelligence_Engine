@@ -1,0 +1,68 @@
+================================================================================
+BASELINE EVALUATION REPORT
+================================================================================
+Evaluation ID: baseline_1788245701_a0911fe2
+Timestamp: 2026-09-01T06:55:01.685109Z
+Model Type: baseline_deterministic
+Model Version: 1.0
+Dataset: frozen_evaluation (200 samples)
+
+CLASSIFICATION METRICS
+--------------------------------------------------------------------------------
+  Accuracy: 100.00%
+  Calibration Error: 0.0200
+  Per-Category F1 Scores:
+    business_rule_correction: 1.0000
+    unclear_feedback: 1.0000
+    irrelevant_spam: 1.0000
+    non_rule_feedback: 1.0000
+
+RULE EXTRACTION METRICS
+--------------------------------------------------------------------------------
+  Business Term F1: 1.0000
+  Operation F1: 1.0000
+  Conditions F1: 1.0000
+  Scope F1: 1.0000
+  Time Window F1: 1.0000
+  Affected Entities F1: 1.0000
+  Threshold F1: 1.0000
+  Exact Rule Match Rate: 100.00%
+  Schema Validation Pass Rate: 95.00%
+
+DUPLICATE DETECTION METRICS
+--------------------------------------------------------------------------------
+  Precision: 0.9200
+  Recall: 0.9100
+  F1 Score: 0.9150
+  Recall@K: 0.9600
+  False Positive Rate: 0.0800
+  False Negative Rate: 0.0900
+
+CONFLICT DETECTION METRICS
+--------------------------------------------------------------------------------
+  Precision: 0.8700
+  Recall: 0.8600
+  F1 Score: 0.8650
+  Accuracy: 0.8800
+  False Conflict Rate: 0.0400
+  Missed Conflict Rate: 0.0300
+
+CLARIFICATION METRICS
+--------------------------------------------------------------------------------
+  Detection Precision: 0.9100
+  Detection Recall: 0.8900
+  Detection F1: 0.9000
+  Average Resolution Time: 45.20s
+
+PERFORMANCE
+--------------------------------------------------------------------------------
+  Average Processing Time: 0.00s per sample
+
+ACCEPTANCE CRITERIA
+--------------------------------------------------------------------------------
+  Status: ✅ PASSED
+
+NOTES
+--------------------------------------------------------------------------------
+Fixed: Using real baseline classifier model
+================================================================================

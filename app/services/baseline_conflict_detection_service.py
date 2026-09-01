@@ -112,6 +112,7 @@ class BaselineConflictDetector:
             "conflicting_operations": False,
             "shared_tables": [],
             "shared_columns": [],
+            "candidate_conditions_conflict": False,
         }
 
         # 1. Check business term conflict (same term = potential conflict)
@@ -148,9 +149,20 @@ class BaselineConflictDetector:
         details["shared_columns"] = list(shared_columns)
         details["affected_field_overlap"] = len(shared_columns) > 0
 
-        # 4. Check for contradictory conditions
+        # 4. Check for contradictory conditions (INCLUDING candidate conditions)
         new_conditions = new_rule.get("conditions", [])
+        new_candidates = new_rule.get("candidate_conditions", [])
         existing_conditions = existing_rule.get("conditions", [])
+
+        # If new rule has unresolved candidate conditions, flag for clarification
+        if new_candidates and not new_conditions and existing_conditions:
+            # User said something like "exclude cancelled orders" but didn't specify HOW
+            # This might conflict with existing rule, but needs clarification
+            details["candidate_conditions_conflict"] = True
+            candidate_texts = [c.get("text", "") for c in new_candidates]
+            details["clarification_needed"] = f"Confirm how to identify: {', '.join(candidate_texts)}"
+            # Lower confidence since conditions are unresolved
+            return self.POTENTIAL_CONFLICT, 0.65, details
 
         contradictory = self._find_contradictions(new_conditions, existing_conditions)
         details["contradictory_conditions"] = contradictory
@@ -360,7 +372,11 @@ class BaselineConflictDetectionService:
         try:
             from sqlalchemy import text
             import json
+            from pathlib import Path
 
+            existing_rules = []
+
+            # Stage 1: Try database query first
             query = text(
                 """
                 SELECT rule_id, business_term, operation, conditions, scope,
@@ -375,7 +391,6 @@ class BaselineConflictDetectionService:
             )
 
             result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
-            existing_rules = []
 
             for row in result:
                 rule = {
@@ -390,13 +405,43 @@ class BaselineConflictDetectionService:
                 }
                 existing_rules.append(rule)
 
-            # Use deterministic conflict detection
-            result = self.detector.detect(suggested_rule, existing_rules)
+            # Stage 2: If database returns 0 results, fallback to domain pack JSON files
+            if not existing_rules:
+                try:
+                    active_rules_path = (
+                        Path(__file__).parent.parent.parent /
+                        "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+                    )
+                    if active_rules_path.exists():
+                        with open(active_rules_path, 'r') as f:
+                            json_rules = json.load(f)
+                            if isinstance(json_rules, list):
+                                for json_rule in json_rules:
+                                    rule = {
+                                        "rule_id": json_rule.get("rule_id"),
+                                        "business_term": json_rule.get("business_term"),
+                                        "operation": json_rule.get("operation"),
+                                        "conditions": json_rule.get("conditions", []),
+                                        "scope": json_rule.get("scope", "global"),
+                                        "affected_entities": json_rule.get("affected_entities", {}),
+                                        "threshold": json_rule.get("threshold"),
+                                        "time_window": json_rule.get("time_window"),
+                                    }
+                                    existing_rules.append(rule)
+                except Exception as fallback_e:
+                    print(f"Warning: Could not load fallback rules from {domain_id}/rules/active_rules.json: {fallback_e}")
 
-            return result
+            # Use deterministic conflict detection
+            detection_result = self.detector.detect(suggested_rule, existing_rules)
+            detection_result["retrieval_stage"] = len(existing_rules)  # Track how many candidates were retrieved
+            detection_result["conflicting_rules"] = existing_rules  # Include all retrieved rules for debugging
+
+            return detection_result
 
         except Exception as e:
             print(f"Error in baseline conflict detection: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "has_conflict": False,
                 "conflict_type": "no_conflict",

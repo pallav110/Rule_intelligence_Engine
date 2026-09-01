@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from typing import List, Optional, Dict, Any
@@ -764,12 +764,74 @@ def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict
 
 # --- Feedback Analysis Endpoints ---
 
+def extract_workspace_from_context(payload_workspace: str, request_headers: dict = None) -> str:
+    """
+    Extract workspace ID from multiple sources in priority order:
+    1. X-Workspace-ID header (explicit override)
+    2. Authorization header (JWT token extraction)
+    3. X-User-ID header (derive workspace from user)
+    4. Payload workspace_id field (fallback)
+    5. Environment variable DEFAULT_WORKSPACE_ID
+    """
+    import os
+
+    if not request_headers:
+        request_headers = {}
+
+    # Priority 1: Explicit workspace header
+    explicit_ws = request_headers.get("X-Workspace-ID") or request_headers.get("x-workspace-id")
+    if explicit_ws:
+        print(f"[AUTH] Using workspace from X-Workspace-ID header: {explicit_ws}")
+        return explicit_ws
+
+    # Priority 2: Extract from JWT token (if Authorization header present)
+    auth_header = request_headers.get("Authorization") or request_headers.get("authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            import jwt
+            token = auth_header.replace("Bearer ", "").strip()
+            # Try to decode token (without verification for now)
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            if "workspace_id" in decoded:
+                ws_id = decoded["workspace_id"]
+                print(f"[AUTH] Using workspace from JWT token: {ws_id}")
+                return ws_id
+            if "sub" in decoded and "workspace_id" in decoded.get("context", {}):
+                ws_id = decoded["context"]["workspace_id"]
+                print(f"[AUTH] Using workspace from JWT context: {ws_id}")
+                return ws_id
+        except ImportError:
+            print(f"[AUTH] PyJWT not installed - skipping JWT parsing")
+        except Exception as e:
+            print(f"[AUTH] Could not decode JWT token: {e}")
+
+    # Priority 3: Derive from X-User-ID header
+    user_id = request_headers.get("X-User-ID") or request_headers.get("x-user-id")
+    if user_id:
+        import hashlib
+        # Deterministic workspace ID from user ID
+        ws_id = hashlib.sha256(f"user_{user_id}".encode()).hexdigest()[:36]
+        print(f"[AUTH] Derived workspace from X-User-ID: {ws_id}")
+        return ws_id
+
+    # Priority 4: Payload fallback
+    if payload_workspace:
+        print(f"[AUTH] Using workspace from payload: {payload_workspace}")
+        return payload_workspace
+
+    # Priority 5: Environment default
+    default_ws = os.getenv("DEFAULT_WORKSPACE_ID", "e8af6af9-3bbe-4117-a007-f55db418bc30")
+    print(f"[AUTH] Using default workspace from environment: {default_ws}")
+    return default_ws
+
+
 @app.post(
     "/v1/feedback/analyze",
     response_model=FeedbackAnalysisResponse,
 )
 def analyze_feedback(
     payload: FeedbackAnalysisRequest,
+    request: Request,
     db=Depends(get_db),
 ):
     """
@@ -786,21 +848,11 @@ def analyze_feedback(
     # === INPUT VALIDATION LOGGING (8.1) ===
     input_validation_logger.info("=== INPUT VALIDATION START ===")
 
-    # Log authentication token (if present)
-    auth_header = None
-    try:
-        from fastapi import Request
-        request = Request(scope={'type': 'http'})
-        auth_header = request.headers.get('Authorization')
-        if auth_header:
-            input_validation_logger.info(f"Authentication token: {auth_header[:50]}...")  # Log first 50 chars only
-        else:
-            input_validation_logger.warning("No authentication token provided")
-    except Exception as e:
-        input_validation_logger.warning(f"Could not extract auth header: {e}")
+    # Extract workspace from authentication context (headers > JWT > payload > environment)
+    headers_dict = dict(request.headers) if request else {}
+    workspace_id = extract_workspace_from_context(payload.workspace_id, headers_dict)
 
-    # Log workspace membership authorization
-    input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
+    input_validation_logger.info(f"Workspace ID: {workspace_id}")
 
     # Log JSON schema validation (Pydantic handles this)
     input_validation_logger.info("JSON schema validation: PASSED (Pydantic model validation)")
@@ -1125,7 +1177,7 @@ def analyze_feedback(
     return FeedbackAnalysisResponse(
         feedback_id=feedback_id,
         suggestion_id=suggestion_id,
-        status="PENDING_REVIEW",
+        status=routing_decision.get("review_status", "pending_review").upper(),
         preprocessing=PreprocessingResponse(
             original_text=payload.feedback_text,
             processed_text=preprocessing_result.get("processed_text", payload.feedback_text),
@@ -1153,7 +1205,7 @@ def analyze_feedback(
             details=duplicate_check.get("details", {}),
         ),
         conflict_detection=ConflictDetectionResponse(
-            status=conflict_check.get("status", "no_conflict"),
+            status=conflict_check.get("conflict_type", "no_conflict"),
             relationship=conflict_check.get("relationship", "compatible"),
             has_conflict=conflict_check.get("has_conflict", False),
             conflict_type=conflict_check.get("conflict_type"),

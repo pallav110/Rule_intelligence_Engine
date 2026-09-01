@@ -24,10 +24,14 @@
         }
 
         body {
-            font-family: 'Segoe UI', 'Roboto Mono', monospace;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, var(--primary) 0%, #0a0e27 100%);
             color: var(--text);
             min-height: 100vh;
+        }
+
+        code, pre, .json-display {
+            font-family: 'Roboto Mono', 'Monaco', monospace;
         }
 
         .container {
@@ -288,26 +292,26 @@
                 <div class="card-header">📝 Test Input</div>
 
                 <div class="form-group">
-                    <label>Feedback Text *</label>
+                    <label for="feedback-input">Feedback Text *</label>
                     <textarea id="feedback-input" placeholder="Enter feedback text for analysis...">Revenue calculation should exclude promotional discounts from the total</textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Workspace ID *</label>
+                    <label for="workspace-id">Workspace ID *</label>
                     <input type="text" id="workspace-id" placeholder="Enter your workspace ID (required)" value="e8af6af9-3bbe-4117-a007-f55db418bc30">
                 </div>
 
                 <div class="form-group">
-                    <label>Domain Pack (Auto-Detected)</label>
+                    <label for="domain-pack-display">Domain Pack (Auto-Detected)</label>
                     <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
                         <input type="text" id="domain-pack-display" readonly value="Enter feedback to detect..." style="background: rgba(59, 130, 246, 0.1); border-color: var(--accent);">
                     </div>
-                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;" role="status">
                         <span id="domain-confidence"></span>
                     </div>
                 </div>
 
-                <button onclick="runFullPipeline()" style="width: 100%; margin-top: 16px;">▶ Run Full Pipeline</button>
+                <button onclick="runFullPipeline()" aria-label="Run the full analysis pipeline" style="width: 100%; margin-top: 16px;">▶ Run Full Pipeline</button>
 
                 <div style="margin-top: 16px;">
                     <label style="margin-bottom: 8px;">Quick Examples</label>
@@ -403,7 +407,7 @@
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/("(\u[a-zA-Z0-9]{4}|\.[^\\"\n\r]|[^\\"])*")/g, '<span style="color: #fbbf24">$1</span>')
+                .replace(/"([^"\\]|\\.)*"/g, '<span style="color: #fbbf24">$&</span>')
                 .replace(/:\s*(true|false|null)/g, ': <span style="color: #3b82f6">$1</span>')
                 .replace(/:\s*(-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, ': <span style="color: #10b981">$1</span>');
         }

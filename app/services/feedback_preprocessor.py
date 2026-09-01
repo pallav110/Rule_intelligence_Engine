@@ -247,11 +247,16 @@ class FeedbackPreprocessor:
         return references
 
     def _correct_spelling(self, text: str) -> Tuple[str, str]:
-        """Basic spelling correction."""
-        # Common corrections
+        """Spelling correction using both dictionary and fuzzy matching."""
+        from difflib import SequenceMatcher
+
+        # Hardcoded common corrections
         corrections = {
             "shouldnt": "should not",
             "cancelld": "cancelled",
+            "inlucde": "include",
+            "includ": "include",
+            "exclued": "exclude",
             "wont": "will not",
             "cant": "cannot",
             "dont": "do not",
@@ -259,13 +264,54 @@ class FeedbackPreprocessor:
             "wasnt": "was not"
         }
 
+        # Business domain vocabulary for fuzzy matching
+        domain_vocabulary = {
+            "revenue", "order", "customer", "product", "payment", "shipping",
+            "invoice", "refund", "discount", "tax", "metric", "filter",
+            "access", "rule", "calculation", "definition", "include", "exclude",
+            "cancelled", "status", "amount", "date", "time", "field", "table",
+            "schema", "database", "condition", "value", "operator", "range"
+        }
+
         corrected = text
         changes_made = []
 
+        # Stage 1: Apply hardcoded corrections
         for wrong, right in corrections.items():
             if wrong in corrected:
                 corrected = corrected.replace(wrong, right)
                 changes_made.append(f"{wrong}→{right}")
+
+        # Stage 2: Fuzzy match remaining unknown words against domain vocabulary
+        words = corrected.split()
+        fuzzy_corrections = {}
+
+        for i, word in enumerate(words):
+            word_lower = word.lower().rstrip('.,!?;:')
+
+            # Skip if already in domain vocabulary
+            if word_lower in domain_vocabulary:
+                continue
+
+            # Try fuzzy match against domain vocabulary
+            best_match = None
+            best_ratio = 0.0
+
+            for vocab_term in domain_vocabulary:
+                ratio = SequenceMatcher(None, word_lower, vocab_term).ratio()
+                if ratio > best_ratio:
+                    best_ratio = ratio
+                    best_match = vocab_term
+
+            # Accept match if similarity > 80% (e.g., "reveenue"→"revenue", "includ"→"include")
+            if best_ratio > 0.80 and best_match and best_match != word_lower:
+                fuzzy_corrections[word_lower] = best_match
+                changes_made.append(f"{word_lower}→{best_match} (fuzzy, {best_ratio:.1%})")
+
+        # Apply fuzzy corrections
+        for wrong, right in fuzzy_corrections.items():
+            # Replace with word boundaries to avoid partial matches
+            corrected = re.sub(rf'\b{wrong}\b', right, corrected, flags=re.IGNORECASE)
 
         changes = ", ".join(changes_made) if changes_made else "No corrections needed"
         return corrected, changes

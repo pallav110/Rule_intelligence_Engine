@@ -66,6 +66,7 @@ class BaselineDuplicateDetector:
         best_match = None
         best_relationship = self.UNRELATED
         best_confidence = 0.0
+        best_details = {}
 
         for existing_rule in existing_rules:
             relationship, confidence, details = self._compare_rules(new_rule, existing_rule)
@@ -74,14 +75,19 @@ class BaselineDuplicateDetector:
                 best_confidence = confidence
                 best_relationship = relationship
                 best_match = existing_rule
+                best_details = details
+
+        # Determine if this is a duplicate (anything other than UNRELATED)
+        is_duplicate = best_relationship != self.UNRELATED and best_confidence > 0.5
 
         return {
+            "is_duplicate": is_duplicate,
             "relationship": best_relationship,
             "matching_rule_id": best_match.get("rule_id") if best_match else None,
             "confidence": round(best_confidence, 3),
             "deterministic_match": True,
             "normalized_rule_hash": self._generate_rule_hash(new_rule),
-            "details": self._extract_match_details(new_rule, best_match) if best_match else {},
+            "details": self._extract_match_details(new_rule, best_match) if best_match else best_details,
         }
 
     def _compare_rules(self, new_rule: Dict[str, Any], existing_rule: Dict[str, Any]) -> Tuple[str, float, Dict]:
@@ -93,6 +99,7 @@ class BaselineDuplicateDetector:
             "scope_match": False,
             "affected_entities_match": 0.0,
             "threshold_match": False,
+            "candidate_conditions_match": False,
         }
 
         # 1. Check business term match
@@ -111,11 +118,17 @@ class BaselineDuplicateDetector:
         existing_scope = existing_rule.get("scope", "").lower()
         details["scope_match"] = new_scope == existing_scope
 
-        # 4. Compare conditions
+        # 4. Compare conditions (INCLUDING candidate conditions now)
         new_conditions = new_rule.get("conditions", [])
+        new_candidate_conditions = new_rule.get("candidate_conditions", [])
         existing_conditions = existing_rule.get("conditions", [])
-        condition_similarity = self._compare_conditions(new_conditions, existing_conditions, new_rule, existing_rule)
+
+        condition_similarity = self._compare_conditions(
+            new_conditions, existing_conditions, new_rule, existing_rule,
+            candidate_conditions=new_candidate_conditions
+        )
         details["condition_similarity"] = round(condition_similarity, 3)
+        details["candidate_conditions_match"] = len(new_candidate_conditions) > 0
 
         # 5. Compare affected entities (tables and columns)
         new_entities = new_rule.get("affected_entities", {})
@@ -137,13 +150,27 @@ class BaselineDuplicateDetector:
         """Calculate string similarity using SequenceMatcher."""
         return SequenceMatcher(None, s1, s2).ratio()
 
-    def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict], new_rule: Dict = None, existing_rule: Dict = None) -> float:
+    def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict], new_rule: Dict = None, existing_rule: Dict = None, candidate_conditions: List[Dict] = None) -> float:
         """
         Compare condition lists using deterministic matching.
+        Also uses candidate conditions for semantic similarity.
         Returns similarity score 0.0-1.0
         """
         if not new_conditions and not existing_conditions:
             return 1.0
+
+        # If new rule has no conditions but HAS candidate conditions, boost similarity if entities match
+        if not new_conditions and candidate_conditions and existing_conditions:
+            # Extract field names from candidate conditions (heuristic: look for keywords like "orders", "status", etc.)
+            candidate_texts = [c.get("text", "").lower() for c in candidate_conditions]
+            candidate_text = " ".join(candidate_texts)
+
+            # Check if existing conditions mention similar entities
+            existing_fields = set(cond.get("field", "").lower() for cond in existing_conditions)
+            for field in existing_fields:
+                if any(entity in candidate_text for entity in field.split(".")):
+                    return 0.65  # Good semantic match via candidate conditions
+
         if not new_conditions or not existing_conditions:
             # Check if the rule without conditions has the same field in affected_entities
             # This handles the case where extraction detected the field but didn't create a structured condition
@@ -257,6 +284,15 @@ class BaselineDuplicateDetector:
         # Check if one rule has conditions and the other doesn't
         new_has_conditions = len(new_rule.get("conditions", [])) > 0
         existing_has_conditions = len(existing_rule.get("conditions", [])) > 0
+        new_has_candidates = len(new_rule.get("candidate_conditions", [])) > 0
+
+        # Check if entities are "unknown" (not extracted)
+        new_entities = new_rule.get("affected_entities", {})
+        existing_entities = existing_rule.get("affected_entities", {})
+        both_entities_unknown = (
+            (new_entities.get("columns", []) == ["unknown.unknown"] or not new_entities.get("columns")) and
+            (existing_entities.get("columns", []) == ["unknown.unknown"] or not existing_entities.get("columns"))
+        )
 
         # EXACT DUPLICATE: everything matches
         if (
@@ -286,14 +322,30 @@ class BaselineDuplicateDetector:
             return self.SEMANTIC_DUPLICATE, confidence
 
         # MODIFICATION: same business term, same operation, different conditions
+        # NEW: Also handle case where new rule has candidate conditions and existing has real conditions
         if (
             business_term_match
             and operation_match
-            and condition_sim > 0.5
-            and condition_sim < 0.9
+            and (condition_sim > 0.5 and condition_sim < 0.9)
         ):
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
+
+        # EXTENSION: New rule with candidate conditions matching existing rule's intent
+        # This is important for the baseline: when user says "exclude X" but doesn't specify HOW,
+        # and an existing rule operates on the same business term, it's likely a refinement
+        if (
+            new_has_candidates
+            and not new_has_conditions
+            and existing_has_conditions
+            and business_term_match
+            and operation_match
+        ):
+            # Strong match on business term + operation + candidate conditions
+            # Even if entities are unknown, the semantic match is clear
+            if both_entities_unknown or entities_sim > 0.3:
+                confidence = 0.70  # Good semantic match via intent + candidates
+                return self.EXTENSION, confidence
 
         # EXTENSION: same operation/scope but more conditions or entities
         if (
@@ -392,7 +444,11 @@ class BaselineDuplicateDetectionService:
         try:
             from sqlalchemy import text
             import json
+            from pathlib import Path
 
+            existing_rules = []
+
+            # Stage 1: Try database query first
             query = text(
                 """
                 SELECT rule_id, business_term, operation, conditions, scope,
@@ -407,7 +463,6 @@ class BaselineDuplicateDetectionService:
             )
 
             result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
-            existing_rules = []
 
             for row in result:
                 rule = {
@@ -422,19 +477,49 @@ class BaselineDuplicateDetectionService:
                 }
                 existing_rules.append(rule)
 
+            # Stage 2: If database returns 0 results, fallback to domain pack JSON files
+            if not existing_rules:
+                try:
+                    active_rules_path = (
+                        Path(__file__).parent.parent.parent /
+                        "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+                    )
+                    if active_rules_path.exists():
+                        with open(active_rules_path, 'r') as f:
+                            json_rules = json.load(f)
+                            if isinstance(json_rules, list):
+                                for json_rule in json_rules:
+                                    rule = {
+                                        "rule_id": json_rule.get("rule_id"),
+                                        "business_term": json_rule.get("business_term"),
+                                        "operation": json_rule.get("operation"),
+                                        "conditions": json_rule.get("conditions", []),
+                                        "scope": json_rule.get("scope", "global"),
+                                        "affected_entities": json_rule.get("affected_entities", {}),
+                                        "threshold": json_rule.get("threshold"),
+                                        "time_window": json_rule.get("time_window"),
+                                    }
+                                    existing_rules.append(rule)
+                except Exception as fallback_e:
+                    print(f"Warning: Could not load fallback rules from {domain_id}/rules/active_rules.json: {fallback_e}")
+
             # Use deterministic duplicate detection
-            result = self.detector.detect(suggested_rule, existing_rules)
+            detection_result = self.detector.detect(suggested_rule, existing_rules)
 
             # Enhance result with baseline-specific fields
-            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
+            detection_result["is_duplicate"] = detection_result["confidence"] > 0.7 and detection_result["relationship"] in [
                 "exact_duplicate",
                 "semantic_duplicate",
             ]
+            detection_result["retrieval_stage"] = len(existing_rules)  # Track how many candidates were retrieved
+            detection_result["similar_rules"] = existing_rules  # Include all retrieved rules for debugging
 
-            return result
+            return detection_result
 
         except Exception as e:
             print(f"Error in baseline duplicate detection: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "is_duplicate": False,
                 "relationship": "unrelated",
