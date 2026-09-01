@@ -1180,6 +1180,7 @@ def analyze_feedback(
     )
 
 
+
 # --- Suggestion APIs ---
 
 @app.post("/v1/suggestions", response_model=SuggestionResponse)
@@ -1187,28 +1188,23 @@ def create_suggestion_route(
     payload: SuggestionCreateRequest,
     db=Depends(get_db),
 ):
-    # === INPUT VALIDATION LOGGING (8.1) ===
-    input_validation_logger.info("=== CREATE SUGGESTION - INPUT VALIDATION START ===")
-    input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
-    input_validation_logger.info(f"Feedback ID: {payload.feedback_id}")
-    input_validation_logger.info(f"Confidence score: {payload.confidence}")
-    input_validation_logger.info(f"Suggested rule provided: {bool(payload.suggested_rule)}")
-    input_validation_logger.info("=== CREATE SUGGESTION - INPUT VALIDATION COMPLETE ===")
-
-    # For now, return mock response without DB persistence
-    # TODO: Create analysis_run first, then persist suggestion with proper foreign key
-    from datetime import datetime
-    from uuid import uuid4
-
-    suggestion_id = str(uuid4())
-    return SuggestionResponse(
-        suggestion_id=suggestion_id,
+    from app.services.suggestion_service import SuggestionService
+    service = SuggestionService()
+    s_obj = service.create_suggestion(
+        db=db,
         workspace_id=payload.workspace_id,
         feedback_id=payload.feedback_id,
         suggested_rule=payload.suggested_rule,
-        status="pending_review",
+        confidence=payload.confidence,
+    )
+    return SuggestionResponse(
+        suggestion_id=s_obj.suggestion_id,
+        workspace_id=s_obj.workspace_id,
+        feedback_id=s_obj.feedback_id,
+        suggested_rule=s_obj.suggested_rule,
+        status=s_obj.review_status,
         confidence_score=payload.confidence,
-        created_at=datetime.utcnow(),
+        created_at=s_obj.created_at,
         reviewed_by=None,
         reviewed_at=None,
     )
@@ -1219,16 +1215,20 @@ def get_suggestion_route(
     suggestion_id: str,
     db=Depends(get_db),
 ):
-    # Return mock response
-    from datetime import datetime
+    from app.services.suggestion_service import SuggestionService
+    service = SuggestionService()
+    s_obj = service.get_suggestion(db, suggestion_id)
+    if not s_obj:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+        
     return SuggestionResponse(
-        suggestion_id=suggestion_id,
-        workspace_id="default",
-        feedback_id="mock-feedback",
-        suggested_rule={"business_term": "example", "operation": "exclude"},
-        status="pending_review",
-        confidence_score=0.85,
-        created_at=datetime.utcnow(),
+        suggestion_id=s_obj.suggestion_id,
+        workspace_id=s_obj.workspace_id,
+        feedback_id=s_obj.feedback_id,
+        suggested_rule=s_obj.suggested_rule,
+        status=s_obj.review_status,
+        confidence_score=0.0,
+        created_at=s_obj.created_at,
         reviewed_by=None,
         reviewed_at=None,
     )
@@ -1240,19 +1240,21 @@ def approve_suggestion_route(
     payload: SuggestionApproveRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
+    from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+    service = SuggestionLifecycleService()
+    s_obj = service.transition_status(db, suggestion_id, "approved", payload.reviewer_id, payload.notes)
+    
     return SuggestionResponse(
-        suggestion_id=suggestion_id,
-        workspace_id="default",
-        feedback_id="mock-feedback",
-        suggested_rule={"business_term": "example", "operation": "exclude"},
-        status="approved",
-        confidence_score=0.85,
-        created_at=datetime.utcnow(),
-        reviewed_by=payload.reviewer_id or "auto",
-        reviewed_at=datetime.utcnow(),
+        suggestion_id=s_obj.suggestion_id,
+        workspace_id=s_obj.workspace_id,
+        feedback_id=s_obj.feedback_id,
+        suggested_rule=s_obj.suggested_rule,
+        status=s_obj.review_status,
+        confidence_score=0.0,
+        created_at=s_obj.created_at,
+        reviewed_by=None,
+        reviewed_at=None,
     )
-
 
 @app.post("/v1/suggestions/{suggestion_id}/reject", response_model=SuggestionResponse)
 def reject_suggestion_route(
@@ -1260,17 +1262,20 @@ def reject_suggestion_route(
     payload: SuggestionRejectRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
+    from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+    service = SuggestionLifecycleService()
+    s_obj = service.transition_status(db, suggestion_id, "rejected", payload.reviewer_id, payload.notes)
+    
     return SuggestionResponse(
-        suggestion_id=suggestion_id,
-        workspace_id="default",
-        feedback_id="mock-feedback",
-        suggested_rule={"business_term": "example", "operation": "exclude"},
-        status="rejected",
-        confidence_score=0.85,
-        created_at=datetime.utcnow(),
-        reviewed_by=payload.reviewer_id or "auto",
-        reviewed_at=datetime.utcnow(),
+        suggestion_id=s_obj.suggestion_id,
+        workspace_id=s_obj.workspace_id,
+        feedback_id=s_obj.feedback_id,
+        suggested_rule=s_obj.suggested_rule,
+        status=s_obj.review_status,
+        confidence_score=0.0,
+        created_at=s_obj.created_at,
+        reviewed_by=None,
+        reviewed_at=None,
     )
 
 
@@ -1280,20 +1285,28 @@ def list_suggestions_route(
     workspace_id: Optional[str] = None,
     status: Optional[str] = None,
 ):
-    from datetime import datetime
-    # Return mock suggestions
+    from app.db.models.rule_suggestion import RuleSuggestion
+    
+    query = db.query(RuleSuggestion)
+    if workspace_id:
+        query = query.filter(RuleSuggestion.workspace_id == workspace_id)
+    if status:
+        query = query.filter(RuleSuggestion.review_status == status)
+        
+    results = query.all()
+    
     return [
         SuggestionResponse(
-            suggestion_id="sug-1",
-            workspace_id=workspace_id or "default",
-            feedback_id="feedback-1",
-            suggested_rule={"business_term": "revenue", "operation": "exclude"},
-            status=status or "pending_review",
-            confidence_score=0.85,
-            created_at=datetime.utcnow(),
-            reviewed_by=None,
-            reviewed_at=None,
-        )
+            suggestion_id=s.suggestion_id,
+            workspace_id=s.workspace_id,
+            feedback_id=s.feedback_id,
+            suggested_rule=s.suggested_rule,
+            status=s.review_status,
+            confidence_score=0.0,
+            created_at=s.created_at,
+            reviewed_by=s.reviewed_by,
+            reviewed_at=s.reviewed_at,
+        ) for s in results
     ]
 
 
@@ -1304,15 +1317,31 @@ def create_clarification_route(
     payload: ClarificationCreateRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    from uuid import uuid4
-    # Return mock response
-    return ClarificationResponse(
-        clarification_id=str(uuid4()),
+    from app.services.clarification_service import RealClarificationService
+    from app.db.models.feedback import Feedback
+    
+    feedback = db.query(Feedback).filter_by(feedback_id=payload.feedback_id).first()
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    service = RealClarificationService()
+    res = service.generate_clarification(
         feedback_id=payload.feedback_id,
-        questions=["What is the exact scope?", "Are there exceptions?"],
-        reason="Classification indicates need for clarification",
-        status="pending",
+        feedback_text=feedback.feedback_text,
+        classification=payload.classification,
+        extraction=payload.extraction,
+        workspace_id=feedback.workspace_id,
+        db=db
+    )
+    db.commit()
+    
+    from datetime import datetime
+    return ClarificationResponse(
+        clarification_id=res.get("clarification_id") or "not-needed",
+        feedback_id=payload.feedback_id,
+        questions=res.get("questions", []),
+        reason=res.get("reason", ""),
+        status=res.get("status", "pending"),
         response=None,
         created_at=datetime.utcnow(),
         responded_at=None,
@@ -1324,17 +1353,20 @@ def get_clarification_route(
     clarification_id: str,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    # Return mock response
+    from app.db.models.clarification import Clarification
+    clar = db.query(Clarification).filter_by(clarification_id=clarification_id).first()
+    if not clar:
+        raise HTTPException(status_code=404, detail="Clarification not found")
+        
     return ClarificationResponse(
-        clarification_id=clarification_id,
-        feedback_id="mock-feedback",
-        questions=["What is the exact scope?"],
-        reason="Classification indicates need for clarification",
-        status="pending",
-        response=None,
-        created_at=datetime.utcnow(),
-        responded_at=None,
+        clarification_id=clar.clarification_id,
+        feedback_id=clar.feedback_id,
+        questions=clar.questions or [],
+        reason=clar.reason or "",
+        status=clar.processing_status or "pending",
+        response=clar.clarification_response,
+        created_at=clar.created_at,
+        responded_at=clar.responded_at,
     )
 
 
@@ -1344,17 +1376,25 @@ def respond_to_clarification_route(
     payload: ClarificationRespondRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    # Return mock response
+    from app.services.clarification_service import RealClarificationService
+    from app.db.models.clarification import Clarification
+    
+    service = RealClarificationService()
+    res = service.respond_to_clarification(clarification_id, payload.response, db=db)
+    
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error") or "Failed")
+        
+    clar = db.query(Clarification).filter_by(clarification_id=clarification_id).first()
     return ClarificationResponse(
-        clarification_id=clarification_id,
-        feedback_id="mock-feedback",
-        questions=["What is the exact scope?"],
-        reason="Classification indicates need for clarification",
-        status="answered",
-        response=payload.response,
-        created_at=datetime.utcnow(),
-        responded_at=datetime.utcnow(),
+        clarification_id=clar.clarification_id,
+        feedback_id=clar.feedback_id,
+        questions=clar.questions or [],
+        reason=clar.reason or "",
+        status=clar.processing_status,
+        response=clar.clarification_response,
+        created_at=clar.created_at,
+        responded_at=clar.responded_at,
     )
 
 
@@ -1365,12 +1405,15 @@ def create_review_route(
     payload: ReviewCreateRequest,
     db=Depends(get_db),
 ):
+    from app.db.models.review import Review
     from datetime import datetime
     from uuid import uuid4
-    # Return mock response
-    return ReviewResponse(
-        review_id=str(uuid4()),
+    
+    review_id = str(uuid4())
+    review = Review(
+        review_id=review_id,
         suggestion_id=payload.suggestion_id,
+        workspace_id="default",  # Usually decoupled to workspace of suggestion
         reviewer_id=payload.reviewer_id or "auto",
         status="assigned",
         priority=payload.priority or "normal",
@@ -1378,6 +1421,22 @@ def create_review_route(
         notes=None,
         assigned_at=datetime.utcnow(),
         completed_at=None,
+        created_at=datetime.utcnow()
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    
+    return ReviewResponse(
+        review_id=review.review_id,
+        suggestion_id=review.suggestion_id,
+        reviewer_id=review.reviewer_id,
+        status=review.status,
+        priority=review.priority,
+        decision=review.decision,
+        notes=review.notes,
+        assigned_at=review.assigned_at,
+        completed_at=review.completed_at,
     )
 
 
@@ -1386,18 +1445,22 @@ def get_review_route(
     review_id: str,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    # Return mock response
+    from app.db.models.review import Review
+    
+    review = db.query(Review).filter_by(review_id=review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+        
     return ReviewResponse(
-        review_id=review_id,
-        suggestion_id="sug-1",
-        reviewer_id="reviewer-1",
-        status="assigned",
-        priority="normal",
-        decision=None,
-        notes=None,
-        assigned_at=datetime.utcnow(),
-        completed_at=None,
+        review_id=review.review_id,
+        suggestion_id=review.suggestion_id,
+        reviewer_id=review.reviewer_id,
+        status=review.status,
+        priority=review.priority,
+        decision=review.decision,
+        notes=review.notes,
+        assigned_at=review.assigned_at,
+        completed_at=review.completed_at,
     )
 
 
@@ -1407,18 +1470,31 @@ def complete_review_route(
     payload: ReviewCompleteRequest,
     db=Depends(get_db),
 ):
+    from app.db.models.review import Review
     from datetime import datetime
-    # Return mock response
+    
+    review = db.query(Review).filter_by(review_id=review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+        
+    review.status = "completed"
+    review.decision = payload.decision
+    review.notes = payload.notes
+    review.completed_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(review)
+    
     return ReviewResponse(
-        review_id=review_id,
-        suggestion_id="sug-1",
-        reviewer_id="reviewer-1",
-        status="completed",
-        priority="normal",
-        decision=payload.decision,
-        notes=payload.notes,
-        assigned_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        review_id=review.review_id,
+        suggestion_id=review.suggestion_id,
+        reviewer_id=review.reviewer_id,
+        status=review.status,
+        priority=review.priority,
+        decision=review.decision,
+        notes=review.notes,
+        assigned_at=review.assigned_at,
+        completed_at=review.completed_at,
     )
 
 
@@ -1428,18 +1504,27 @@ def assign_reviewer_route(
     payload: ReviewAssignRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    # Return mock response
+    from app.db.models.review import Review
+    
+    review = db.query(Review).filter_by(review_id=review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+        
+    review.reviewer_id = payload.reviewer_id
+    review.status = "assigned"
+    db.commit()
+    db.refresh(review)
+    
     return ReviewResponse(
-        review_id=review_id,
-        suggestion_id="sug-1",
-        reviewer_id=payload.reviewer_id,
-        status="assigned",
-        priority="normal",
-        decision=None,
-        notes=None,
-        assigned_at=datetime.utcnow(),
-        completed_at=None,
+        review_id=review.review_id,
+        suggestion_id=review.suggestion_id,
+        reviewer_id=review.reviewer_id,
+        status=review.status,
+        priority=review.priority,
+        decision=review.decision,
+        notes=review.notes,
+        assigned_at=review.assigned_at,
+        completed_at=review.completed_at,
     )
 
 
@@ -1450,34 +1535,46 @@ def create_evaluation_route(
     payload: EvaluationCreateRequest,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    from uuid import uuid4
-    # Return mock response
-    return EvaluationResponse(
-        evaluation_id=str(uuid4()),
-        workspace_id=payload.workspace_id,
-        name=payload.name,
-        description=payload.description,
-        status="created",
-        created_at=datetime.utcnow(),
-    )
-
+    from app.services.evaluation_service import EvaluationService
+    service = EvaluationService()
+    try:
+        run = service.create_evaluation_run(
+            db=db,
+            model_version_id=payload.model_version_id,
+            dataset_version_id=payload.dataset_version_id
+        )
+        return EvaluationResponse(
+            evaluation_run_id=run.evaluation_run_id,
+            model_version_id=run.model_version_id,
+            dataset_version_id=run.dataset_version_id,
+            status=run.status,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            metrics=[]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/v1/evaluations/{evaluation_id}", response_model=EvaluationResponse)
 def get_evaluation_route(
     evaluation_id: str,
     db=Depends(get_db),
 ):
-    from datetime import datetime
-    # Return mock response
-    return EvaluationResponse(
-        evaluation_id=evaluation_id,
-        workspace_id="default",
-        name="Evaluation",
-        description="Mock evaluation",
-        status="created",
-        created_at=datetime.utcnow(),
-    )
+    from app.services.evaluation_service import EvaluationService
+    service = EvaluationService()
+    try:
+        res = service.get_evaluation_run(db, evaluation_id)
+        return EvaluationResponse(
+            evaluation_run_id=res["evaluation_run_id"],
+            model_version_id=res["model_version_id"],
+            dataset_version_id=res["dataset_version_id"],
+            status=res["status"],
+            started_at=res["started_at"],
+            completed_at=res["completed_at"],
+            metrics=res["metrics"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Workspace APIs ---
@@ -1529,6 +1626,119 @@ def get_workspace_route(
     )
 
 # List all routes for debugging
+
+# Restore Phase 4 Services
+from app.schemas.analysis_run import AnalysisRunResponse
+from app.services.analysis_run_service import AnalysisRunService
+from fastapi import HTTPException
+import app.schemas.model_version as mv_schemas
+from app.services.model_version_service import ModelVersionService
+import app.schemas.dataset as dataset_schemas
+from app.services.dataset_version_service import DatasetVersionService
+from app.services.background_job_service import BackgroundJobService
+from app.schemas.jobs import JobResponse
+
+@app.get("/v1/jobs/{job_id}", response_model=JobResponse)
+def get_job(job_id: str, db=Depends(get_db)):
+    service = BackgroundJobService()
+    try:
+        job = service.get_job(db, job_id)
+        return JobResponse(
+            job_id=job.job_id,
+            status=job.status,
+            result=job.result,
+            error=job.error,
+            created_at=job.created_at,
+            updated_at=job.updated_at
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/v1/dataset-versions", response_model=dataset_schemas.DatasetVersionResponse)
+def create_dataset_version(payload: dataset_schemas.DatasetVersionCreateRequest, db=Depends(get_db)):
+    service = DatasetVersionService()
+    try:
+        # pass dummy workspace id since CreateRequest doesn't have it
+        job = service.create_version(db, payload.dataset_name, payload.version, "default", None, "system")
+        return dataset_schemas.DatasetVersionResponse(
+            dataset_version_id=job.dataset_version_id,
+            dataset_name=job.dataset_name,
+            version=job.version,
+            domain_pack_version=payload.domain_pack_version,
+            annotation_version=payload.annotation_version,
+            source=payload.source,
+            path=payload.path,
+            status=job.status
+        )
+    except Exception as e:
+        raise HTTPException(status_code=409 if "Conflict" in str(e) else 400, detail=str(e))
+
+@app.get("/v1/dataset-versions", response_model=list[dataset_schemas.DatasetVersionResponse])
+def list_dataset_versions(db=Depends(get_db)):
+    service = DatasetVersionService()
+    return service.list_versions(db)
+
+@app.get("/v1/dataset-versions/{dataset_id}", response_model=dataset_schemas.DatasetVersionResponse)
+def get_dataset_version(dataset_id: str, db=Depends(get_db)):
+    service = DatasetVersionService()
+    try:
+        return service.get_version(db, dataset_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/v1/model-versions", response_model=mv_schemas.ModelVersionResponse)
+def create_model_version(payload: mv_schemas.ModelVersionCreateRequest, db=Depends(get_db)):
+    service = ModelVersionService()
+    try:
+        model = service.create_model_version(db, payload.model_name, payload.version, payload.workspace_id, "s3://mock")
+        return mv_schemas.ModelVersionResponse(
+            model_version_id=model.model_version_id,
+            model_name=model.model_name,
+            version=model.version,
+            status=model.status,
+            artifact_path=model.artifact_path
+        )
+    except Exception as e:
+        raise HTTPException(status_code=409 if "Conflict" in str(e) else 400, detail=str(e))
+
+@app.get("/v1/model-versions", response_model=list[mv_schemas.ModelVersionResponse])
+def list_model_versions(db=Depends(get_db)):
+    service = ModelVersionService()
+    return service.list_model_versions(db)
+
+@app.get("/v1/model-versions/{model_id}", response_model=mv_schemas.ModelVersionResponse)
+def get_model_version(model_id: str, db=Depends(get_db)):
+    service = ModelVersionService()
+    try:
+        model = service.get_model_version(db, model_id)
+        return mv_schemas.ModelVersionResponse(
+            model_version_id=model.model_version_id,
+            model_name=model.model_name,
+            version=model.version,
+            status=model.status,
+            artifact_path=model.artifact_path
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/v1/analysis-runs/{run_id}", response_model=AnalysisRunResponse)
+def get_analysis_run(run_id: str, db=Depends(get_db)):
+    service = AnalysisRunService()
+    try:
+        run = service.get_analysis_run(db, run_id)
+        return AnalysisRunResponse(
+            analysis_run_id=run.analysis_run_id,
+            feedback_id=run.feedback_id,
+            workspace_id=run.workspace_id,
+            processing_mode=run.processing_mode,
+            status=run.status,
+            created_at=run.created_at,
+            threshold_configuration=run.threshold_configuration
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @app.on_event("startup")
 def list_routes():
     import inspect

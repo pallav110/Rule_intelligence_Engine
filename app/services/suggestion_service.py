@@ -111,9 +111,9 @@ class SuggestionService:
             suggestion_id=suggestion_id,
             workspace_id=workspace_id,
             feedback_id=feedback_id,
+            analysis_run_id="manual",  # Fallback for standalone creation
             suggested_rule=suggested_rule,
-            status="pending_review",
-            confidence_score=confidence,
+            review_status="pending_review",
             created_at=datetime.utcnow(),
         )
 
@@ -145,12 +145,12 @@ class SuggestionService:
         if suggestion is None:
             raise ValueError(f"Suggestion not found: {suggestion_id}")
 
-        if suggestion.status != "pending_review":
-            raise ValueError(f"Cannot approve suggestion with status: {suggestion.status}")
+        if getattr(suggestion, 'review_status', None) != "pending_review":
+            raise ValueError("Cannot approve suggestion with current status")
 
-        suggestion.status = "approved"
-        suggestion.reviewed_by = reviewer_id
-        suggestion.reviewed_at = datetime.utcnow()
+        suggestion.review_status = "approved"
+        # Since reviewed_by/at aren't properties on RuleSuggestion (they belong in Audit),
+        # we update the suggestion's review_status natively.
 
         db.commit()
         db.refresh(suggestion)
@@ -170,13 +170,11 @@ class SuggestionService:
         if suggestion is None:
             raise ValueError(f"Suggestion not found: {suggestion_id}")
 
-        if suggestion.status != "pending_review":
-            raise ValueError(f"Cannot reject suggestion with status: {suggestion.status}")
+        if getattr(suggestion, 'review_status', None) != "pending_review":
+            raise ValueError("Cannot reject suggestion with current status")
 
-        suggestion.status = "rejected"
-        suggestion.reviewed_by = reviewer_id
-        suggestion.reviewed_at = datetime.utcnow()
-        suggestion.rejection_reason = rejection_reason
+        suggestion.review_status = "rejected"
+        # Fields like rejection_reason and reviewed_by belong to SuggestionAudit.
 
         db.commit()
         db.refresh(suggestion)
@@ -196,6 +194,6 @@ class SuggestionService:
             query = query.filter(RuleSuggestion.workspace_id == workspace_id)
 
         if status:
-            query = query.filter(RuleSuggestion.status == status)
+            query = query.filter(RuleSuggestion.review_status == status)
 
         return query.order_by(RuleSuggestion.created_at.desc()).all()
