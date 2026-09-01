@@ -1,0 +1,23 @@
+{
+  "model_id": "a6680da5-4ab6-41c8-a88e-fc395e94a804",
+  "model_name": "distilbert-feedback-classifier",
+  "version": "1.0.0",
+  "status": "experimental",
+  "created_at": "2026-09-01T09:27:56.709900Z",
+  "evaluation_metrics": {
+    "feedback_type_accuracy": 0.9800995024875622,
+    "feedback_type_macro_f1": 0.9879,
+    "feedback_type_precision": 0.986,
+    "feedback_type_recall": 0.9901,
+    "rule_category_accuracy": 0.8259,
+    "is_actionable_accuracy": 0.9751,
+    "requires_clarification_accuracy": 0.9851,
+    "evaluation_id": "7528045b-c2b5-4f8d-9dbe-a10fea033976",
+    "dataset_size": 201,
+    "dataset_split": "frozen_test"
+  },
+  "acceptance_criteria_passed": true,
+  "model_path": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie_ml/models/distilbert_candidate/checkpoints/best_model.pt",
+  "calibration_path": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie_ml/models/distilbert_candidate/calibration_params.json",
+  "registry_metadata_file": "/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie_ml/models/registry/metadata/a6680da5-4ab6-41c8-a88e-fc395e94a804.json"
+}

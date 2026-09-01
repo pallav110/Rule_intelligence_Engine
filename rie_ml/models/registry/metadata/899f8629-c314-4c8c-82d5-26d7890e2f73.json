@@ -1,0 +1,36 @@
+{
+  "model_id": "899f8629-c314-4c8c-82d5-26d7890e2f73",
+  "model_name": "baseline-deterministic-classifier",
+  "model_type": "baseline_deterministic",
+  "version": "1.0.0",
+  "status": "experimental",
+  "created_at": "2026-09-01T09:30:43.382154Z",
+  "updated_at": "2026-09-01T09:30:43.382154Z",
+  "created_by": "baseline_pipeline",
+  "description": "Deterministic baseline classifier using rule-based extraction",
+  "tags": [
+    "baseline",
+    "deterministic",
+    "rules",
+    "reference"
+  ],
+  "parent_model_id": null,
+  "training_config": {
+    "approach": "rule_based",
+    "feedback_type_rules": 8,
+    "classification_method": "pattern_matching",
+    "extraction_method": "regex_and_nlp"
+  },
+  "evaluation_metrics": {
+    "feedback_type_accuracy": 1.0,
+    "feedback_type_precision": 1.0,
+    "feedback_type_recall": 1.0,
+    "evaluation_id": "baseline_1788245701_a0911fe2",
+    "dataset_size": 200,
+    "dataset_split": "frozen_evaluation"
+  },
+  "acceptance_criteria_passed": false,
+  "notes": "Baseline deterministic model for comparison. Accuracy: 100.00%. Serves as reference point for ML candidate evaluation.",
+  "model_path": "N/A - Deterministic Rules",
+  "checksum": ""
+}

@@ -1,0 +1,26 @@
+{
+  "feedback_type": {
+    "temperature": 0.11031491945502767,
+    "ece_before": 0.017440655401774814,
+    "ece_after": 5.042947137656739e-08,
+    "improvement": 0.017440604972303438
+  },
+  "rule_category": {
+    "temperature": 0.9059767597547714,
+    "ece_before": 0.07580140050576659,
+    "ece_after": 0.08420807512872516,
+    "improvement": -0.008406674622958576
+  },
+  "is_actionable": {
+    "temperature": 0.01,
+    "ece_before": 0.016144290870549728,
+    "ece_after": 0.0,
+    "improvement": 0.016144290870549728
+  },
+  "requires_clarification": {
+    "temperature": 0.05444278352976597,
+    "ece_before": 0.01592826508745855,
+    "ece_after": 9.029085812350957e-09,
+    "improvement": 0.01592825605837274
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-09-01T09:33:00Z",
+  "test_set_size": 201,
+  "models": {
+    "distilbert": {
+      "feedback_type": {
+        "accuracy": 0.9800995024875622,
+        "macro_f1": 0.9879273096962765,
+        "weighted_f1": 0.9801854876083429,
+        "macro_precision": 0.9859501008064516,
+        "macro_recall": 0.9900641025641026
+      },
+      "rule_category": {
+        "accuracy": 0.472636815920398,
+        "macro_f1": 0.5678284026967082,
+        "weighted_f1": 0.5530573224924122,
+        "macro_precision": 0.6514322250639386,
+        "macro_recall": 0.5801057563126528
+      },
+      "is_actionable": {
+        "accuracy": 0.9751243781094527,
+        "precision": 0.9917355371900827,
+        "recall": 0.967741935483871,
+        "f1": 0.9795918367346939
+      },
+      "requires_clarification": {
+        "accuracy": 0.9850746268656716,
+        "precision": 0.9701492537313433,
+        "recall": 0.9848484848484849,
+        "f1": 0.9774436090225563
+      }
+    }
+  },
+  "summary": {
+    "feedback_type": {
+      "best_model": "distilbert",
+      "best_accuracy": 0.9800995024875622,
+      "all_models": {
+        "distilbert": 0.9800995024875622
+      }
+    },
+    "rule_category": {
+      "best_model": "distilbert",
+      "best_accuracy": 0.472636815920398,
+      "all_models": {
+        "distilbert": 0.472636815920398
+      }
+    },
+    "is_actionable": {
+      "best_model": "distilbert",
+      "best_accuracy": 0.9751243781094527,
+      "all_models": {
+        "distilbert": 0.9751243781094527
+      }
+    },
+    "requires_clarification": {
+      "best_model": "distilbert",
+      "best_accuracy": 0.9850746268656716,
+      "all_models": {
+        "distilbert": 0.9850746268656716
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-09-01T09:30:00Z",
+  "registry_summary": {
+    "total_models": 2,
+    "total_versions": 4
+  },
+  "models": {
+    "distilbert-feedback-classifier": [
+      {
+        "id": "a6680da5-4ab6-41c8-a88e-fc395e94a804",
+        "version": "1.0.0",
+        "status": "production",
+        "type": "ml_distilbert",
+        "created_at": "2026-09-01T09:27:56.709900Z",
+        "updated_at": "2026-09-01T09:28:30.727679Z",
+        "accuracy": 0.9800995024875622,
+        "acceptance_criteria_passed": true
+      }
+    ],
+    "baseline-deterministic-classifier": [
+      {
+        "id": "899f8629-c314-4c8c-82d5-26d7890e2f73",
+        "version": "1.0.0",
+        "status": "experimental",
+        "type": "baseline_deterministic",
+        "created_at": "2026-09-01T09:30:43.382154Z",
+        "updated_at": "2026-09-01T09:30:43.382154Z",
+        "accuracy": 1.0,
+        "acceptance_criteria_passed": false
+      },
+      {
+        "id": "10c78943-1dec-4ced-8421-972febc12959",
+        "version": "1.0.0",
+        "status": "experimental",
+        "type": "baseline_deterministic",
+        "created_at": "2026-09-01T09:30:43.383402Z",
+        "updated_at": "2026-09-01T09:30:43.383402Z",
+        "accuracy": 0.0,
+        "acceptance_criteria_passed": false
+      },
+      {
+        "id": "1572c0ea-6bd8-41d3-b8cc-a0f20541e730",
+        "version": "1.0.0",
+        "status": "experimental",
+        "type": "baseline_deterministic",
+        "created_at": "2026-09-01T09:30:43.388077Z",
+        "updated_at": "2026-09-01T09:30:43.388077Z",
+        "accuracy": 0.0,
+        "acceptance_criteria_passed": false
+      }
+    ]
+  }
+}

@@ -17,6 +17,7 @@ FEEDBACK_TYPE_LABELS = {
 }
 
 FEEDBACK_TYPE_ID2LABEL = {v: k for k, v in FEEDBACK_TYPE_LABELS.items()}
+FEEDBACK_TYPE_LABEL2ID = FEEDBACK_TYPE_LABELS  # Alias for compatibility
 
 
 # Rule Category Labels (13 classes + None)
@@ -41,6 +42,7 @@ RULE_CATEGORY_LABELS = {
 }
 
 RULE_CATEGORY_ID2LABEL = {v: k for k, v in RULE_CATEGORY_LABELS.items()}
+RULE_CATEGORY_LABEL2ID = RULE_CATEGORY_LABELS  # Alias for compatibility
 
 
 # Boolean flags (binary classification)

@@ -1,0 +1,11 @@
+[
+  {
+    "model_id": "a6680da5-4ab6-41c8-a88e-fc395e94a804",
+    "model_name": "distilbert-feedback-classifier",
+    "version": "1.0.0",
+    "promoted_to": "production",
+    "promoted_at": "2026-09-01T09:28:30.728197Z",
+    "reason": "Approved for production deployment. Exceeds all acceptance criteria.",
+    "accuracy": 0.9800995024875622
+  }
+]

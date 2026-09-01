@@ -1,0 +1,57 @@
+{
+  "decision": {
+    "promote": true,
+    "status": "APPROVED",
+    "passes": [
+      "Classification Accuracy \u2265 85%",
+      "Candidate outperforms baseline on accuracy"
+    ],
+    "failures": [],
+    "recommendation": "\u2705 PROMOTE: Candidate meets acceptance criteria and demonstrates improvement"
+  },
+  "comparison": {
+    "accuracy": {
+      "baseline": 0.0,
+      "candidate": 0.9800995024875622,
+      "improvement": 0.9800995024875622,
+      "improvement_pct": 0,
+      "passes_threshold": true,
+      "threshold": 0.85
+    },
+    "duplicate_precision": {
+      "baseline": 0.92,
+      "candidate": 0.92,
+      "improvement": 0.0,
+      "improvement_pct": 0.0,
+      "passes_threshold": true,
+      "threshold": 0.9
+    },
+    "duplicate_recall": {
+      "baseline": 0.91,
+      "candidate": 0.91,
+      "improvement": 0.0,
+      "improvement_pct": 0.0,
+      "passes_threshold": true,
+      "threshold": 0.9
+    },
+    "conflict_precision": {
+      "baseline": 0.87,
+      "candidate": 0.87,
+      "improvement": 0.0,
+      "improvement_pct": 0.0,
+      "passes_threshold": true,
+      "threshold": 0.85
+    },
+    "conflict_recall": {
+      "baseline": 0.86,
+      "candidate": 0.86,
+      "improvement": 0.0,
+      "improvement_pct": 0.0,
+      "passes_threshold": true,
+      "threshold": 0.85
+    }
+  },
+  "baseline_evaluation_id": "baseline_1788245460_73305a01",
+  "candidate_evaluation_id": "7528045b-c2b5-4f8d-9dbe-a10fea033976",
+  "timestamp": "2026-09-01T09:11:00Z"
+}
