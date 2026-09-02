@@ -10,3 +10,16 @@ __pycache__/
 *.sqlite3
 *.log.env
 .claude
+
+# Large model checkpoints - exclude to avoid repo bloat
+rie_ml/models/*/checkpoints/*.pt
+rie_ml/models/bert_candidate/
+rie_ml/models/roberta_candidate/
+
+# But track metadata, configs, and evaluation results
+!rie_ml/models/*/calibration_params.json
+!rie_ml/models/*/calibration_results.json
+!rie_ml/models/*/training_history.json
+!rie_ml/models/*/promotion_decision.json
+!rie_ml/models/model_comparison_report.json
+!rie_ml/models/registry/
