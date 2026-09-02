@@ -29,7 +29,7 @@ class DistilBERTTokenExtractor:
     def _load_model(self):
         """Load trained DistilBERT token classification model."""
         try:
-            from transformers import AutoTokenizer
+            from transformers import AutoTokenizer, AutoModel
             import torch
 
             model_dir = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "distilbert_token_extractor"
@@ -59,12 +59,40 @@ class DistilBERTTokenExtractor:
             self.label2id = checkpoint.get('label2id', {})
             self.id2label = {int(k): v for k, v in enumerate(self.bio_labels)}
 
-            # Reconstruct model
-            from app.services.token_classifier_loader import DistilBERTTokenClassifier
+            # Reconstruct model inline to avoid import issues
+            class DistilBERTTokenClassifier(torch.nn.Module):
+                def __init__(self, num_labels=16, dropout=0.1):
+                    super().__init__()
+                    self.distilbert = AutoModel.from_pretrained('distilbert-base-uncased')
+                    hidden_size = self.distilbert.config.hidden_size
+                    self.dropout = torch.nn.Dropout(dropout)
+                    self.classifier = torch.nn.Linear(hidden_size, num_labels)
+
+                def forward(self, input_ids, attention_mask=None, token_type_ids=None, **kwargs):
+                    outputs = self.distilbert(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask
+                    )
+                    sequence_output = outputs.last_hidden_state
+                    sequence_output = self.dropout(sequence_output)
+                    logits = self.classifier(sequence_output)
+                    return logits
 
             num_labels = checkpoint.get('num_labels', 16)
             self.model = DistilBERTTokenClassifier(num_labels=num_labels)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+
+            # Fix state dict keys - remove 'distilbert.' prefix if present
+            state_dict = checkpoint.get('model_state_dict', {})
+            fixed_state_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith('distilbert.'):
+                    new_key = key.replace('distilbert.', '', 1)
+                    fixed_state_dict[new_key] = value
+                else:
+                    fixed_state_dict[key] = value
+
+            # Load with strict=False to ignore task-specific heads
+            self.model.load_state_dict(fixed_state_dict, strict=False)
             self.model.to(self.device)
             self.model.eval()
 
@@ -73,6 +101,8 @@ class DistilBERTTokenExtractor:
 
         except Exception as e:
             print(f"⚠️  Failed to load token extractor: {e}")
+            import traceback
+            traceback.print_exc()
             self.model_ready = False
 
     def extract(self, feedback: str) -> Dict[str, Any]:

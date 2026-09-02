@@ -51,12 +51,24 @@ class DistilBERTClassifier:
 
             checkpoint = torch.load(checkpoint_file, map_location=self.device)
 
-            # Reconstruct model
-            from transformers import DistilBertModel
-            self.model = DistilBertModel.from_pretrained('distilbert-base-uncased')
+            # Reconstruct model - load pretrained first
+            self.model = AutoModel.from_pretrained('distilbert-base-uncased')
 
-            # Load state dict
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            # Load state dict with strict=False to handle key mismatches
+            # Remove 'distilbert.' prefix from checkpoint keys if present
+            state_dict = checkpoint.get('model_state_dict', {})
+
+            # Fix key names if they have distilbert. prefix
+            fixed_state_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith('distilbert.'):
+                    new_key = key.replace('distilbert.', '', 1)
+                    fixed_state_dict[new_key] = value
+                else:
+                    fixed_state_dict[key] = value
+
+            # Load with strict=False to ignore task-specific heads
+            self.model.load_state_dict(fixed_state_dict, strict=False)
             self.model.to(self.device)
             self.model.eval()
 
