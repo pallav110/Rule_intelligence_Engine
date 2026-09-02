@@ -1791,6 +1791,148 @@ def get_analysis_run(run_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# === ML CANDIDATE ENDPOINTS (for testing baseline vs ML comparison) ===
+
+@app.post("/v1/feedback/classify-distilbert")
+def classify_with_distilbert(payload: FeedbackAnalysisRequest):
+    """
+    Classify feedback using DistilBERT (ML candidate, 98.01% accuracy).
+
+    Used for side-by-side comparison with baseline classifier in testing UI.
+    """
+    try:
+        from app.services.distilbert_classifier import get_distilbert_classifier
+
+        classifier = get_distilbert_classifier()
+        result = classifier.classify(payload.feedback_text)
+
+        return {
+            "feedback_type": result.get("feedback_type"),
+            "rule_category": result.get("rule_category"),
+            "is_actionable": result.get("is_actionable"),
+            "requires_clarification": result.get("requires_clarification"),
+            "confidence": result.get("confidence"),
+            "model": "distilbert",
+            "accuracy_on_validation": result.get("accuracy_on_validation", 0.9801)
+        }
+    except Exception as e:
+        logger.error(f"Error in DistilBERT classification: {e}")
+        return {
+            "feedback_type": None,
+            "rule_category": None,
+            "is_actionable": False,
+            "requires_clarification": False,
+            "confidence": 0.0,
+            "model": "distilbert",
+            "error": str(e)
+        }
+
+
+@app.post("/v1/feedback/extract-distilbert")
+def extract_with_distilbert(payload: FeedbackAnalysisRequest):
+    """
+    Extract rules using DistilBERT token classifier (ML candidate, 95.6% accuracy).
+
+    Used for side-by-side comparison with baseline extractor in testing UI.
+    """
+    try:
+        from app.services.distilbert_token_extractor import get_distilbert_token_extractor
+
+        extractor = get_distilbert_token_extractor()
+        result = extractor.extract(payload.feedback_text)
+
+        return {
+            "extracted_rules": result.get("extracted_rules", []),
+            "overall_confidence": result.get("overall_confidence", 0.0),
+            "model": "distilbert_token_classifier",
+            "token_accuracy": result.get("token_accuracy", 0.956),
+            "macro_f1": result.get("macro_f1", 0.8276)
+        }
+    except Exception as e:
+        logger.error(f"Error in DistilBERT token extraction: {e}")
+        return {
+            "extracted_rules": [],
+            "overall_confidence": 0.0,
+            "model": "distilbert_token_classifier",
+            "error": str(e)
+        }
+
+
+@app.post("/v1/rules/check-duplicate")
+def check_duplicate_endpoint(
+    rule_data: Dict[str, Any],
+    workspace_id: str,
+    domain_id: str,
+    model: str = "baseline",
+    db=Depends(get_db)
+):
+    """
+    Check for duplicate rules.
+
+    Query param 'model' selects approach:
+    - baseline: deterministic hash-based matching
+    - semantic: pgvector semantic similarity
+    """
+    try:
+        if model == "semantic":
+            service = RealDuplicateDetectionService()
+        else:
+            service = BaselineDuplicateDetectionService()
+
+        result = service.check_duplicate(rule_data, workspace_id, domain_id, db)
+
+        return {
+            **result,
+            "model_used": model
+        }
+    except Exception as e:
+        logger.error(f"Error in duplicate detection ({model}): {e}")
+        return {
+            "is_duplicate": False,
+            "relationship": "unrelated",
+            "confidence": 0.0,
+            "model_used": model,
+            "error": str(e)
+        }
+
+
+@app.post("/v1/rules/check-conflict")
+def check_conflict_endpoint(
+    rule_data: Dict[str, Any],
+    workspace_id: str,
+    domain_id: str,
+    model: str = "baseline",
+    db=Depends(get_db)
+):
+    """
+    Check for conflicting rules.
+
+    Query param 'model' selects approach:
+    - baseline: rule-based comparison
+    - semantic: pgvector semantic similarity
+    """
+    try:
+        if model == "semantic":
+            service = RealConflictDetectionService()
+        else:
+            service = BaselineConflictDetectionService()
+
+        result = service.check_conflict(rule_data, workspace_id, domain_id, db)
+
+        return {
+            **result,
+            "model_used": model
+        }
+    except Exception as e:
+        logger.error(f"Error in conflict detection ({model}): {e}")
+        return {
+            "conflict_detected": False,
+            "confidence": 0.0,
+            "model_used": model,
+            "error": str(e)
+        }
+
+
 @app.on_event("startup")
 def list_routes():
     import inspect

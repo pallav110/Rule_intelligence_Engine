@@ -230,20 +230,22 @@ class DuplicateDetector:
             return self.EXACT_DUPLICATE, confidence
 
         # SEMANTIC DUPLICATE: business term + high condition/entity match
+        # Semantic duplicates have same fields/structure, may differ in exact values
         if (
             business_term_match
-            and condition_sim > 0.85
-            and entities_sim > 0.8
+            and operation_match
+            and condition_sim > 0.70  # Lowered from 0.85 - allow partial condition matches
+            and entities_sim > 0.75  # Lowered from 0.8
         ):
-            confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.1)
+            confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.05)
             return self.SEMANTIC_DUPLICATE, confidence
 
         # MODIFICATION: same business term, same operation, different conditions
         if (
             business_term_match
             and operation_match
-            and condition_sim > 0.5
-            and condition_sim < 0.9
+            and condition_sim >= 0.3  # Lowered from 0.5 - modifications can have lower overlap
+            and condition_sim < 0.85  # Lowered from 0.9
         ):
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
@@ -260,12 +262,12 @@ class DuplicateDetector:
             return self.EXTENSION, confidence
 
         # SUBSET: existing rule is superset of new rule (same business term)
-        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
+        if business_term_match and condition_sim > 0.3 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.8
             return self.SUBSET, confidence
 
         # SUPERSET: new rule is superset of existing (same business term)
-        if business_term_match and condition_sim > 0.6 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
+        if business_term_match and condition_sim > 0.3 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
             confidence = condition_sim * 0.75
             return self.SUPERSET, confidence
 

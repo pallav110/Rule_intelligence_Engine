@@ -274,6 +274,127 @@
         .example-btn:hover {
             background: rgba(59, 130, 246, 0.3);
         }
+
+        .model-selector {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .model-toggle {
+            display: flex;
+            gap: 8px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .model-toggle button {
+            padding: 6px 12px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .model-toggle button.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .comparison-grid.full {
+            grid-template-columns: 1fr;
+        }
+
+        .model-column {
+            background: rgba(59, 130, 246, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .model-column.baseline {
+            border-left: 3px solid #9333ea;
+        }
+
+        .model-column.candidate {
+            border-left: 3px solid #10b981;
+        }
+
+        .model-column-header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .model-name {
+            color: var(--accent);
+        }
+
+        .model-badge {
+            display: inline-block;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .model-badge.worse {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .model-badge.better {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .model-badge.similar {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .error-display {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .recommendation-row {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 12px;
+            font-size: 11px;
+        }
+
+        .recommendation-row strong {
+            color: var(--success);
+        }
     </style>
 </head>
 <body>
@@ -311,7 +432,16 @@
                     </div>
                 </div>
 
-                <button onclick="runFullPipeline()" aria-label="Run the full analysis pipeline" style="width: 100%; margin-top: 16px;">▶ Run Full Pipeline</button>
+                <div class="model-selector">
+                    <label style="margin: 0; flex-basis: 100%;">Model Comparison</label>
+                    <div class="model-toggle">
+                        <button class="active" onclick="setModelDisplay('both')" data-model="both">Both Models</button>
+                        <button onclick="setModelDisplay('baseline')" data-model="baseline">Baseline Only</button>
+                        <button onclick="setModelDisplay('candidate')" data-model="candidate">Candidate ML Only</button>
+                    </div>
+                </div>
+
+                <button onclick="runFullPipeline()" aria-label="Run the full analysis pipeline" style="width: 100%;">▶ Run Full Pipeline</button>
 
                 <div style="margin-top: 16px;">
                     <label style="margin-bottom: 8px;">Quick Examples</label>
@@ -399,6 +529,8 @@
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let detectedDomain = null;
         let detectionConfidence = 0;
+        let modelDisplay = 'both'; // 'both', 'baseline', 'candidate'
+        let comparisonResults = { baseline: {}, candidate: {} };
 
         // JSON formatting with syntax highlighting
         function formatJson(data) {
@@ -422,6 +554,21 @@
         function setExample(text) {
             document.getElementById('feedback-input').value = text;
             autoDetectDomain();
+        }
+
+        function setModelDisplay(mode) {
+            modelDisplay = mode;
+            // Update UI button states
+            document.querySelectorAll('.model-toggle button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.model === mode) {
+                    btn.classList.add('active');
+                }
+            });
+            // Refresh display if results exist
+            if (comparisonResults.baseline.data || comparisonResults.candidate.data) {
+                displayComparisonResults();
+            }
         }
 
         async function autoDetectDomain() {
