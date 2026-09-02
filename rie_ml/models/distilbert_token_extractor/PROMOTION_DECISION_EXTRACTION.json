@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-09-02T17:59:44.331818",
+  "model_type": "distilbert_token_extractor",
+  "status": "APPROVED",
+  "rationale": "DistilBERT candidate achieves 82.8% macro F1 and 95.6% token accuracy, meeting minimum thresholds (F1\u226575%, Accuracy\u226590%). Candidate demonstrates strong performance for promotion to APPROVED.",
+  "metrics": {
+    "token_accuracy": 0.9563492063492064,
+    "macro_f1": 0.8276081895506985
+  },
+  "thresholds": {
+    "min_macro_f1": 0.75,
+    "min_token_accuracy": 0.9,
+    "prefer_candidate_if_f1_above": 0.85
+  },
+  "recommendation": "PROMOTE_TO_APPROVED"
+}

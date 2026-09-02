@@ -1,0 +1,334 @@
+{
+  "epochs": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "train_loss": [
+    1.5918140405232144,
+    0.4136711186969403,
+    0.13520830195665973,
+    0.08216121791833148,
+    0.0569133438054741
+  ],
+  "val_loss": [
+    0.6843438217273126,
+    0.29570473157442534,
+    0.2153168825002817,
+    0.17227113848695388,
+    0.16465526389387938
+  ],
+  "val_metrics": [
+    {
+      "O": {
+        "precision": 0.9804255319148936,
+        "recall": 0.803347280334728,
+        "f1-score": 0.883096972019931,
+        "support": 1434.0
+      },
+      "B_BUSINESS_TERM": {
+        "precision": 0.3333333333333333,
+        "recall": 1.0,
+        "f1-score": 0.5,
+        "support": 5.0
+      },
+      "B_OPERATION": {
+        "precision": 0.5714285714285714,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.6153846153846154,
+        "support": 18.0
+      },
+      "B_FIELD": {
+        "precision": 0.3148148148148148,
+        "recall": 0.8095238095238095,
+        "f1-score": 0.4533333333333333,
+        "support": 21.0
+      },
+      "B_VALUE": {
+        "precision": 0.4864864864864865,
+        "recall": 0.5192307692307693,
+        "f1-score": 0.5023255813953489,
+        "support": 104.0
+      },
+      "I_VALUE": {
+        "precision": 0.4819277108433735,
+        "recall": 1.0,
+        "f1-score": 0.6504065040650406,
+        "support": 40.0
+      },
+      "B_TABLE": {
+        "precision": 0.28820960698689957,
+        "recall": 1.0,
+        "f1-score": 0.44745762711864406,
+        "support": 66.0
+      },
+      "accuracy": 0.79739336492891,
+      "macro avg": {
+        "precision": 0.49380372225833896,
+        "recall": 0.8283955036794247,
+        "f1-score": 0.578857804759559,
+        "support": 1688.0
+      },
+      "weighted avg": {
+        "precision": 0.8965564229377454,
+        "recall": 0.79739336492891,
+        "f1-score": 0.8277537351724246,
+        "support": 1688.0
+      }
+    },
+    {
+      "O": {
+        "precision": 0.995928338762215,
+        "recall": 0.8528591352859135,
+        "f1-score": 0.9188580015026296,
+        "support": 1434.0
+      },
+      "B_BUSINESS_TERM": {
+        "precision": 0.2777777777777778,
+        "recall": 1.0,
+        "f1-score": 0.43478260869565216,
+        "support": 5.0
+      },
+      "B_OPERATION": {
+        "precision": 0.46153846153846156,
+        "recall": 1.0,
+        "f1-score": 0.631578947368421,
+        "support": 18.0
+      },
+      "B_FIELD": {
+        "precision": 0.1891891891891892,
+        "recall": 1.0,
+        "f1-score": 0.3181818181818182,
+        "support": 21.0
+      },
+      "B_VALUE": {
+        "precision": 0.6571428571428571,
+        "recall": 0.8846153846153846,
+        "f1-score": 0.7540983606557377,
+        "support": 104.0
+      },
+      "I_VALUE": {
+        "precision": 0.625,
+        "recall": 1.0,
+        "f1-score": 0.7692307692307693,
+        "support": 40.0
+      },
+      "B_THRESHOLD": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 0.0
+      },
+      "B_TABLE": {
+        "precision": 0.7586206896551724,
+        "recall": 1.0,
+        "f1-score": 0.8627450980392157,
+        "support": 66.0
+      },
+      "accuracy": 0.8678909952606635,
+      "macro avg": {
+        "precision": 0.4956496642582091,
+        "recall": 0.8421843149876622,
+        "f1-score": 0.5861844504592805,
+        "support": 1688.0
+      },
+      "weighted avg": {
+        "precision": 0.9391247716911546,
+        "recall": 0.8678909952606635,
+        "f1-score": 0.8909971345857314,
+        "support": 1688.0
+      }
+    },
+    {
+      "O": {
+        "precision": 0.9968454258675079,
+        "recall": 0.8814504881450488,
+        "f1-score": 0.9356032568467801,
+        "support": 1434.0
+      },
+      "B_BUSINESS_TERM": {
+        "precision": 0.3076923076923077,
+        "recall": 0.8,
+        "f1-score": 0.4444444444444444,
+        "support": 5.0
+      },
+      "B_OPERATION": {
+        "precision": 0.5625,
+        "recall": 1.0,
+        "f1-score": 0.72,
+        "support": 18.0
+      },
+      "B_FIELD": {
+        "precision": 0.3620689655172414,
+        "recall": 1.0,
+        "f1-score": 0.5316455696202531,
+        "support": 21.0
+      },
+      "B_VALUE": {
+        "precision": 0.6392405063291139,
+        "recall": 0.9711538461538461,
+        "f1-score": 0.7709923664122137,
+        "support": 104.0
+      },
+      "I_VALUE": {
+        "precision": 0.7017543859649122,
+        "recall": 1.0,
+        "f1-score": 0.8247422680412371,
+        "support": 40.0
+      },
+      "B_THRESHOLD": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 0.0
+      },
+      "B_TABLE": {
+        "precision": 0.6534653465346535,
+        "recall": 1.0,
+        "f1-score": 0.7904191616766467,
+        "support": 66.0
+      },
+      "accuracy": 0.8969194312796208,
+      "macro avg": {
+        "precision": 0.5279458672382171,
+        "recall": 0.8315755417873618,
+        "f1-score": 0.627230883380197,
+        "support": 1688.0
+      },
+      "weighted avg": {
+        "precision": 0.9398241418699297,
+        "recall": 0.8969194312796208,
+        "f1-score": 0.9083782055697326,
+        "support": 1688.0
+      }
+    },
+    {
+      "O": {
+        "precision": 0.9918154761904762,
+        "recall": 0.9295676429567643,
+        "f1-score": 0.9596832253419726,
+        "support": 1434.0
+      },
+      "B_BUSINESS_TERM": {
+        "precision": 0.3333333333333333,
+        "recall": 0.8,
+        "f1-score": 0.47058823529411764,
+        "support": 5.0
+      },
+      "B_OPERATION": {
+        "precision": 0.6206896551724138,
+        "recall": 1.0,
+        "f1-score": 0.7659574468085106,
+        "support": 18.0
+      },
+      "B_FIELD": {
+        "precision": 0.375,
+        "recall": 1.0,
+        "f1-score": 0.5454545454545454,
+        "support": 21.0
+      },
+      "B_VALUE": {
+        "precision": 0.8703703703703703,
+        "recall": 0.9038461538461539,
+        "f1-score": 0.8867924528301887,
+        "support": 104.0
+      },
+      "I_VALUE": {
+        "precision": 0.7017543859649122,
+        "recall": 1.0,
+        "f1-score": 0.8247422680412371,
+        "support": 40.0
+      },
+      "B_THRESHOLD": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 0.0
+      },
+      "B_TABLE": {
+        "precision": 0.8148148148148148,
+        "recall": 1.0,
+        "f1-score": 0.8979591836734694,
+        "support": 66.0
+      },
+      "accuracy": 0.933649289099526,
+      "macro avg": {
+        "precision": 0.5884722544807901,
+        "recall": 0.8291767246003647,
+        "f1-score": 0.6688971696805052,
+        "support": 1688.0
+      },
+      "weighted avg": {
+        "precision": 0.9569573134193162,
+        "recall": 0.933649289099526,
+        "f1-score": 0.9409134346874383,
+        "support": 1688.0
+      }
+    },
+    {
+      "O": {
+        "precision": 0.9955156950672646,
+        "recall": 0.9288702928870293,
+        "f1-score": 0.961038961038961,
+        "support": 1434.0
+      },
+      "B_BUSINESS_TERM": {
+        "precision": 0.4,
+        "recall": 0.8,
+        "f1-score": 0.5333333333333333,
+        "support": 5.0
+      },
+      "B_OPERATION": {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1-score": 0.8,
+        "support": 18.0
+      },
+      "B_FIELD": {
+        "precision": 0.3684210526315789,
+        "recall": 1.0,
+        "f1-score": 0.5384615384615384,
+        "support": 21.0
+      },
+      "B_VALUE": {
+        "precision": 0.8461538461538461,
+        "recall": 0.9519230769230769,
+        "f1-score": 0.8959276018099548,
+        "support": 104.0
+      },
+      "I_VALUE": {
+        "precision": 0.7017543859649122,
+        "recall": 1.0,
+        "f1-score": 0.8247422680412371,
+        "support": 40.0
+      },
+      "B_THRESHOLD": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 0.0
+      },
+      "B_TABLE": {
+        "precision": 0.8148148148148148,
+        "recall": 1.0,
+        "f1-score": 0.8979591836734694,
+        "support": 66.0
+      },
+      "accuracy": 0.9360189573459715,
+      "macro avg": {
+        "precision": 0.5991658076623855,
+        "recall": 0.8350991712262632,
+        "f1-score": 0.6814328607948118,
+        "support": 1688.0
+      },
+      "weighted avg": {
+        "precision": 0.959214633914748,
+        "recall": 0.9360189573459715,
+        "f1-score": 0.9430898676164471,
+        "support": 1688.0
+      }
+    }
+  ]
+}

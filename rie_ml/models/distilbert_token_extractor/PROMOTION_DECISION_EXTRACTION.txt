@@ -1,0 +1,17 @@
+================================================================================
+RULE EXTRACTION MODEL PROMOTION DECISION
+================================================================================
+
+Decision Date: 2026-09-02T17:59:44.331818
+Model: distilbert_token_extractor
+Status: APPROVED
+Recommendation: PROMOTE_TO_APPROVED
+
+METRICS:
+  Token Accuracy: 95.6%
+  Macro F1: 0.8276
+
+RATIONALE:
+  DistilBERT candidate achieves 82.8% macro F1 and 95.6% token accuracy, meeting minimum thresholds (F1≥75%, Accuracy≥90%). Candidate demonstrates strong performance for promotion to APPROVED.
+
+================================================================================
