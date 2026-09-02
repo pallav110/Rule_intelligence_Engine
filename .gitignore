@@ -23,3 +23,4 @@ rie_ml/models/roberta_candidate/
 !rie_ml/models/*/promotion_decision.json
 !rie_ml/models/model_comparison_report.json
 !rie_ml/models/registry/
+rie_ml/models/*/checkpoints/*.pt
