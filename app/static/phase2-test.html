@@ -705,12 +705,12 @@
                     fetch(`${API_BASE}/v1/feedback/classify-distilbert`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: payload.feedback_text })
+                        body: JSON.stringify(payload)
                     }).catch(e => ({ ok: false, status: 0, error: e })),
                     fetch(`${API_BASE}/v1/feedback/extract-distilbert`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: payload.feedback_text, classification: {} })
+                        body: JSON.stringify(payload)
                     }).catch(e => ({ ok: false, status: 0, error: e }))
                 ]);
 
