@@ -29,7 +29,7 @@ class DistilBERTTokenExtractor:
     def _load_model(self):
         """Load trained DistilBERT token classification model."""
         try:
-            from transformers import DistilBertTokenizerFast
+            from transformers import AutoTokenizer
             import torch
 
             model_dir = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "distilbert_token_extractor"
@@ -41,7 +41,7 @@ class DistilBERTTokenExtractor:
 
             # Load tokenizer
             try:
-                self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+                self.tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
             except Exception as e:
                 print(f"⚠️  Failed to load tokenizer: {e}")
                 return
