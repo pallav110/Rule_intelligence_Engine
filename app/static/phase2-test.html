@@ -800,6 +800,10 @@
                         conflictUrl.searchParams.set('workspace_id', workspaceId);
                         conflictUrl.searchParams.set('domain_id', domainId);
                         conflictUrl.searchParams.set('model', 'semantic');
+                        conflictUrl.searchParams.set('_t', Date.now());  // Cache buster
+
+                        console.log('Calling conflict detection endpoint:', conflictUrl.toString());
+                        console.log('With rule:', rule);
 
                         const conflictResp = await fetch(conflictUrl.toString(), {
                             method: 'POST',
@@ -807,9 +811,13 @@
                             body: JSON.stringify({ suggested_rule: rule })
                         }).catch(e => ({ ok: false, status: 0, error: e }));
 
+                        console.log('Conflict detection response:', conflictResp);
+
                         if (conflictResp.ok) {
                             conflictDetection = await conflictResp.json();
+                            console.log('Conflict detection result:', conflictDetection);
                         } else {
+                            console.warn('Conflict detection failed with status:', conflictResp.status);
                             conflictDetection = { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.0, retrieval_stage: 0 };
                         }
                     } catch (conflictError) {
