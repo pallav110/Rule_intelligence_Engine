@@ -1208,7 +1208,7 @@
 
             if (!showBaseline && !showCandidate) {
                 html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
-                return html + '</div>';
+                return html + '</div></div>';
             }
 
             html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
