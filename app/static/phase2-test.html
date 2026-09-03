@@ -1671,7 +1671,7 @@
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
                         <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
-                            ${(baselineConf.details?.all_conflicts || []).map((c, i) => `
+                            ${(baselineConf.details?.all_conflicts || baselineConf.conflict_details || []).map((c, i) => `
                                 <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
                                     <strong>Rule:</strong> ${c.rule_id}<br/>
                                     <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
@@ -1724,10 +1724,16 @@
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
                         <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
-                            ${(candidateConf.details?.all_conflicts || []).map((c, i) => `
+                            ${(candidateConf.details?.all_conflicts || candidateConf.conflict_details || []).map((c, i) => `
                                 <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
                                     <strong>Rule:</strong> ${c.rule_id}<br/>
                                     <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
+                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
                                     <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
                                 </div>
                             `).join('')}
