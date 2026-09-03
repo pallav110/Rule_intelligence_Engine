@@ -425,8 +425,8 @@ class RealConflictDetectionService:
             }
         """
         try:
-            # STAGE 1: Retrieve candidate rules (fallback to domain-packs JSON)
-            candidate_rules = self._fallback_load_domain_pack_rules(domain_id)
+            # STAGE 1: Retrieve candidate rules using pgvector, then fallback to domain-packs JSON
+            candidate_rules = self._retrieve_candidate_rules_pgvector(suggested_rule, domain_id) or self._fallback_load_domain_pack_rules(domain_id)
 
             if not candidate_rules:
                 return {
@@ -605,7 +605,7 @@ class RealConflictDetectionService:
         # 5. Conditions Comparison
         new_conds = new_rule.get("conditions", [])
         exist_conds = existing_rule.get("conditions", [])
-        cond_similarity = self._calculate_condition_similarity(new_conds, exist_conds)
+        cond_similarity = self.detector._calculate_condition_similarity(new_conds, exist_conds)
 
         details["conditions"] = {
             "new_count": len(new_conds),
@@ -791,6 +791,82 @@ class RealConflictDetectionService:
                 return True
 
         return False
+
+    def _retrieve_candidate_rules_pgvector(self, suggested_rule: Dict[str, Any], domain_id: str) -> List[Dict[str, Any]]:
+        """
+        STAGE 1: Retrieve candidate rules using pgvector semantic retrieval.
+
+        Strategy:
+        1. ALWAYS load active_rules.json from domain pack (canonical rules)
+        2. Query pgvector for semantically similar rules from database
+        3. Merge and deduplicate, prioritizing domain pack rules
+
+        Returns:
+            List of candidate rules or None if pgvector not available
+        """
+        candidates = []
+
+        # FIRST: Load active domain pack rules (PRIMARY - canonical source)
+        try:
+            from pathlib import Path
+            active_rules_path = (
+                Path(__file__).parent.parent.parent /
+                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+            )
+            if active_rules_path.exists():
+                with open(active_rules_path, 'r') as f:
+                    json_rules = json.load(f)
+                    if isinstance(json_rules, list):
+                        for json_rule in json_rules:
+                            rule = {
+                                "rule_id": json_rule.get("rule_id"),
+                                "business_term": json_rule.get("business_term"),
+                                "operation": json_rule.get("operation"),
+                                "conditions": json_rule.get("conditions", []),
+                                "scope": json_rule.get("scope", "global"),
+                                "affected_entities": json_rule.get("affected_entities", {}),
+                                "threshold": json_rule.get("threshold"),
+                                "time_window": json_rule.get("time_window"),
+                                "source": "domain_pack",
+                                "similarity_score": 1.0
+                            }
+                            candidates.append(rule)
+        except Exception as pack_e:
+            print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
+
+        # SECOND: Supplement with pgvector-retrieved database rules (if available)
+        if self.embedding_service and self.pgvector_service:
+            try:
+                rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
+                if rule_text:
+                    embedding = self.embedding_service.generate_embedding(rule_text)
+                    if embedding:
+                        # Query pgvector for similar rules
+                        user_candidates = self.pgvector_service.retrieve_similar_rules(
+                            embedding=embedding,
+                            domain_id=domain_id,
+                            top_k=self.CANDIDATE_K,
+                            similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
+                        )
+
+                        # Merge: avoid duplicates by rule_id
+                        candidates_dict = {c.get("rule_id"): c for c in candidates}
+                        for c in user_candidates:
+                            rule_id = c.get("rule_id")
+                            # Only add if not already present (domain pack takes precedence)
+                            if rule_id not in candidates_dict:
+                                c["source"] = "database"
+                                candidates_dict[rule_id] = c
+
+                        candidates = list(candidates_dict.values())
+            except Exception as pg_e:
+                print(f"Warning: pgvector retrieval failed: {pg_e}")
+
+        # Sort by similarity descending and limit to top-K
+        candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+        candidates = candidates[:self.CANDIDATE_K]
+
+        return candidates if candidates else None
 
     def _fallback_load_domain_pack_rules(self, domain_id: str) -> List[Dict[str, Any]]:
         """Fallback: Load all active rules from domain pack JSON files."""
