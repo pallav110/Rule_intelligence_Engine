@@ -511,7 +511,7 @@ class RealConflictDetectionService:
         # 1. Business Term Comparison
         new_term = (new_rule.get("business_term") or "").lower()
         exist_term = (existing_rule.get("business_term") or "").lower()
-        term_similarity = self._string_similarity(new_term, exist_term)
+        term_similarity = self.detector._string_similarity(new_term, exist_term)
         details["business_term"] = {
             "new": new_term,
             "existing": exist_term,
