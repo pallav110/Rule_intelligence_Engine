@@ -236,16 +236,9 @@ def check_conflict_endpoint(
             "conflict_type": "no_conflict",
             "conflicting_rule_ids": [],
             "confidence": 0.0,
-            "model_used": model,
-            "error": str(e),
-        }
-        return {
-            "has_conflict": False,
-            "conflict_type": "no_conflict",
-            "conflicting_rule_ids": [],
-            "confidence": 0.0,
             "retrieval_stage": 0,
             "details": {"error": str(e)},
+            "model_used": model,
         }
 
 # --- Task 4: Clarification & Re-analysis Endpoints ---
