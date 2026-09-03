@@ -555,8 +555,23 @@ class RealConflictDetectionService:
         exist_tables = set(exist_entities.get("tables", []))
         shared_tables = new_tables & exist_tables
 
+        # Get columns from affected_entities, or derive from conditions if empty
         new_columns = set(new_entities.get("columns", []))
+        if not new_columns:
+            # Infer columns from conditions
+            for cond in new_rule.get("conditions", []):
+                field = cond.get("field", "")
+                if field:
+                    new_columns.add(field)
+
         exist_columns = set(exist_entities.get("columns", []))
+        if not exist_columns:
+            # Infer columns from conditions
+            for cond in existing_rule.get("conditions", []):
+                field = cond.get("field", "")
+                if field:
+                    exist_columns.add(field)
+
         shared_columns = new_columns & exist_columns
 
         details["affected_fields"] = {
