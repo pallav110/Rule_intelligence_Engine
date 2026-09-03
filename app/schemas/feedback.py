@@ -67,8 +67,9 @@ class ConflictDetectionResponse(BaseModel):
     retrieval_stage: int = 0
     conflicting_rule_ids: list[str] = Field(default_factory=list)
     related_compatible_rule_ids: list[str] = Field(default_factory=list)
-    conflicting_rules: list[dict[str, Any]] = Field(default_factory=list)
+    conflict_details: list[dict[str, Any]] = Field(default_factory=list)  # Only actual conflicts with details
     details: dict[str, Any] = Field(default_factory=dict)
+
 
 
 class ClarificationResponse(BaseModel):

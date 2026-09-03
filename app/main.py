@@ -170,17 +170,21 @@ def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
 @app.post("/v1/rules/check-conflict")
 def check_conflict_endpoint(
     payload: dict,
+    model: str = "baseline",
     db=Depends(get_db),
 ):
     """
-    Dedicated endpoint for testing conflict detection with pgvector.
+    Dedicated endpoint for testing conflict detection.
 
     Request:
     {
-        "rule": {...suggested rule...},
+        "rule": {...suggested rule...} OR "suggested_rule": {...},
         "workspace_id": "WS001",
         "domain_id": "ecommerce"
     }
+
+    Query params:
+    - model: "baseline" or "semantic" (default: "baseline")
 
     Response:
     {
@@ -196,15 +200,22 @@ def check_conflict_endpoint(
     input_validation_logger.info("=== CONFLICT DETECTION - INPUT VALIDATION START ===")
     input_validation_logger.info(f"Workspace ID: {payload.get('workspace_id', 'default')}")
     input_validation_logger.info(f"Domain ID: {payload.get('domain_id', 'ecommerce')}")
-    input_validation_logger.info(f"Rule provided: {bool(payload.get('rule'))}")
+    input_validation_logger.info(f"Rule provided: {bool(payload.get('rule') or payload.get('suggested_rule'))}")
+    input_validation_logger.info(f"Model: {model}")
     input_validation_logger.info("=== CONFLICT DETECTION - INPUT VALIDATION COMPLETE ===")
 
     try:
-        suggested_rule = payload.get("rule", {})
+        # Support both "rule" and "suggested_rule" keys
+        suggested_rule = payload.get("rule") or payload.get("suggested_rule", {})
         workspace_id = payload.get("workspace_id", "default")
         domain_id = payload.get("domain_id", "ecommerce")
 
-        service = RealConflictDetectionService()
+        # Select service based on model parameter
+        if model == "semantic":
+            service = RealConflictDetectionService()
+        else:
+            service = BaselineConflictDetectionService()
+
         result = service.check_conflict(
             suggested_rule=suggested_rule,
             workspace_id=workspace_id,
@@ -212,11 +223,22 @@ def check_conflict_endpoint(
             db=db,
         )
 
-        return result
+        return {
+            **result,
+            "model_used": model,
+        }
     except Exception as e:
         print(f"Error in conflict detection: {e}")
         import traceback
         traceback.print_exc()
+        return {
+            "has_conflict": False,
+            "conflict_type": "no_conflict",
+            "conflicting_rule_ids": [],
+            "confidence": 0.0,
+            "model_used": model,
+            "error": str(e),
+        }
         return {
             "has_conflict": False,
             "conflict_type": "no_conflict",
@@ -1168,7 +1190,7 @@ def analyze_feedback(
             retrieval_stage=conflict_check.get("retrieval_stage", 0),
             conflicting_rule_ids=conflict_check.get("conflicting_rule_ids", []),
             related_compatible_rule_ids=conflict_check.get("related_compatible_rule_ids", []),
-            conflicting_rules=conflict_check.get("conflicting_rules", []),
+            conflict_details=self._build_conflict_details(conflict_check),
             details=conflict_check.get("details", {}),
         ),
         clarification_required=clarification_required,
@@ -2001,43 +2023,6 @@ async def check_duplicate_endpoint(
             "confidence": 0.0,
             "retrieval_stage": 0,
             "matching_rule_id": None,
-            "model_used": model,
-            "error": str(e)
-        }
-
-
-@app.post("/v1/rules/check-conflict")
-def check_conflict_endpoint(
-    rule_data: Dict[str, Any],
-    workspace_id: str,
-    domain_id: str,
-    model: str = "baseline",
-    db=Depends(get_db)
-):
-    """
-    Check for conflicting rules.
-
-    Query param 'model' selects approach:
-    - baseline: rule-based comparison
-    - semantic: pgvector semantic similarity
-    """
-    try:
-        if model == "semantic":
-            service = RealConflictDetectionService()
-        else:
-            service = BaselineConflictDetectionService()
-
-        result = service.check_conflict(rule_data, workspace_id, domain_id, db)
-
-        return {
-            **result,
-            "model_used": model
-        }
-    except Exception as e:
-        logger.error(f"Error in conflict detection ({model}): {e}")
-        return {
-            "conflict_detected": False,
-            "confidence": 0.0,
             "model_used": model,
             "error": str(e)
         }

@@ -1640,6 +1640,11 @@
             html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
 
             if (showBaseline) {
+                const conflictIds = baselineConf.conflicting_rule_ids || [];
+                const conflictSummary = baselineConf.has_conflict ?
+                    `${conflictIds.length} conflict(s) found` :
+                    'No conflicts detected';
+
                 html += `<div class="model-column baseline">
                     <div class="model-column-header"><span class="model-name">Baseline</span></div>
                     <div class="field">
@@ -1655,17 +1660,40 @@
                         <div class="field-value">${baselineConf.conflict_type || 'no_conflict'}</div>
                     </div>
                     <div class="field">
-                        <div class="field-label">Conflicting Rules</div>
-                        <div class="field-value">${baselineConf.conflicting_rule_ids?.length || 0}</div>
+                        <div class="field-label">Conflicting Rule IDs</div>
+                        <div class="field-value">${conflictIds.length > 0 ? conflictIds.join(', ') : 'None'}</div>
                     </div>
+                    <div class="field">
+                        <div class="field-label">Candidates Retrieved (Stage 1)</div>
+                        <div class="field-value">${baselineConf.retrieval_stage || 0}</div>
+                    </div>
+                    ${conflictIds.length > 0 ? `
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Conflict Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineConf, null, 2)}</pre>
+                        <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
+                        <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
+                            ${(baselineConf.details?.all_conflicts || []).map((c, i) => `
+                                <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
+                                    <strong>Rule:</strong> ${c.rule_id}<br/>
+                                    <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
+                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 8px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineConf, null, 2)}</pre>
                     </div>
                 </div>`;
             }
 
             if (showCandidate) {
+                const conflictIds = candidateConf.conflicting_rule_ids || [];
+                const conflictSummary = candidateConf.has_conflict ?
+                    `${conflictIds.length} conflict(s) found` :
+                    'No conflicts detected';
+
                 html += `<div class="model-column candidate">
                     <div class="model-column-header"><span class="model-name">ML Candidate (Semantic)</span></div>
                     <div class="field">
@@ -1681,12 +1709,34 @@
                         <div class="field-value">${candidateConf.conflict_type || 'no_conflict'}</div>
                     </div>
                     <div class="field">
-                        <div class="field-label">Conflicting Rules</div>
-                        <div class="field-value">${candidateConf.conflicting_rule_ids?.length || 0}</div>
+                        <div class="field-label">Conflicting Rule IDs</div>
+                        <div class="field-value">${conflictIds.length > 0 ? conflictIds.join(', ') : 'None'}</div>
                     </div>
+                    <div class="field">
+                        <div class="field-label">Candidates Retrieved (Stage 1)</div>
+                        <div class="field-value">${candidateConf.retrieval_stage || 0}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Model Used</div>
+                        <div class="field-value">${candidateConf.model || candidateConf.details?.model || 'distilbert_conflict_detector'}</div>
+                    </div>
+                    ${conflictIds.length > 0 ? `
                     <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Conflict Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateConf, null, 2)}</pre>
+                        <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
+                        <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
+                            ${(candidateConf.details?.all_conflicts || []).map((c, i) => `
+                                <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
+                                    <strong>Rule:</strong> ${c.rule_id}<br/>
+                                    <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
+                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 8px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateConf, null, 2)}</pre>
                     </div>
                 </div>`;
             }

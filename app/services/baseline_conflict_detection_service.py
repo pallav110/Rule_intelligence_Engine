@@ -368,85 +368,61 @@ class BaselineConflictDetectionService:
                 "details": {...}
             }
         """
-        # For baseline, we retrieve ALL rules (no semantic retrieval)
-        try:
-            from sqlalchemy import text
-            import json
-            from pathlib import Path
+        # Load existing rules from domain pack JSON (source of truth)
+        existing_rules = self._load_active_rules(domain_id)
 
-            existing_rules = []
-
-            # Stage 1: Try database query first
-            query = text(
-                """
-                SELECT rule_id, business_term, operation, conditions, scope,
-                       affected_entities, threshold, time_window
-                FROM rules
-                WHERE workspace_id = :workspace_id
-                  AND domain_id = :domain_id
-                  AND status IN ('active', 'draft')
-                ORDER BY created_at DESC
-                LIMIT 100
-            """
-            )
-
-            result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
-
-            for row in result:
-                rule = {
-                    "rule_id": row[0],
-                    "business_term": row[1],
-                    "operation": row[2],
-                    "conditions": json.loads(row[3]) if isinstance(row[3], str) else row[3] or [],
-                    "scope": row[4],
-                    "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
-                    "threshold": row[6],
-                    "time_window": row[7],
-                }
-                existing_rules.append(rule)
-
-            # Stage 2: If database returns 0 results, fallback to domain pack JSON files
-            if not existing_rules:
-                try:
-                    active_rules_path = (
-                        Path(__file__).parent.parent.parent /
-                        "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
-                    )
-                    if active_rules_path.exists():
-                        with open(active_rules_path, 'r') as f:
-                            json_rules = json.load(f)
-                            if isinstance(json_rules, list):
-                                for json_rule in json_rules:
-                                    rule = {
-                                        "rule_id": json_rule.get("rule_id"),
-                                        "business_term": json_rule.get("business_term"),
-                                        "operation": json_rule.get("operation"),
-                                        "conditions": json_rule.get("conditions", []),
-                                        "scope": json_rule.get("scope", "global"),
-                                        "affected_entities": json_rule.get("affected_entities", {}),
-                                        "threshold": json_rule.get("threshold"),
-                                        "time_window": json_rule.get("time_window"),
-                                    }
-                                    existing_rules.append(rule)
-                except Exception as fallback_e:
-                    print(f"Warning: Could not load fallback rules from {domain_id}/rules/active_rules.json: {fallback_e}")
-
-            # Use deterministic conflict detection
-            detection_result = self.detector.detect(suggested_rule, existing_rules)
-            detection_result["retrieval_stage"] = len(existing_rules)  # Track how many candidates were retrieved
-            detection_result["conflicting_rules"] = existing_rules  # Include all retrieved rules for debugging
-
-            return detection_result
-
-        except Exception as e:
-            print(f"Error in baseline conflict detection: {e}")
-            import traceback
-            traceback.print_exc()
+        if not existing_rules:
             return {
                 "has_conflict": False,
-                "conflict_type": "no_conflict",
+                "conflict_type": self.NO_CONFLICT,
                 "conflicting_rule_ids": [],
                 "confidence": 0.0,
                 "deterministic_comparison": True,
-                "details": {"error": str(e)},
+                "details": {"reason": "No active rules found to compare against"},
             }
+
+        # Run conflict detection
+        result = self.detector.detect(suggested_rule, existing_rules)
+
+        # Add metadata
+        result["deterministic_comparison"] = True
+        result["retrieval_stage"] = len(existing_rules)
+
+        return result
+
+    def _load_active_rules(self, domain_id: str) -> List[Dict[str, Any]]:
+        """Load active rules from domain pack JSON files."""
+        try:
+            from pathlib import Path
+
+            active_rules_path = (
+                Path(__file__).parent.parent.parent /
+                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+            )
+
+            if not active_rules_path.exists():
+                print(f"⚠️  Active rules file not found: {active_rules_path}")
+                return []
+
+            with open(active_rules_path, 'r') as f:
+                rules = json.load(f)
+
+            # Normalize rule structure
+            normalized_rules = []
+            for rule in rules:
+                normalized_rules.append({
+                    "rule_id": rule.get("rule_id"),
+                    "business_term": rule.get("business_term"),
+                    "operation": rule.get("operation"),
+                    "conditions": rule.get("conditions", []),
+                    "scope": rule.get("scope", "global"),
+                    "affected_entities": rule.get("affected_entities", {}),
+                    "threshold": rule.get("threshold"),
+                    "time_window": rule.get("time_window"),
+                })
+
+            return normalized_rules
+
+        except Exception as e:
+            print(f"Error loading active rules: {e}")
+            return []
