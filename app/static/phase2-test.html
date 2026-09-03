@@ -788,6 +788,38 @@
                     error = 'Schema validation endpoint unavailable';
                 }
 
+                // 5. Conflict Detection - call actual endpoint with first extracted rule
+                let conflictDetection = {};
+                if (extractedRules && extractedRules.length > 0) {
+                    try {
+                        const rule = extractedRules[0];
+                        const workspaceId = payload.workspace_id || 'default';
+                        const domainId = payload.schema_context?.domain_pack_id || 'ecommerce';
+
+                        const conflictUrl = new URL(`${API_BASE}/v1/rules/check-conflict`);
+                        conflictUrl.searchParams.set('workspace_id', workspaceId);
+                        conflictUrl.searchParams.set('domain_id', domainId);
+                        conflictUrl.searchParams.set('model', 'semantic');
+
+                        const conflictResp = await fetch(conflictUrl.toString(), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ suggested_rule: rule })
+                        }).catch(e => ({ ok: false, status: 0, error: e }));
+
+                        if (conflictResp.ok) {
+                            conflictDetection = await conflictResp.json();
+                        } else {
+                            conflictDetection = { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.0, retrieval_stage: 0 };
+                        }
+                    } catch (conflictError) {
+                        console.warn('Conflict detection error:', conflictError);
+                        conflictDetection = { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.0, retrieval_stage: 0 };
+                    }
+                } else {
+                    conflictDetection = { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.0, retrieval_stage: 0 };
+                }
+
                 // Combine results into a response object
                 // extraction already contains the nested structure, so pass it through
                 const candidateData = {
@@ -796,7 +828,7 @@
                     preprocessing: { original_text: payload.feedback_text, processed_text: payload.feedback_text },
                     schema_validation: schemaValidation,
                     duplicate_detection: duplicateDetection,
-                    conflict_detection: { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.02 },
+                    conflict_detection: conflictDetection,
                     routing_decision: { review_status: 'approved', priority: 'normal' }
                 };
 
@@ -1728,12 +1760,6 @@
                                 <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
                                     <strong>Rule:</strong> ${c.rule_id}<br/>
                                     <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
-                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    ` : ''}
                                     <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
                                 </div>
                             `).join('')}
