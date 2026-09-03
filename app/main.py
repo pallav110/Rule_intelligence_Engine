@@ -1190,7 +1190,7 @@ def analyze_feedback(
             retrieval_stage=conflict_check.get("retrieval_stage", 0),
             conflicting_rule_ids=conflict_check.get("conflicting_rule_ids", []),
             related_compatible_rule_ids=conflict_check.get("related_compatible_rule_ids", []),
-            conflict_details=self._build_conflict_details(conflict_check),
+            conflict_details=conflict_check.get("all_conflicts", []),
             details=conflict_check.get("details", {}),
         ),
         clarification_required=clarification_required,

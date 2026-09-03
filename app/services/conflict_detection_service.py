@@ -2,7 +2,6 @@
 
 from typing import Dict, Any, List, Optional, Tuple
 import json
-from app.services.ml_conflict_detector import get_ml_conflict_detector
 
 
 class ConflictDetector:
