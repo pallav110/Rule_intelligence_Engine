@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Request, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from typing import List, Optional, Dict, Any
@@ -166,66 +166,6 @@ def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
     }
 
 # --- Phase 3 Testing Endpoints (Duplicate & Conflict Detection) ---
-
-@app.post("/v1/rules/check-duplicate")
-def check_duplicate_endpoint(
-    payload: dict,
-    db=Depends(get_db),
-):
-    """
-    Dedicated endpoint for testing duplicate detection with pgvector.
-
-    Request:
-    {
-        "rule": {...suggested rule...},
-        "workspace_id": "WS001",
-        "domain_id": "ecommerce"
-    }
-
-    Response:
-    {
-        "is_duplicate": bool,
-        "relationship": "exact_duplicate|semantic_duplicate|modification|...",
-        "matching_rule_id": str or null,
-        "confidence": float (0.0-1.0),
-        "retrieval_stage": int (number of candidates),
-        "details": {...}
-    }
-    """
-    # === INPUT VALIDATION LOGGING (8.1) ===
-    input_validation_logger.info("=== DUPLICATE DETECTION - INPUT VALIDATION START ===")
-    input_validation_logger.info(f"Workspace ID: {payload.get('workspace_id', 'default')}")
-    input_validation_logger.info(f"Domain ID: {payload.get('domain_id', 'ecommerce')}")
-    input_validation_logger.info(f"Rule provided: {bool(payload.get('rule'))}")
-    input_validation_logger.info("=== DUPLICATE DETECTION - INPUT VALIDATION COMPLETE ===")
-
-    try:
-        suggested_rule = payload.get("rule", {})
-        workspace_id = payload.get("workspace_id", "default")
-        domain_id = payload.get("domain_id", "ecommerce")
-
-        service = RealDuplicateDetectionService()
-        result = service.check_duplicate(
-            suggested_rule=suggested_rule,
-            workspace_id=workspace_id,
-            domain_id=domain_id,
-            db=db,
-        )
-
-        return result
-    except Exception as e:
-        print(f"Error in duplicate detection: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "is_duplicate": False,
-            "relationship": "unrelated",
-            "matching_rule_id": None,
-            "confidence": 0.0,
-            "retrieval_stage": 0,
-            "details": {"error": str(e)},
-        }
-
 
 @app.post("/v1/rules/check-conflict")
 def check_conflict_endpoint(
@@ -950,10 +890,10 @@ def analyze_feedback(
         analysis_run_id=analysis_run_id,
         feedback_id=feedback_id,
         workspace_id=payload.workspace_id,
-        model_version_id="baseline_v1",  # Baseline model version
-        dataset_version_id="ecommerce_v1",  # Baseline dataset version
+        model_version_id=None,  # Don't set if version doesn't exist in database
+        dataset_version_id=None,  # Don't set if version doesn't exist in database
         taxonomy_version="v1",  # Baseline taxonomy version
-        domain_pack_id=full_schema_context.get("domain_pack_id", "ecommerce"),
+        domain_pack_id=None,  # Don't set if pack doesn't exist in database
         threshold_configuration={
             "classification": 0.7,
             "extraction": 0.6,
@@ -1155,12 +1095,27 @@ def analyze_feedback(
     # Schema validation with schema_loaded flag
     schema_validation_results = schema_validation_results  # Already computed
     schema_loaded = schema_validation_results[0].get("schema_loaded", False) if schema_validation_results else False
+
+    # Aggregate validated and invalid fields from all rules
+    all_validated_fields = []
+    all_invalid_fields = []
+    all_validation_checks = {}
+
+    for result in schema_validation_results:
+        all_validated_fields.extend(result.get("validated_fields", []))
+        all_invalid_fields.extend(result.get("invalid_fields", []))
+        if result.get("check_results"):
+            all_validation_checks.update(result.get("check_results", {}))
+
     schema_validation_obj = SchemaValidationResponse(
         status=schema_validation["status"],
         coverage=schema_validation["coverage"],
         mandatory_fields_valid=schema_validation["mandatory_fields_valid"],
         validation_errors=schema_validation["validation_errors"],
-        schema_loaded=schema_loaded
+        schema_loaded=schema_loaded,
+        validated_fields=list(set(all_validated_fields)),
+        invalid_fields=list(set(all_invalid_fields)),
+        validation_checks=all_validation_checks
     )
 
     # Build extraction response with proper structure
@@ -1834,52 +1789,203 @@ def extract_with_distilbert(payload: FeedbackAnalysisRequest):
     Extract rules using DistilBERT token classifier (ML candidate, 95.6% accuracy).
 
     Used for side-by-side comparison with baseline extractor in testing UI.
+    Returns enhanced JSON structure with component mapping, detailed components, and domain pack matching.
     """
     try:
         from app.services.distilbert_token_extractor import get_distilbert_token_extractor
+        from app.services.domain_pack_matcher import DomainPackMatcher
 
         extractor = get_distilbert_token_extractor()
         result = extractor.extract(payload.feedback_text)
 
+        extracted_rules = result.get("extraction", {}).get("extracted_rules", [])
+        domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce") if payload.schema_context else "ecommerce"
+
+        # Add domain pack matching for enrichment
+        matcher = DomainPackMatcher()
+
+        # Match against active rules
+        matching_result = matcher.match_extracted_rules(extracted_rules, domain_pack_id)
+
+        # Enrich rules with schema details
+        enriched_rules = matcher.enrich_with_schema_details(extracted_rules, domain_pack_id)
+
+        # Validate against taxonomy
+        taxonomy_validation = matcher.validate_against_taxonomy(extracted_rules, domain_pack_id)
+
         return {
-            "extracted_rules": result.get("extracted_rules", []),
+            "extraction": {
+                "extracted_rules": enriched_rules,
+                "component_mapping": result.get("extraction", {}).get("component_mapping", {}),
+                "detailed_components": result.get("extraction", {}).get("detailed_components", {})
+            },
+            "domain_pack_matching": {
+                "matched_rules": matching_result.get("matched_rules", []),
+                "unmatched_rules": matching_result.get("unmatched_rules", []),
+                "domain_coverage": matching_result.get("domain_coverage", 0.0),
+                "matching_confidence": matching_result.get("matching_confidence", 0.0),
+                "total_active_rules": matching_result.get("total_active_rules", 0),
+                "matched_count": matching_result.get("matched_count", 0)
+            },
+            "taxonomy_validation": taxonomy_validation,
             "overall_confidence": result.get("overall_confidence", 0.0),
             "model": "distilbert_token_classifier",
             "token_accuracy": result.get("token_accuracy", 0.956),
-            "macro_f1": result.get("macro_f1", 0.8276)
+            "macro_f1": result.get("macro_f1", 0.8276),
+            "method": result.get("method", "bio_token_classification"),
+            "validation_ready": result.get("validation_ready", False),
+            "domain_pack_id": domain_pack_id
         }
     except Exception as e:
         logger.error(f"Error in DistilBERT token extraction: {e}")
         return {
-            "extracted_rules": [],
+            "extraction": {
+                "extracted_rules": [],
+                "component_mapping": {},
+                "detailed_components": {}
+            },
+            "domain_pack_matching": {
+                "matched_rules": [],
+                "unmatched_rules": [],
+                "domain_coverage": 0.0,
+                "matching_confidence": 0.0
+            },
+            "taxonomy_validation": {
+                "valid_terms": [],
+                "invalid_terms": [],
+                "valid_operations": [],
+                "invalid_operations": [],
+                "overall_validity": 0.0
+            },
             "overall_confidence": 0.0,
+            "model": "distilbert_token_classifier",
+            "error": str(e),
+            "validation_ready": False
+        }
+
+
+@app.post("/v1/feedback/validate-schema-distilbert")
+def validate_schema_with_distilbert(payload: FeedbackAnalysisRequest):
+    """
+    Validate extracted ML candidate rules against schema (for testing UI comparison).
+    Accepts optional 'extracted_rules' in payload to avoid re-extracting.
+    """
+    try:
+        from app.services.schema_validation_service import SchemaValidationService
+        from pathlib import Path
+        import json
+
+        # Get extracted rules from payload if provided, otherwise extract fresh
+        extracted_rules = payload.schema_context.get("extracted_rules", [])
+
+        # If not provided, extract using DistilBERT (skip if re-extracting would be too slow)
+        if not extracted_rules:
+            # For now, return empty rules - extraction happens separately in HTML
+            extracted_rules = []
+
+        # Get schema from domain pack (same as baseline)
+        domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce")
+        domain_schema = {}
+        try:
+            schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
+            if schema_path.exists():
+                with open(schema_path, 'r') as f:
+                    domain_schema = json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load schema for {domain_pack_id}: {e}")
+
+        # Validate each extracted rule
+        validator = SchemaValidationService(domain_schema)
+        validation_results = []
+
+        for rule in extracted_rules:
+            validation = validator.validate_rule(rule, domain_schema)
+            validation_results.append(validation)
+
+        # Aggregate results
+        all_validated_fields = []
+        all_invalid_fields = []
+        all_validation_checks = {}
+
+        for result in validation_results:
+            all_validated_fields.extend(result.get("validated_fields", []))
+            all_invalid_fields.extend(result.get("invalid_fields", []))
+            if result.get("check_results"):
+                all_validation_checks.update(result.get("check_results", {}))
+
+        # Determine overall status
+        if not validation_results:
+            status = "PASS"  # No rules = pass (nothing to validate)
+            coverage = 1.0
+        elif all(v["status"] == "PASS" for v in validation_results):
+            status = "PASS"
+            coverage = 1.0
+        elif any(v["status"] in ["PASS", "PARTIAL"] for v in validation_results):
+            status = "PARTIAL"
+            total_checkable = len(all_validated_fields) + len(all_invalid_fields)
+            coverage = len(all_validated_fields) / total_checkable if total_checkable > 0 else 0.5
+        else:
+            status = "FAIL"
+            total_checkable = len(all_validated_fields) + len(all_invalid_fields)
+            coverage = len(all_validated_fields) / total_checkable if total_checkable > 0 else 0.0
+
+        return {
+            "status": status,
+            "coverage": round(coverage, 3),
+            "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in validation_results) if validation_results else True,
+            "validation_errors": [e for v in validation_results for e in v.get("validation_errors", [])],
+            "schema_loaded": bool(domain_schema),
+            "validated_fields": list(set(all_validated_fields)),
+            "invalid_fields": list(set(all_invalid_fields)),
+            "validation_checks": all_validation_checks,
+            "model": "distilbert_token_classifier"
+        }
+
+    except Exception as e:
+        logger.error(f"Error in DistilBERT schema validation: {e}")
+        return {
+            "status": "FAIL",
+            "coverage": 0.0,
+            "mandatory_fields_valid": False,
+            "validation_errors": [str(e)],
+            "schema_loaded": False,
+            "validated_fields": [],
+            "invalid_fields": [],
+            "validation_checks": {},
             "model": "distilbert_token_classifier",
             "error": str(e)
         }
 
 
 @app.post("/v1/rules/check-duplicate")
-def check_duplicate_endpoint(
-    rule_data: Dict[str, Any],
-    workspace_id: str,
-    domain_id: str,
+async def check_duplicate_endpoint(
+    workspace_id: str = None,
+    domain_id: str = None,
     model: str = "baseline",
+    request: Request = None,
     db=Depends(get_db)
 ):
     """
     Check for duplicate rules.
 
-    Query param 'model' selects approach:
-    - baseline: deterministic hash-based matching
-    - semantic: pgvector semantic similarity
+    Body: Full rule data (Dict with rule structure)
+    Query params: workspace_id, domain_id, model
     """
     try:
+        # Get the raw JSON body
+        rule_data = await request.json()
+
         if model == "semantic":
             service = RealDuplicateDetectionService()
         else:
             service = BaselineDuplicateDetectionService()
 
-        result = service.check_duplicate(rule_data, workspace_id, domain_id, db)
+        result = service.check_duplicate(
+            suggested_rule=rule_data,
+            workspace_id=workspace_id or "default",
+            domain_id=domain_id or "ecommerce",
+            db=db
+        )
 
         return {
             **result,
@@ -1887,10 +1993,14 @@ def check_duplicate_endpoint(
         }
     except Exception as e:
         logger.error(f"Error in duplicate detection ({model}): {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "is_duplicate": False,
             "relationship": "unrelated",
             "confidence": 0.0,
+            "retrieval_stage": 0,
+            "matching_rule_id": None,
             "model_used": model,
             "error": str(e)
         }
@@ -1931,6 +2041,182 @@ def check_conflict_endpoint(
             "model_used": model,
             "error": str(e)
         }
+
+
+@app.get("/v1/evaluation/duplicate-detection/results")
+def get_duplicate_detection_results(
+    model_type: Optional[str] = None,
+    limit: int = 10
+):
+    """
+    Retrieve stored duplicate detection evaluation results.
+
+    Query params:
+    - model_type: Filter by model type (baseline_deterministic, ml_candidate)
+    - limit: Maximum number of results to return (default 10)
+    """
+    try:
+        from rie_ml.src.evaluation.metrics_storage import MetricsStorage
+
+        storage = MetricsStorage()
+        results_dir = storage.results_dir
+
+        results = []
+        for result_file in sorted(results_dir.glob("dup_det_*.json"), reverse=True)[:limit]:
+            try:
+                with open(result_file, "r") as f:
+                    data = json.load(f)
+
+                if model_type and data.get("model_type") != model_type:
+                    continue
+
+                results.append({
+                    "evaluation_id": data.get("evaluation_id"),
+                    "timestamp": data.get("timestamp"),
+                    "model_type": data.get("model_type"),
+                    "domains": data.get("domains"),
+                    "metrics": data.get("metrics", {}),
+                    "processing_time": data.get("processing_time_seconds"),
+                })
+            except Exception as e:
+                logger.warning(f"Failed to load result file {result_file}: {e}")
+
+        return {
+            "results": results,
+            "count": len(results),
+            "storage_path": str(results_dir)
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving duplicate detection results: {e}")
+        return {
+            "error": str(e),
+            "results": [],
+            "count": 0
+        }
+
+
+@app.get("/v1/evaluation/duplicate-detection/{evaluation_id}")
+def get_duplicate_detection_evaluation(evaluation_id: str):
+    """
+    Retrieve a specific duplicate detection evaluation result by ID.
+
+    Path params:
+    - evaluation_id: Unique evaluation identifier
+    """
+    try:
+        from rie_ml.src.evaluation.metrics_storage import MetricsStorage
+
+        storage = MetricsStorage()
+        result_file = storage.results_dir / f"{evaluation_id}.json"
+
+        if not result_file.exists():
+            raise HTTPException(status_code=404, detail=f"Evaluation {evaluation_id} not found")
+
+        with open(result_file, "r") as f:
+            data = json.load(f)
+
+        return {
+            "evaluation_id": data.get("evaluation_id"),
+            "timestamp": data.get("timestamp"),
+            "model_type": data.get("model_type"),
+            "module": data.get("module", "duplicate_detection"),
+            "domains": data.get("domains"),
+            "metrics": data.get("metrics", {}),
+            "processing_time": data.get("processing_time_seconds"),
+            "notes": data.get("notes"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving evaluation {evaluation_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/evaluation/duplicate-detection/{evaluation_id}/summary")
+def get_duplicate_detection_summary(evaluation_id: str):
+    """
+    Retrieve human-readable summary report for a duplicate detection evaluation.
+
+    Path params:
+    - evaluation_id: Unique evaluation identifier
+    """
+    try:
+        from rie_ml.src.evaluation.metrics_storage import MetricsStorage
+
+        storage = MetricsStorage()
+        summary_file = storage.summaries_dir / f"{evaluation_id}_summary.txt"
+
+        if not summary_file.exists():
+            raise HTTPException(status_code=404, detail=f"Summary for {evaluation_id} not found")
+
+        with open(summary_file, "r") as f:
+            content = f.read()
+
+        return {
+            "evaluation_id": evaluation_id,
+            "summary": content
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving summary for {evaluation_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/evaluation/duplicate-detection/compare")
+async def compare_duplicate_detection_evaluations(
+    evaluation_ids: List[str]
+):
+    """
+    Compare multiple duplicate detection evaluation results.
+
+    Body: {"evaluation_ids": ["eval_id_1", "eval_id_2", ...]}
+    """
+    try:
+        from rie_ml.src.evaluation.metrics_storage import MetricsStorage
+
+        storage = MetricsStorage()
+        comparisons = []
+
+        for eval_id in evaluation_ids:
+            result_file = storage.results_dir / f"{eval_id}.json"
+            if result_file.exists():
+                with open(result_file, "r") as f:
+                    data = json.load(f)
+                    comparisons.append({
+                        "evaluation_id": eval_id,
+                        "model_type": data.get("model_type"),
+                        "timestamp": data.get("timestamp"),
+                        "metrics": data.get("metrics", {}),
+                    })
+
+        if not comparisons:
+            raise HTTPException(status_code=404, detail="No evaluation results found")
+
+        # Compute deltas between first and others
+        deltas = []
+        if len(comparisons) > 1:
+            baseline = comparisons[0]["metrics"]
+            for comp in comparisons[1:]:
+                delta = {}
+                for key in baseline:
+                    if isinstance(baseline[key], (int, float)):
+                        delta[key] = comp["metrics"].get(key, 0) - baseline[key]
+                deltas.append({
+                    "vs": comparisons[0]["evaluation_id"],
+                    "deltas": delta
+                })
+
+        return {
+            "comparisons": comparisons,
+            "deltas": deltas,
+            "count": len(comparisons)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing evaluations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.on_event("startup")

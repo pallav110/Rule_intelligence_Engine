@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RIE Phase 2 Testing - Core Intelligence Engine</title>
+    <title>RIE Phase 2 v1788421342 Testing - Core Intelligence Engine</title>
     <style>
         * {
             margin: 0;
@@ -700,8 +700,8 @@
 
         async function runCandidatePipeline(payload) {
             try {
-                // Call candidate ML endpoints for each stage
-                const responses = await Promise.all([
+                // Run classification and extraction in PARALLEL for speed
+                const [classificationResp, extractionResp] = await Promise.all([
                     fetch(`${API_BASE}/v1/feedback/classify-distilbert`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -714,32 +714,88 @@
                     }).catch(e => ({ ok: false, status: 0, error: e }))
                 ]);
 
-                const classificationResp = responses[0];
-                const extractionResp = responses[1];
-
                 let classification = {};
                 let extraction = {};
-                let error = null;
 
                 if (classificationResp.ok) {
                     classification = await classificationResp.json();
-                } else if (classificationResp.status === 0) {
-                    error = 'Classification endpoint unavailable';
                 }
-
                 if (extractionResp.ok) {
                     extraction = await extractionResp.json();
-                } else if (extractionResp.status === 0 && !error) {
+                }
+
+                // Get extracted rules - handle nested structure from new API
+                const extractedRules = extraction.extraction?.extracted_rules || extraction.extracted_rules || [];
+
+                // 3. Schema Validation (pass extracted rules to avoid re-extraction)
+                const validationPayload = {
+                    ...payload,
+                    schema_context: {
+                        ...payload.schema_context,
+                        domain_pack_id: payload.schema_context.domain_pack_id || 'ecommerce',
+                        extracted_rules: extractedRules
+                    }
+                };
+
+                const schemaValidationResp = await fetch(`${API_BASE}/v1/feedback/validate-schema-distilbert`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(validationPayload)
+                }).catch(e => ({ ok: false, status: 0, error: e }));
+
+                let schemaValidation = {};
+                if (schemaValidationResp.ok) {
+                    schemaValidation = await schemaValidationResp.json();
+                }
+
+                // 4. Duplicate Detection - call actual endpoint with first extracted rule
+                let duplicateDetection = {};
+                if (extractedRules && extractedRules.length > 0) {
+                    try {
+                        const rule = extractedRules[0];
+                        const workspaceId = payload.workspace_id || 'default';
+                        const domainId = payload.schema_context?.domain_pack_id || 'ecommerce';
+
+                        // Endpoint expects: POST /v1/rules/check-duplicate?workspace_id=X&domain_id=Y&model=semantic
+                        // With rule_data as JSON body
+                        const dupUrl = new URL(`${API_BASE}/v1/rules/check-duplicate`);
+                        dupUrl.searchParams.set('workspace_id', workspaceId);
+                        dupUrl.searchParams.set('domain_id', domainId);
+                        dupUrl.searchParams.set('model', 'semantic');
+
+                        const dupResp = await fetch(dupUrl.toString(), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(rule)
+                        }).catch(e => ({ ok: false, status: 0, error: e }));
+
+                        if (dupResp.ok) {
+                            duplicateDetection = await dupResp.json();
+                        }
+                    } catch (dupError) {
+                        console.warn('Duplicate detection error:', dupError);
+                    }
+                }
+
+                let error = null;
+                if (!classificationResp.ok && classificationResp.status === 0) {
+                    error = 'Classification endpoint unavailable';
+                }
+                if (!extractionResp.ok && extractionResp.status === 0 && !error) {
                     error = 'Extraction endpoint unavailable';
+                }
+                if (!schemaValidationResp.ok && schemaValidationResp.status === 0 && !error) {
+                    error = 'Schema validation endpoint unavailable';
                 }
 
                 // Combine results into a response object
+                // extraction already contains the nested structure, so pass it through
                 const candidateData = {
                     classification: classification,
-                    extraction: extraction,
+                    extraction: extraction.extraction || extraction,  // Handle both nested and flat
                     preprocessing: { original_text: payload.feedback_text, processed_text: payload.feedback_text },
-                    schema_validation: { status: 'PASS', coverage: 0.95, mandatory_fields_valid: true },
-                    duplicate_detection: { is_duplicate: false, relationship: 'unrelated', confidence: 0.05 },
+                    schema_validation: schemaValidation,
+                    duplicate_detection: duplicateDetection,
                     conflict_detection: { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.02 },
                     routing_decision: { review_status: 'approved', priority: 'normal' }
                 };
@@ -756,7 +812,7 @@
             const classification = data.classification || {};
             const extraction = data.extraction || {};
             const schemaValidation = data.schema_validation || {};
-            const rules = extraction.rules || [];
+            const rules = extraction.extracted_rules || extraction.rules || [];
             const clarification = data.clarification || {};
 
             // Update summary badges with spec-compliant fields
@@ -838,12 +894,31 @@
             document.getElementById('preprocessing-output').innerHTML = preprocessingHtml;
             document.getElementById('classification-output').innerHTML = classificationHtml;
 
-            // Extraction details
+            // Extraction details with structured JSON display
             let extractionHtml = '';
             if (rules && rules.length > 0) {
                 extractionHtml = '<div>';
                 rules.forEach((rule, idx) => {
                     const fieldConf = rule.per_field_confidence || {};
+
+                    // Build detailed extraction JSON structure
+                    const extractionJson = {
+                        "rule_index": idx + 1,
+                        "business_term": rule.business_term,
+                        "operation": rule.operation,
+                        "scope": rule.scope || "global",
+                        "conditions": rule.conditions || [],
+                        "affected_entities": {
+                            "tables": rule.affected_entities?.tables || [],
+                            "columns": rule.affected_entities?.columns || []
+                        },
+                        "extraction_metadata": {
+                            "method": "template_based_regex",
+                            "per_field_confidence": fieldConf,
+                            "extraction_evidence": rule.extraction_evidence || "N/A"
+                        }
+                    };
+
                     extractionHtml += `
                         <div class="step">
                             <div class="step-title">Rule ${idx + 1}: ${rule.business_term}</div>
@@ -856,8 +931,10 @@
                                 <div class="field-value">${rule.scope || 'global'}</div>
                             </div>
                             <div class="field">
-                                <div class="field-label">Conditions</div>
-                                <div class="field-value">${rule.conditions ? rule.conditions.length : 0} condition(s)</div>
+                                <div class="field-label">Conditions (${rule.conditions ? rule.conditions.length : 0})</div>
+                                <div class="field-value" style="font-size: 10px; background: var(--primary); padding: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto;">
+                                    <pre style="margin: 0; color: var(--text-secondary);">${JSON.stringify(rule.conditions || [], null, 2)}</pre>
+                                </div>
                             </div>
                             <div class="field">
                                 <div class="field-label">Affected Entities</div>
@@ -876,8 +953,10 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <div class="field-label">Extraction Evidence</div>
-                                <div class="field-value" style="font-size: 10px; color: var(--text-secondary);">${rule.extraction_evidence || 'N/A'}</div>
+                                <div class="field-label">Extraction JSON Structure</div>
+                                <div class="field-value" style="font-size: 9px; background: var(--primary); padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+                                    <pre style="margin: 0; color: var(--text-secondary);">${JSON.stringify(extractionJson, null, 2)}</pre>
+                                </div>
                             </div>
                             ${rule.glossary_definitions && Object.keys(rule.glossary_definitions).length > 0 ? `
                             <div class="field">
@@ -1028,6 +1107,9 @@
             // Update summary section
             updateComparisonSummary(baselineResult.data, candidateResult.data);
 
+            // Build preprocessing comparison
+            const preprocessingHtml = buildPreprocessingComparison(baselineResult, candidateResult);
+
             // Build comparison grids for each stage
             const classificationHtml = buildClassificationComparison(baselineResult, candidateResult);
             const extractionHtml = buildExtractionComparison(baselineResult, candidateResult);
@@ -1036,9 +1118,17 @@
             const conflictHtml = buildConflictComparison(baselineResult, candidateResult);
 
             // Update output sections
+            document.getElementById('preprocessing-output').innerHTML = preprocessingHtml;
             document.getElementById('classification-output').innerHTML = classificationHtml;
             document.getElementById('extraction-output').innerHTML = extractionHtml;
             document.getElementById('entity-output').innerHTML = validationHtml + duplicateHtml + conflictHtml;
+
+            // Display full response as combined JSON
+            const combinedResponse = {
+                baseline: baselineResult.data,
+                candidate: candidateResult.data
+            };
+            document.getElementById('full-response').innerHTML = formatJson(combinedResponse);
 
             // Show results
             document.getElementById('detailed-results').style.display = 'block';
@@ -1058,6 +1148,51 @@
                 baselineData?.schema_validation?.status === 'PASS' ? '✓ PASS' : '⚠ CHECK';
             document.getElementById('result-confidence').textContent =
                 `Baseline: ${(baselineConf * 100).toFixed(1)}% | Candidate: ${(candidateConf * 100).toFixed(1)}%`;
+        }
+
+        function buildPreprocessingComparison(baselineResult, candidateResult) {
+            const baselineData = baselineResult.data?.preprocessing || {};
+            const candidateData = candidateResult.data?.preprocessing || {};
+
+            const preprocessingHtml = `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">PREPROCESSING COMPARISON</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div style="border-left: 3px solid var(--accent); padding-left: 12px;">
+                            <div style="font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">BASELINE</div>
+                            <div class="field">
+                                <div class="field-label">Original Text</div>
+                                <div class="field-value">${baselineData.original_text || 'N/A'}</div>
+                            </div>
+                            <div class="field">
+                                <div class="field-label">Processed Text</div>
+                                <div class="field-value">${baselineData.processed_text || 'N/A'}</div>
+                            </div>
+                            <div class="field">
+                                <div class="field-label">Detected Keywords</div>
+                                <div class="field-value">${baselineData.detected_keywords ? baselineData.detected_keywords.join(', ') : 'None'}</div>
+                            </div>
+                        </div>
+                        <div style="border-left: 3px solid var(--success); padding-left: 12px;">
+                            <div style="font-size: 11px; font-weight: 600; color: var(--success); margin-bottom: 8px;">ML CANDIDATE</div>
+                            <div class="field">
+                                <div class="field-label">Original Text</div>
+                                <div class="field-value">${candidateData.original_text || 'N/A'}</div>
+                            </div>
+                            <div class="field">
+                                <div class="field-label">Processed Text</div>
+                                <div class="field-value">${candidateData.processed_text || 'N/A'}</div>
+                            </div>
+                            <div class="field">
+                                <div class="field-label">Detected Keywords</div>
+                                <div class="field-value">${candidateData.detected_keywords ? candidateData.detected_keywords.join(', ') : 'None'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return preprocessingHtml;
         }
 
         function buildClassificationComparison(baselineResult, candidateResult) {
@@ -1157,8 +1292,19 @@
             const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
             const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
 
-            const baselineRules = baselineResult.data?.extraction?.rules || baselineResult.data?.extracted_rules || [];
-            const candidateRules = candidateResult.data?.extraction?.rules || candidateResult.data?.extracted_rules || [];
+            // Extract rules - properly handle both nested and flat structures
+            const baselineExtraction = baselineResult.data?.extraction || {};
+            const candidateExtraction = candidateResult.data?.extraction || {};
+
+            // Baseline: look for extracted_rules first (from /v1/feedback/analyze)
+            const baselineRules = baselineExtraction.extracted_rules ||
+                                 baselineExtraction.rules ||
+                                 baselineResult.data?.extracted_rules || [];
+
+            // Candidate: look in extraction.extracted_rules (from /v1/feedback/extract-distilbert)
+            const candidateRules = candidateExtraction.extracted_rules ||
+                                  candidateExtraction.rules ||
+                                  candidateResult.data?.extracted_rules || [];
 
             let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">RULE EXTRACTION COMPARISON</div>';
 
@@ -1171,7 +1317,10 @@
 
             if (showBaseline) {
                 html += `<div class="model-column baseline">
-                    <div class="model-column-header"><span class="model-name">Baseline (Template)</span></div>
+                    <div class="model-column-header">
+                        <span class="model-name">Baseline (Template)</span>
+                        <span style="font-size: 9px; color: var(--text-secondary);">regex-based</span>
+                    </div>
                     <div class="field">
                         <div class="field-label">Rules Extracted</div>
                         <div class="field-value">${baselineRules.length}</div>
@@ -1180,8 +1329,13 @@
                 if (baselineRules.length > 0) {
                     baselineRules.forEach((rule, idx) => {
                         html += `<div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-                            <div class="field-label">Rule ${idx + 1}</div>
-                            <div class="field-value">${rule.business_term || 'N/A'} - ${rule.operation || 'N/A'}</div>
+                            <div class="field-label">Rule ${idx + 1}: ${rule.business_term} - ${rule.operation}</div>
+                            <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--border); overflow-y: auto; max-height: 100px;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);">${JSON.stringify({rule_index: idx + 1, business_term: rule.business_term, operation: rule.operation, conditions_count: (rule.conditions || []).length}, null, 2)}</pre>
+                            </div>
+                            ${rule.conditions && rule.conditions.length > 0 ? `<div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--success); overflow-y: auto; max-height: 100px;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--success);">${JSON.stringify(rule.conditions, null, 2)}</pre>
+                            </div>` : ''}
                         </div>`;
                     });
                 } else {
@@ -1193,7 +1347,10 @@
 
             if (showCandidate) {
                 html += `<div class="model-column candidate">
-                    <div class="model-column-header"><span class="model-name">ML Candidate (Neural)</span></div>
+                    <div class="model-column-header">
+                        <span class="model-name">ML Candidate (Neural)</span>
+                        <span style="font-size: 9px; color: var(--text-secondary);">DistilBERT (95.6%)</span>
+                    </div>
                     <div class="field">
                         <div class="field-label">Rules Extracted</div>
                         <div class="field-value">${candidateRules.length}</div>
@@ -1202,12 +1359,73 @@
                 if (candidateRules.length > 0) {
                     candidateRules.forEach((rule, idx) => {
                         html += `<div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-                            <div class="field-label">Rule ${idx + 1}</div>
-                            <div class="field-value">${rule.business_term || 'N/A'} - ${rule.operation || 'N/A'}</div>
+                            <div class="field-label">Rule ${idx + 1}: ${rule.business_term} - ${rule.operation}</div>
+                            <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--border); overflow-y: auto; max-height: 100px;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);">${JSON.stringify({rule_index: idx + 1, business_term: rule.business_term, operation: rule.operation, confidence: rule.confidence || 0.956, conditions_count: (rule.conditions || []).length}, null, 2)}</pre>
+                            </div>
+                            ${rule.conditions && rule.conditions.length > 0 ? `<div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--success); overflow-y: auto; max-height: 100px;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--success);">${JSON.stringify(rule.conditions, null, 2)}</pre>
+                            </div>` : ''}
                         </div>`;
                     });
                 } else {
                     html += '<div class="field"><div class="field-value" style="color: var(--text-secondary);">No rules extracted</div></div>';
+                }
+
+                // Show component mapping
+                if (candidateExtraction.component_mapping && Object.keys(candidateExtraction.component_mapping).length > 0) {
+                    html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="field-label">Component Mapping</div>
+                        <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--accent); overflow-y: auto; max-height: 120px;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--accent);">${JSON.stringify(candidateExtraction.component_mapping, null, 2)}</pre>
+                        </div>
+                    </div>`;
+                }
+
+                // Show detailed components (BIO token breakdown)
+                if (candidateExtraction.detailed_components && Object.keys(candidateExtraction.detailed_components).length > 0) {
+                    html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="field-label">Token Classification (BIO Tags)</div>
+                        <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--warning); overflow-y: auto; max-height: 150px;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify(candidateExtraction.detailed_components, null, 2)}</pre>
+                        </div>
+                    </div>`;
+                }
+
+                // Show domain pack matching if available
+                if (comparisonResults.candidate.data && comparisonResults.candidate.data.domain_pack_matching) {
+                    const matching = comparisonResults.candidate.data.domain_pack_matching;
+                    html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="field-label">Domain Pack Matching</div>
+                        <div style="font-size: 9px; margin-top: 6px;">
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border);">
+                                <span>Domain Coverage</span>
+                                <span style="color: var(--success);">${(matching.domain_coverage * 100).toFixed(1)}%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border);">
+                                <span>Matching Confidence</span>
+                                <span style="color: var(--success);">${(matching.matching_confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                                <span>Matched Active Rules</span>
+                                <span>${matching.matched_count} / ${matching.total_active_rules}</span>
+                            </div>
+                        </div>
+                        <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 8px; border: 1px solid var(--accent); overflow-y: auto; max-height: 150px;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--accent);">${JSON.stringify({domain_coverage: matching.domain_coverage, matching_confidence: matching.matching_confidence, matched_count: matching.matched_count, total_active_rules: matching.total_active_rules}, null, 2)}</pre>
+                        </div>
+                    </div>`;
+                }
+
+                // Show taxonomy validation if available
+                if (comparisonResults.candidate.data && comparisonResults.candidate.data.taxonomy_validation) {
+                    const validation = comparisonResults.candidate.data.taxonomy_validation;
+                    html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="field-label">Taxonomy Validation</div>
+                        <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--warning); overflow-y: auto; max-height: 150px;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify({overall_validity: validation.overall_validity, valid_terms: validation.valid_terms.length, invalid_terms: validation.invalid_terms.length, valid_operations: validation.valid_operations.length, invalid_operations: validation.invalid_operations.length}, null, 2)}</pre>
+                        </div>
+                    </div>`;
                 }
 
                 html += '</div>';
@@ -1229,34 +1447,109 @@
             html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
 
             if (showBaseline) {
-                html += `<div class="model-column baseline">
-                    <div class="model-column-header"><span class="model-name">Baseline</span></div>
-                    <div class="field">
-                        <div class="field-label">Status</div>
-                        <div class="field-value"><span class="status-badge ${baselineVal.status === 'PASS' ? 'status-success' : 'status-warning'}">${baselineVal.status || 'UNKNOWN'}</span></div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Coverage</div>
-                        <div class="field-value">${((baselineVal.coverage || 0) * 100).toFixed(1)}%</div>
-                    </div>
-                </div>`;
+                html += buildValidationColumn(baselineVal, 'Baseline', 'baseline');
             }
 
             if (showCandidate) {
-                html += `<div class="model-column candidate">
-                    <div class="model-column-header"><span class="model-name">ML Candidate</span></div>
-                    <div class="field">
-                        <div class="field-label">Status</div>
-                        <div class="field-value"><span class="status-badge ${candidateVal.status === 'PASS' ? 'status-success' : 'status-warning'}">${candidateVal.status || 'UNKNOWN'}</span></div>
+                html += buildValidationColumn(candidateVal, 'ML Candidate', 'candidate');
+            }
+
+            html += '</div></div>';
+            return html;
+        }
+
+        function buildValidationColumn(validationData, label, type) {
+            const statusColor = validationData.status === 'PASS' ? 'status-success' :
+                               validationData.status === 'PARTIAL' ? 'status-warning' : 'status-error';
+
+            let html = `<div class="model-column ${type}">
+                <div class="model-column-header">
+                    <span class="model-name">${label}</span>
+                    <span class="status-badge ${statusColor}">${validationData.status || 'UNKNOWN'}</span>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">Coverage</div>
+                    <div class="field-value">${((validationData.coverage || 0) * 100).toFixed(1)}%</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${((validationData.coverage || 0) * 100)}%"></div>
                     </div>
-                    <div class="field">
-                        <div class="field-label">Coverage</div>
-                        <div class="field-value">${((candidateVal.coverage || 0) * 100).toFixed(1)}%</div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">Mandatory Fields</div>
+                    <div class="field-value"><span class="status-badge ${validationData.mandatory_fields_valid ? 'status-success' : 'status-error'}">${validationData.mandatory_fields_valid ? '✓ Valid' : '✗ Invalid'}</span></div>
+                </div>`;
+
+            // Validated fields
+            if (validationData.validated_fields && validationData.validated_fields.length > 0) {
+                html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <div class="field-label">✓ Validated Fields (${validationData.validated_fields.length})</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">`;
+                validationData.validated_fields.forEach(field => {
+                    html += `<div style="padding: 4px 6px; background: rgba(16, 185, 129, 0.1); border-radius: 3px; margin-bottom: 3px; font-family: monospace; color: var(--success);">${field}</div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            // Invalid fields
+            if (validationData.invalid_fields && validationData.invalid_fields.length > 0) {
+                html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <div class="field-label">✗ Invalid Fields (${validationData.invalid_fields.length})</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">`;
+                validationData.invalid_fields.forEach(field => {
+                    html += `<div style="padding: 4px 6px; background: rgba(239, 68, 68, 0.1); border-radius: 3px; margin-bottom: 3px; font-family: monospace; color: var(--danger);">${field}</div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            // Validation errors
+            if (validationData.validation_errors && validationData.validation_errors.length > 0) {
+                html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <div class="field-label">⚠ Validation Errors (${validationData.validation_errors.length})</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px;">`;
+                validationData.validation_errors.forEach(error => {
+                    html += `<div style="padding: 4px 6px; background: rgba(245, 158, 11, 0.1); border-radius: 3px; margin-bottom: 3px; color: var(--warning);">${error}</div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            // Validation checks details
+            if (validationData.validation_checks) {
+                html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <div class="field-label">Validation Checks</div>
+                    <div style="font-size: 10px; margin-top: 6px;">`;
+                Object.entries(validationData.validation_checks).forEach(([check, result]) => {
+                    const isValid = result === true || result?.valid === true;
+                    const badgeClass = isValid ? 'status-success' : 'status-error';
+                    const checkLabel = check.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border);">
+                        <span>${checkLabel}</span>
+                        <span class="status-badge ${badgeClass}" style="font-size: 9px;">${isValid ? '✓' : '✗'}</span>
+                    </div>`;
+                });
+                html += `</div></div>`;
+
+                // Add detailed JSON visualization of validation data
+                const validationJson = {
+                    "status": validationData.status,
+                    "coverage": validationData.coverage,
+                    "mandatory_fields_valid": validationData.mandatory_fields_valid,
+                    "validated_fields_count": validationData.validated_fields?.length || 0,
+                    "invalid_fields_count": validationData.invalid_fields?.length || 0,
+                    "validation_errors_count": validationData.validation_errors?.length || 0,
+                    "validation_checks": validationData.validation_checks || {}
+                };
+
+                html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    <div class="field-label">Validation JSON Structure</div>
+                    <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--accent); overflow-y: auto; max-height: 200px;">
+                        <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--accent);">${JSON.stringify(validationJson, null, 2)}</pre>
                     </div>
                 </div>`;
             }
 
-            html += '</div></div>';
+            html += `</div>`;
             return html;
         }
 
@@ -1282,6 +1575,22 @@
                         <div class="field-label">Confidence</div>
                         <div class="field-value">${baselineDup.confidence ? (baselineDup.confidence * 100).toFixed(1) : '0'}%</div>
                     </div>
+                    <div class="field">
+                        <div class="field-label">Relationship</div>
+                        <div class="field-value">${baselineDup.relationship || 'unrelated'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Matching Rule</div>
+                        <div class="field-value">${baselineDup.matching_rule_id || 'None'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Candidates Retrieved</div>
+                        <div class="field-value">${baselineDup.retrieval_stage || 0}</div>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Detection Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineDup, null, 2)}</pre>
+                    </div>
                 </div>`;
             }
 
@@ -1295,6 +1604,22 @@
                     <div class="field">
                         <div class="field-label">Confidence</div>
                         <div class="field-value">${candidateDup.confidence ? (candidateDup.confidence * 100).toFixed(1) : '0'}%</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Relationship</div>
+                        <div class="field-value">${candidateDup.relationship || 'unrelated'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Matching Rule</div>
+                        <div class="field-value">${candidateDup.matching_rule_id || 'None'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Candidates Retrieved</div>
+                        <div class="field-value">${candidateDup.retrieval_stage || 0}</div>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Detection Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateDup, null, 2)}</pre>
                     </div>
                 </div>`;
             }
@@ -1325,6 +1650,18 @@
                         <div class="field-label">Confidence</div>
                         <div class="field-value">${baselineConf.confidence ? (baselineConf.confidence * 100).toFixed(1) : '0'}%</div>
                     </div>
+                    <div class="field">
+                        <div class="field-label">Conflict Type</div>
+                        <div class="field-value">${baselineConf.conflict_type || 'no_conflict'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Conflicting Rules</div>
+                        <div class="field-value">${baselineConf.conflicting_rule_ids?.length || 0}</div>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Conflict Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineConf, null, 2)}</pre>
+                    </div>
                 </div>`;
             }
 
@@ -1338,6 +1675,18 @@
                     <div class="field">
                         <div class="field-label">Confidence</div>
                         <div class="field-value">${candidateConf.confidence ? (candidateConf.confidence * 100).toFixed(1) : '0'}%</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Conflict Type</div>
+                        <div class="field-value">${candidateConf.conflict_type || 'no_conflict'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Conflicting Rules</div>
+                        <div class="field-value">${candidateConf.conflicting_rule_ids?.length || 0}</div>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Conflict Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateConf, null, 2)}</pre>
                     </div>
                 </div>`;
             }

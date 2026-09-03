@@ -18,6 +18,7 @@ RUN apt-get update \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt ./
+COPY alembic.ini ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install rie_ml package in development mode
@@ -41,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Run migrations and start server
-CMD ["sh", "-c", "python -c 'from app.db.database import engine; from app.db.models import Base; Base.metadata.create_all(bind=engine)' && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]

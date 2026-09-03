@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, List, Optional, Tuple
 from difflib import SequenceMatcher
+from pathlib import Path
 import json
 import re
 
@@ -128,12 +129,20 @@ class DuplicateDetector:
     def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict]) -> float:
         """
         Compare condition lists.
-        Returns similarity score 0.0-1.0
+        Returns similarity score 0.0-1.0.
+
+        Strategy:
+        - If BOTH are empty: perfect match (1.0)
+        - If ONE is empty: partial match (0.5) - feedback may not have conditions extracted yet
+        - If BOTH have conditions: compare field-by-field
         """
         if not new_conditions and not existing_conditions:
             return 1.0
+
+        # NEW: If one is empty, return partial match instead of 0.0
+        # This handles cases where conditions haven't been extracted from feedback yet
         if not new_conditions or not existing_conditions:
-            return 0.0
+            return 0.5
 
         # Normalize conditions for comparison
         new_normalized = self._normalize_conditions(new_conditions)
@@ -218,7 +227,7 @@ class DuplicateDetector:
         scope_match = details["scope_match"]
         entities_sim = details["affected_entities_match"]
 
-        # EXACT DUPLICATE: everything matches
+        # EXACT DUPLICATE: everything matches perfectly
         if (
             business_term_match
             and condition_sim > 0.95
@@ -229,23 +238,24 @@ class DuplicateDetector:
             confidence = 0.99
             return self.EXACT_DUPLICATE, confidence
 
-        # SEMANTIC DUPLICATE: business term + high condition/entity match
-        # Semantic duplicates have same fields/structure, may differ in exact values
-        if (
-            business_term_match
-            and operation_match
-            and condition_sim > 0.70  # Lowered from 0.85 - allow partial condition matches
-            and entities_sim > 0.75  # Lowered from 0.8
-        ):
-            confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.05)
+        # SEMANTIC DUPLICATE: business term + operation match, conditions partial or missing
+        # This handles feedback extraction where conditions haven't been fully extracted yet
+        if business_term_match and operation_match and condition_sim >= 0.5:
+            # High confidence if conditions match well (>0.7)
+            # Medium confidence if conditions partially present (0.5)
+            if condition_sim > 0.70 and entities_sim > 0.75:
+                confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.05)
+            else:
+                # Conditions not fully extracted but business term + operation match active rule
+                confidence = min(0.85, 0.6 + condition_sim * 0.2)
             return self.SEMANTIC_DUPLICATE, confidence
 
         # MODIFICATION: same business term, same operation, different conditions
         if (
             business_term_match
             and operation_match
-            and condition_sim >= 0.3  # Lowered from 0.5 - modifications can have lower overlap
-            and condition_sim < 0.85  # Lowered from 0.9
+            and condition_sim >= 0.3
+            and condition_sim < 0.85
         ):
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
@@ -271,7 +281,7 @@ class DuplicateDetector:
             confidence = condition_sim * 0.75
             return self.SUPERSET, confidence
 
-        # RELATED COMPATIBLE: same business term and operation but different conditions
+        # RELATED COMPATIBLE: same business term and operation but different scope
         if business_term_match and operation_match and not scope_match:
             confidence = min(0.65, condition_sim * 0.7 + 0.2)
             return "related_compatible", confidence
@@ -412,72 +422,80 @@ class RealDuplicateDetectionService:
         db,
     ) -> List[Dict[str, Any]]:
         """
-        STAGE 1: Retrieve Top-K semantically similar candidates using pgvector.
+        STAGE 1: Retrieve Top-K semantically similar candidates.
 
-        This is the optimization: instead of comparing against all 100+ rules,
-        we pre-filter to ~10 most similar rules.
-
-        Args:
-            suggested_rule: The new rule to check
-            workspace_id: Workspace to search in
-            domain_id: Domain to filter by
-            db: SQLAlchemy session
+        Strategy:
+        1. ALWAYS load active_rules.json from domain pack (canonical rules)
+        2. Query pgvector for semantically similar rules from database
+        3. Merge and deduplicate, prioritizing domain pack rules
 
         Returns:
-            List of candidate rules with similarity_score, or empty list if none found
+            List of candidate rules (domain_pack rules + pgvector results)
         """
-        # If no embedding service, fall back to fetching all rules
-        if not self.embedding_service or not self.pgvector_service:
-            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+        candidates = []
 
+        # FIRST: Load active domain pack rules (PRIMARY - canonical source)
         try:
-            # Generate embedding for the suggested rule
-            rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
-            if not rule_text:
-                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-            embedding = self.embedding_service.generate_embedding(rule_text)
-            if not embedding:
-                return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
-
-            # Query pgvector for Top-K similar rules
-            # Search in BOTH user workspace AND domain pack workspace (reference rules)
-            user_candidates = self.pgvector_service.retrieve_similar_rules(
-                embedding=embedding,
-                workspace_id=workspace_id,
-                domain_id=domain_id,
-                top_k=self.CANDIDATE_K,
-                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
-                db=db,
+            active_rules_path = (
+                Path(__file__).parent.parent.parent /
+                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
             )
+            if active_rules_path.exists():
+                with open(active_rules_path, 'r') as f:
+                    json_rules = json.load(f)
+                    if isinstance(json_rules, list):
+                        for json_rule in json_rules:
+                            rule = {
+                                "rule_id": json_rule.get("rule_id"),
+                                "business_term": json_rule.get("business_term"),
+                                "operation": json_rule.get("operation"),
+                                "conditions": json_rule.get("conditions", []),
+                                "scope": json_rule.get("scope", "global"),
+                                "affected_entities": json_rule.get("affected_entities", {}),
+                                "threshold": json_rule.get("threshold"),
+                                "time_window": json_rule.get("time_window"),
+                                "source": "domain_pack",
+                                "similarity_score": 1.0  # Domain rules are always relevant
+                            }
+                            candidates.append(rule)
+        except Exception as pack_e:
+            print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
 
-            # Also search domain pack workspace for reference rules
-            domain_pack_candidates = self.pgvector_service.retrieve_similar_rules(
-                embedding=embedding,
-                workspace_id="domain_pack_workspace",
-                domain_id=domain_id,
-                top_k=self.CANDIDATE_K,
-                similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
-                db=db,
-            )
+        # SECOND: Supplement with pgvector-retrieved database rules (if available)
+        if self.embedding_service and self.pgvector_service:
+            try:
+                rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
+                if rule_text:
+                    embedding = self.embedding_service.generate_embedding(rule_text)
+                    if embedding:
+                        # Query pgvector for user workspace rules
+                        user_candidates = self.pgvector_service.retrieve_similar_rules(
+                            embedding=embedding,
+                            workspace_id=workspace_id,
+                            domain_id=domain_id,
+                            top_k=self.CANDIDATE_K,
+                            similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
+                            db=db,
+                        )
 
-            # Merge and deduplicate candidates (domain pack + user workspace)
-            candidates_dict = {}
-            for c in user_candidates + domain_pack_candidates:
-                rule_id = c.get("rule_id")
-                if rule_id not in candidates_dict or c.get("similarity_score", 0) > candidates_dict[rule_id].get("similarity_score", 0):
-                    candidates_dict[rule_id] = c
+                        # Merge: avoid duplicates by rule_id
+                        candidates_dict = {c.get("rule_id"): c for c in candidates}
+                        for c in user_candidates:
+                            rule_id = c.get("rule_id")
+                            # Only add if not already present (domain pack takes precedence)
+                            if rule_id not in candidates_dict:
+                                c["source"] = "database"
+                                candidates_dict[rule_id] = c
 
-            candidates = list(candidates_dict.values())
-            # Sort by similarity descending and take top K
-            candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
-            candidates = candidates[:self.CANDIDATE_K]
+                        candidates = list(candidates_dict.values())
+            except Exception as pg_e:
+                print(f"Warning: pgvector retrieval failed: {pg_e}")
 
-            return candidates
+        # Sort by similarity descending and limit to top-K
+        candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+        candidates = candidates[:self.CANDIDATE_K]
 
-        except Exception as e:
-            print(f"Warning: pgvector retrieval failed, falling back to all rules: {e}")
-            return self._fallback_retrieve_all_rules(workspace_id, domain_id, db)
+        return candidates
 
     def _fallback_retrieve_all_rules(
         self,
@@ -488,8 +506,39 @@ class RealDuplicateDetectionService:
         """
         Fallback: Retrieve all rules when pgvector is not available.
 
-        Used if embedding service fails or pgvector extension not installed.
+        Strategy:
+        1. Load active_rules.json from domain pack (canonical rules)
+        2. Supplement with database rules if they exist
         """
+        existing_rules = []
+
+        # FIRST: Load active domain pack rules (PRIMARY)
+        try:
+            active_rules_path = (
+                Path(__file__).parent.parent.parent /
+                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+            )
+            if active_rules_path.exists():
+                with open(active_rules_path, 'r') as f:
+                    json_rules = json.load(f)
+                    if isinstance(json_rules, list):
+                        for json_rule in json_rules:
+                            rule = {
+                                "rule_id": json_rule.get("rule_id"),
+                                "business_term": json_rule.get("business_term"),
+                                "operation": json_rule.get("operation"),
+                                "conditions": json_rule.get("conditions", []),
+                                "scope": json_rule.get("scope", "global"),
+                                "affected_entities": json_rule.get("affected_entities", {}),
+                                "threshold": json_rule.get("threshold"),
+                                "time_window": json_rule.get("time_window"),
+                                "source": "domain_pack"
+                            }
+                            existing_rules.append(rule)
+        except Exception as pack_e:
+            print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
+
+        # SECOND: Supplement with database rules
         try:
             from sqlalchemy import text
 
@@ -507,10 +556,9 @@ class RealDuplicateDetectionService:
             )
 
             result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
-            existing_rules = []
 
             for row in result:
-                rule = {
+                db_rule = {
                     "rule_id": row[0],
                     "business_term": row[1],
                     "operation": row[2],
@@ -519,12 +567,14 @@ class RealDuplicateDetectionService:
                     "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
                     "threshold": row[6],
                     "time_window": row[7],
-                    # No semantic score in baseline
+                    "source": "database"
                 }
-                existing_rules.append(rule)
+                # Avoid duplicates - don't add if rule_id already exists
+                if not any(er.get("rule_id") == db_rule.get("rule_id") for er in existing_rules):
+                    existing_rules.append(db_rule)
 
             return existing_rules
 
         except Exception as e:
             print(f"Error in fallback retrieval: {e}")
-            return []
+            return existing_rules

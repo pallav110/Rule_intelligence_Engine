@@ -448,60 +448,66 @@ class BaselineDuplicateDetectionService:
 
             existing_rules = []
 
-            # Stage 1: Try database query first
-            query = text(
+            # Stage 1: Load active domain rules (PRIMARY - canonical source of truth)
+            try:
+                active_rules_path = (
+                    Path(__file__).parent.parent.parent /
+                    "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+                )
+                if active_rules_path.exists():
+                    with open(active_rules_path, 'r') as f:
+                        json_rules = json.load(f)
+                        if isinstance(json_rules, list):
+                            for json_rule in json_rules:
+                                rule = {
+                                    "rule_id": json_rule.get("rule_id"),
+                                    "business_term": json_rule.get("business_term"),
+                                    "operation": json_rule.get("operation"),
+                                    "conditions": json_rule.get("conditions", []),
+                                    "scope": json_rule.get("scope", "global"),
+                                    "affected_entities": json_rule.get("affected_entities", {}),
+                                    "threshold": json_rule.get("threshold"),
+                                    "time_window": json_rule.get("time_window"),
+                                    "source": "domain_pack"
+                                }
+                                existing_rules.append(rule)
+            except Exception as pack_e:
+                print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
+
+            # Stage 2: Supplement with database rules (if they exist and not already in active rules)
+            try:
+                query = text(
+                    """
+                    SELECT rule_id, business_term, operation, conditions, scope,
+                           affected_entities, threshold, time_window
+                    FROM rules
+                    WHERE workspace_id = :workspace_id
+                      AND domain_id = :domain_id
+                      AND status IN ('active', 'draft')
+                    ORDER BY created_at DESC
+                    LIMIT 100
                 """
-                SELECT rule_id, business_term, operation, conditions, scope,
-                       affected_entities, threshold, time_window
-                FROM rules
-                WHERE workspace_id = :workspace_id
-                  AND domain_id = :domain_id
-                  AND status IN ('active', 'draft')
-                ORDER BY created_at DESC
-                LIMIT 100
-            """
-            )
+                )
 
-            result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
+                result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
 
-            for row in result:
-                rule = {
-                    "rule_id": row[0],
-                    "business_term": row[1],
-                    "operation": row[2],
-                    "conditions": json.loads(row[3]) if isinstance(row[3], str) else row[3] or [],
-                    "scope": row[4],
-                    "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
-                    "threshold": row[6],
-                    "time_window": row[7],
-                }
-                existing_rules.append(rule)
-
-            # Stage 2: If database returns 0 results, fallback to domain pack JSON files
-            if not existing_rules:
-                try:
-                    active_rules_path = (
-                        Path(__file__).parent.parent.parent /
-                        "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
-                    )
-                    if active_rules_path.exists():
-                        with open(active_rules_path, 'r') as f:
-                            json_rules = json.load(f)
-                            if isinstance(json_rules, list):
-                                for json_rule in json_rules:
-                                    rule = {
-                                        "rule_id": json_rule.get("rule_id"),
-                                        "business_term": json_rule.get("business_term"),
-                                        "operation": json_rule.get("operation"),
-                                        "conditions": json_rule.get("conditions", []),
-                                        "scope": json_rule.get("scope", "global"),
-                                        "affected_entities": json_rule.get("affected_entities", {}),
-                                        "threshold": json_rule.get("threshold"),
-                                        "time_window": json_rule.get("time_window"),
-                                    }
-                                    existing_rules.append(rule)
-                except Exception as fallback_e:
-                    print(f"Warning: Could not load fallback rules from {domain_id}/rules/active_rules.json: {fallback_e}")
+                for row in result:
+                    db_rule = {
+                        "rule_id": row[0],
+                        "business_term": row[1],
+                        "operation": row[2],
+                        "conditions": json.loads(row[3]) if isinstance(row[3], str) else row[3] or [],
+                        "scope": row[4],
+                        "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
+                        "threshold": row[6],
+                        "time_window": row[7],
+                        "source": "database"
+                    }
+                    # Avoid duplicates - don't add if rule_id already exists
+                    if not any(er.get("rule_id") == db_rule.get("rule_id") for er in existing_rules):
+                        existing_rules.append(db_rule)
+            except Exception as db_e:
+                print(f"Warning: Could not supplement with database rules: {db_e}")
 
             # Use deterministic duplicate detection
             detection_result = self.detector.detect(suggested_rule, existing_rules)

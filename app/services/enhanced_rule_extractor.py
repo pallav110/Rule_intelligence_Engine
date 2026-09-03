@@ -148,6 +148,45 @@ class EnhancedRuleExtractor:
             operation = operations[i] if i < len(operations) else None  # None if unresolved
             rule_conditions = conditions if conditions else []
 
+            # Promote high-confidence candidate conditions to main conditions if main conditions are empty
+            if not rule_conditions and candidate_conditions:
+                # Use candidates with confidence >= 0.7 as actual conditions
+                high_conf_candidates = [c for c in candidate_conditions if c.get("confidence", 0) >= 0.7]
+                if high_conf_candidates:
+                    # Convert candidates to proper condition format
+                    rule_conditions = []
+                    for candidate in high_conf_candidates:
+                        # Extract field and value from candidate text if possible
+                        text = candidate.get("text", "").lower()
+
+                        # Infer table and field from feedback context
+                        inferred_table = None
+                        inferred_field = None
+                        inferred_value = text.strip()
+
+                        # Extract table from feedback if mentioned
+                        # Common tables: orders, customers, products, payments, etc.
+                        for table in ["orders", "customers", "products", "payments", "invoices", "refunds"]:
+                            if table in feedback.lower():
+                                inferred_table = table
+                                break
+
+                        # Common status/state fields
+                        if any(word in text for word in ["status", "cancelled", "active", "pending", "completed"]):
+                            if inferred_table:
+                                inferred_field = f"{inferred_table}.status"
+                            else:
+                                inferred_field = f"{term['term']}.status"
+                            inferred_value = text.replace("status ", "").strip()
+
+                        rule_conditions.append({
+                            "field": inferred_field or f"{inferred_table or term['term']}",
+                            "operator": "equals",
+                            "value": inferred_value,
+                            "inferred": True,
+                            "source": "promoted_candidate"
+                        })
+
             # Extract affected entities using business term glossary definitions
             affected_entities = self._extract_affected_entities(
                 feedback, schema_context, schema, relationships, domain_config, [term]
@@ -204,15 +243,28 @@ class EnhancedRuleExtractor:
             "candidates": len(candidate_rules)
         }
 
+        # Build detailed component mapping for baseline
+        component_mapping = self._build_component_mapping(
+            business_terms, operations, conditions, candidate_conditions, scope, feedback
+        )
+
         return {
             "extraction": {
                 "extracted_rules": extracted_rules,
                 "candidate_rules": candidate_rules,
-                "rules": extracted_rules[:1] if extracted_rules else []  # Single authoritative rule
+                "rules": extracted_rules[:1] if extracted_rules else [],
+                "component_mapping": component_mapping,
+                "detailed_components": self._build_detailed_components(
+                    business_terms, operations, conditions, candidate_conditions
+                )
             },
             "extraction_confidence": overall_confidence,
             "evidence": "\n".join(evidence_parts),
             "rule_count": rule_count,
+            "extraction_method": "template_based_regex",
+            "validation_ready": len(extracted_rules) > 0 and all(
+                rule.get("conditions") for rule in extracted_rules
+            )
         }
 
     def _extract_business_terms(
@@ -605,3 +657,94 @@ class EnhancedRuleExtractor:
             return 0.5
 
         return min(0.99, sum(field_confidences) / len(field_confidences))
+
+    def _build_component_mapping(
+        self,
+        business_terms: List[Dict[str, Any]],
+        operations: List[str],
+        conditions: List[Dict[str, Any]],
+        candidate_conditions: List[Dict[str, Any]],
+        scope: str,
+        feedback: str
+    ) -> Dict[str, Any]:
+        """Build detailed component mapping for extraction output."""
+        return {
+            "business_terms": [
+                {
+                    "term": t.get("term"),
+                    "confidence": t.get("confidence", 0.7),
+                    "extraction_method": "glossary_lookup",
+                    "matched_in_feedback": t.get("term", "").lower() in feedback.lower()
+                }
+                for t in business_terms
+            ],
+            "operations": [
+                {
+                    "operation": op,
+                    "extraction_method": "regex_pattern_matching"
+                }
+                for op in operations
+            ],
+            "conditions": [
+                {
+                    **cond,
+                    "extraction_method": "regex_field_value_extraction"
+                }
+                for cond in conditions
+            ],
+            "candidate_conditions": [
+                {
+                    **cand,
+                    "extraction_method": "heuristic_phrase_extraction"
+                }
+                for cand in candidate_conditions
+            ],
+            "scope": {
+                "value": scope or "global",
+                "extraction_method": "glossary_lookup"
+            },
+            "overall_extraction_method": "template_based_regex",
+            "extraction_confidence": 0.75
+        }
+
+    def _build_detailed_components(
+        self,
+        business_terms: List[Dict[str, Any]],
+        operations: List[str],
+        conditions: List[Dict[str, Any]],
+        candidate_conditions: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Build detailed breakdown of extracted components."""
+        return {
+            "business_terms": [
+                {
+                    "term": t.get("term"),
+                    "confidence": t.get("confidence", 0.7),
+                    "source": "glossary",
+                    "definitions": t.get("glossary_definitions", {})
+                }
+                for t in business_terms
+            ],
+            "operations": operations,
+            "conditions": {
+                "extracted": conditions,
+                "count": len(conditions),
+                "extraction_method": "regex_pattern_matching",
+                "components_per_condition": [
+                    {
+                        "field": c.get("field"),
+                        "operator": c.get("operator", "equals"),
+                        "value": c.get("value"),
+                        "inferred": c.get("inferred", False),
+                        "source": c.get("source", "direct_extraction")
+                    }
+                    for c in conditions
+                ]
+            },
+            "candidate_conditions": {
+                "unresolved": candidate_conditions,
+                "count": len(candidate_conditions),
+                "extraction_method": "heuristic_phrase_extraction"
+            }
+        }
+

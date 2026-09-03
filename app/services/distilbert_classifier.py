@@ -26,8 +26,34 @@ class DistilBERTClassifier:
     def _load_model(self):
         """Load trained DistilBERT classification model."""
         try:
-            from transformers import AutoTokenizer, AutoModel
             import joblib
+
+            # Use fallback import chain without printing warnings for expected failures
+            AutoTokenizer = None
+            AutoModel = None
+
+            try:
+                # Try primary import path first
+                from transformers import AutoTokenizer as AT, AutoModel as AM
+                AutoTokenizer = AT
+                AutoModel = AM
+            except ImportError:
+                # Try secondary import path (specific submodules)
+                try:
+                    from transformers.models.auto.tokenization_auto import AutoTokenizer as AT
+                    from transformers.models.auto.modeling_auto import AutoModel as AM
+                    AutoTokenizer = AT
+                    AutoModel = AM
+                except ImportError:
+                    # Try tertiary import path (direct model classes)
+                    try:
+                        from transformers import DistilBertTokenizer, DistilBertModel
+                        AutoTokenizer = DistilBertTokenizer.from_pretrained
+                        AutoModel = DistilBertModel.from_pretrained
+                    except ImportError as ie:
+                        # Only print if ALL imports fail
+                        print(f"⚠️  Failed to import transformers: {ie}")
+                        return
 
             model_dir = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "distilbert_candidate"
             checkpoint_dir = model_dir / "checkpoints"

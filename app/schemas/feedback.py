@@ -42,6 +42,9 @@ class SchemaValidationResponse(BaseModel):
     mandatory_fields_valid: bool
     validation_errors: list[str] = Field(default_factory=list)
     schema_loaded: bool  # Whether schema was actually loaded for validation
+    validated_fields: list[str] = Field(default_factory=list)  # Fields that passed validation
+    invalid_fields: list[str] = Field(default_factory=list)  # Fields that failed validation
+    validation_checks: dict[str, bool] = Field(default_factory=dict)  # Individual check results
 
 
 class DuplicateDetectionResponse(BaseModel):

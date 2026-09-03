@@ -235,11 +235,17 @@ class BaselineExtractor:
         return best_operation, best_confidence if best_confidence > 0 else 0.0
 
     def _extract_conditions(self, text: str, business_term: Optional[str]) -> tuple:
-        """Extract conditions from feedback text."""
+        """Extract conditions from feedback text.
+
+        Strategy:
+        1. Try explicit field.operator.value patterns (SQL-like)
+        2. Fall back to inferring conditions from operation context
+           e.g., "exclude cancelled orders" → infer orders.status = cancelled
+        """
         conditions = []
         confidence = 0.0
 
-        # Try to find field-operator-value patterns
+        # Strategy 1: Try to find explicit field-operator-value patterns
         # Pattern: [field] [operator] [value]
 
         # Look for common patterns
@@ -344,7 +350,36 @@ class BaselineExtractor:
                 except (IndexError, AttributeError, ValueError):
                     pass
 
-        # Fallback 4: Extract "within X days" patterns
+        # NEW Fallback 4: Infer conditions from operation + context
+        # e.g., "exclude cancelled orders" → orders.status = cancelled
+        if not conditions:
+            # Extract operation-specific value patterns
+            # "exclude/remove [value]" patterns
+            exclude_patterns = re.finditer(r"\b(exclude|remove|omit|skip|ignore|drop)\s+(\w+)\s+(\w+)?", text, re.I)
+            for match in exclude_patterns:
+                try:
+                    operation = match.group(1).lower()
+                    first_word = match.group(2).lower()
+                    second_word = match.group(3).lower() if match.group(3) else None
+
+                    # Try to infer: [adjective] [noun] → noun.status = adjective
+                    # e.g., "cancelled orders" → orders.status = cancelled
+                    if second_word:
+                        # first_word is likely an adjective (cancelled, failed, test)
+                        # second_word is likely a noun (orders, payments)
+                        table_field = f"{second_word}.status"
+                        if self._validate_field(table_field):
+                            conditions.append({
+                                "field": table_field,
+                                "operator": "equals",
+                                "value": first_word
+                            })
+                            confidence = 0.65  # Lower confidence for inferred conditions
+                            break
+                except (IndexError, AttributeError):
+                    pass
+
+        # Fallback 5: Extract "within X days" patterns
         if not conditions:
             within_matches = re.finditer(r"within\s+(\d+)\s+days", text, re.I)
             for match in within_matches:
