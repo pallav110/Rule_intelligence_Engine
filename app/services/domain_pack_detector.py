@@ -123,8 +123,8 @@ class DomainPackDetector:
 
         # Find best match
         if not scores or all(v == 0 for v in scores.values()):
-            # Don't default to customer_support if no matches - return None
-            return "customer_support", 0.1, {"reason": "No strong domain matches"}
+            # Return unknown/None for gibberish/no match - don't default to a domain
+            return None, 0.0, {"reason": "No strong domain matches - input appears to be noise/gibberish"}
 
         best_domain = max(scores, key=scores.get)
         best_score = scores[best_domain]
@@ -191,12 +191,12 @@ def get_domain_detector() -> DomainPackDetector:
     return _detector
 
 
-def detect_domain_pack(feedback_text: str) -> Tuple[str, float]:
+def detect_domain_pack(feedback_text: str) -> Tuple[Optional[str], float]:
     """
     Convenience function to detect domain pack from feedback.
 
     Returns:
-        (domain_pack_id, confidence)
+        (domain_pack_id, confidence) - domain_pack_id is None if no match found
     """
     detector = get_domain_detector()
     domain_id, confidence, _ = detector.detect(feedback_text)

@@ -840,12 +840,22 @@ def analyze_feedback(
 
     # Detect and log domain pack explicitly
     detected_domain, detection_confidence = detect_domain_pack(payload.feedback_text)
-    input_validation_logger.info(f"Domain detection: {detected_domain} (confidence: {detection_confidence:.3f})")
 
-    # Store detected domain in schema context for downstream processing
-    full_schema_context = payload.schema_context.copy() if payload.schema_context else {}
-    full_schema_context["domain_pack_id"] = detected_domain
-    full_schema_context["domain_detection_confidence"] = detection_confidence
+    # If no domain detected (gibberish/noise), flag it but don't default to a specific domain
+    if detected_domain is None or detection_confidence < 0.1:
+        detected_domain = None  # No domain detected - gibberish/noise
+        detection_confidence = 0.0
+        input_validation_logger.info(f"Domain detection: NO MATCH (gibberish/noise detected), no domain assigned")
+        full_schema_context = payload.schema_context.copy() if payload.schema_context else {}
+        full_schema_context["domain_pack_id"] = detected_domain
+        full_schema_context["domain_detection_confidence"] = detection_confidence
+        full_schema_context["domain_detection_fallback"] = True
+    else:
+        input_validation_logger.info(f"Domain detection: {detected_domain} (confidence: {detection_confidence:.3f})")
+        full_schema_context = payload.schema_context.copy() if payload.schema_context else {}
+        full_schema_context["domain_pack_id"] = detected_domain
+        full_schema_context["domain_detection_confidence"] = detection_confidence
+        full_schema_context["domain_detection_fallback"] = False
 
     # Log maximum feedback length
     feedback_length = len(payload.feedback_text)
@@ -946,8 +956,8 @@ def analyze_feedback(
     analysis_run.execution_timestamps["preprocessing_completed"] = datetime.utcnow().isoformat()
 
     # STEP 2: Classification (with domain-aware baseline model)
-    domain_pack_id = full_schema_context.get("domain_pack_id", "customer_support")
-    classifier = RealClassifier(domain=domain_pack_id)
+    domain_pack_id = full_schema_context.get("domain_pack_id")
+    classifier = RealClassifier(domain=domain_pack_id or "ecommerce")
     classification_result = classifier.classify(
         processed_feedback, full_schema_context
     )
@@ -971,15 +981,16 @@ def analyze_feedback(
 
     # STEP 3: Schema Validation
     # Load actual schema from domain pack for validation
-    domain_pack_id = full_schema_context.get("domain_pack_id", "ecommerce")
+    domain_pack_id = full_schema_context.get("domain_pack_id")
     domain_schema = {}
-    try:
-        schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
-        if schema_path.exists():
-            with open(schema_path, 'r') as f:
-                domain_schema = json.load(f)
-    except Exception as e:
-        print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
+    if domain_pack_id:
+        try:
+            schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
+            if schema_path.exists():
+                with open(schema_path, 'r') as f:
+                    domain_schema = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
 
     # Pass domain_pack_schema in schema_context to ensure validator has access
     full_schema_context = dict(payload.schema_context) if payload.schema_context else {}
@@ -1100,6 +1111,12 @@ def analyze_feedback(
     # Record clarification timestamp
     analysis_run.execution_timestamps["clarification_completed"] = datetime.utcnow().isoformat()
 
+    # Generate clarification_id if clarification is required
+    clarification_id = None
+    if clarification_required:
+        from uuid import uuid4
+        clarification_id = str(uuid4())
+
     # Update suggestion with clarification and routing results
     rule_suggestion.clarification_required = clarification_required
     rule_suggestion.clarification_reason = clarification_reason
@@ -1212,16 +1229,16 @@ def analyze_feedback(
         ),
         clarification_required=clarification_required,
         clarification=FeedbackClarificationResponse(
-            clarification_id=None,
+            clarification_id=clarification_id,
             required=clarification_required,
             questions=clarification_questions,
             reason=clarification_reason,
-            ambiguity_reasons=ambiguity_result.get("ambiguity_reasons", []),
+            ambiguity_reasons=ambiguity_result.get("ambiguous_fields", []),
         ) if clarification_required else None,
         routing_decision=RoutingDecisionResponse(
             review_status=routing_decision.get("review_status", "pending_review"),
             priority=routing_decision.get("priority", "normal"),
-            reason=routing_decision.get("reason", "")
+            reason=routing_decision.get("reason", routing_decision.get("reasoning", {}).get("factors", [""])[0] if routing_decision.get("reasoning", {}).get("factors") else "")
         ),
     )
 

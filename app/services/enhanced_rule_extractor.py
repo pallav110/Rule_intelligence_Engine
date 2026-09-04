@@ -338,6 +338,20 @@ class EnhancedRuleExtractor:
                 if terms:
                     break
 
+        # If still no terms found, check if feedback is gibberish
+        # Don't hallucinate "metric" for noise - return empty list
+        if not terms:
+            # Check for gibberish: high non-alphanumeric ratio, no real words
+            words = feedback.lower().split()
+            alpha_count = sum(1 for c in feedback if c.isalpha())
+            alnum_count = sum(1 for c in feedback if c.isalnum())
+            total_chars = len(feedback)
+            non_alnum_ratio = (total_chars - alnum_count) / max(total_chars, 1)
+            has_real_word = any(len(w) >= 3 and w.isalpha() for w in words)
+
+            if non_alnum_ratio > 0.5 or (len(words) > 0 and not has_real_word and len(feedback) > 20):
+                return []  # No terms extracted - gibberish input
+
         return terms if terms else [{"term": "metric", "confidence": 0.5, "glossary": {}, "glossary_definitions": {}}]
 
     def _extract_operations(self, feedback: str) -> List[str]:

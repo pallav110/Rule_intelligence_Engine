@@ -13,9 +13,9 @@ from pathlib import Path
 class RealClassifier:
     """Classify business feedback into types and categories."""
 
-    def __init__(self, domain: str = "ecommerce"):
+    def __init__(self, domain: str = None):
         """Initialize classifier with optional trained baseline model."""
-        self.domain = domain
+        self.domain = domain or "ecommerce"
         self.is_trained = False
         self.model = None
         self.vectorizer = None
@@ -171,9 +171,32 @@ class RealClassifier:
                 confidence = 0.3  # Lower confidence for questions
 
         # Check for spam/irrelevant/gibberish
-        if (len(feedback) < 10 or
+        # Heuristics for gibberish detection:
+        # 1. Very short feedback
+        # 2. Common non-actionable responses
+        # 3. No alphabetic characters at all
+        # 4. HIGH NON-ALPHANUMERIC RATIO (lots of brackets, symbols, numbers)
+        # 5. NO RECOGNIZABLE ENGLISH WORDS (dictionary check)
+        words = feedback_lower.split()
+        alpha_count = sum(1 for c in feedback if c.isalpha())
+        alnum_count = sum(1 for c in feedback if c.isalnum())
+        total_chars = len(feedback)
+
+        # Calculate ratio of non-alphanumeric characters
+        non_alnum_ratio = (total_chars - alnum_count) / max(total_chars, 1)
+
+        # Check if any word looks like a real English word (3+ letters, mostly alphabetic)
+        has_real_word = any(len(w) >= 3 and w.isalpha() for w in words)
+
+        is_gibberish = (
+            len(feedback) < 10 or
             feedback_lower in ["ok", "yes", "no", "thanks", "thank you", "hi", "hello"] or
-            not any(c.isalpha() for c in feedback)):  # No alphabetic characters
+            not any(c.isalpha() for c in feedback) or
+            non_alnum_ratio > 0.5 or  # More than 50% special chars = likely gibberish
+            (len(words) > 0 and not has_real_word and len(feedback) > 20)  # Long but no real words
+        )
+
+        if is_gibberish:
             feedback_type = "irrelevant_spam"
             is_actionable = False
             confidence = 0.95
