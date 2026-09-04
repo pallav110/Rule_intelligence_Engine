@@ -163,8 +163,19 @@ class DistilBERTTokenExtractor:
             }
 
         try:
+            # Defensive: ensure feedback is a string
+            if feedback is None:
+                feedback = ""
+            if not isinstance(feedback, str):
+                feedback = str(feedback)
+
             # Tokenize feedback
             words = feedback.split()
+            # Debug: show first 20 words
+            try:
+                print(f"DEBUG: DistilBERT.extract - words={words[:20]}")
+            except Exception:
+                pass
             encoding = self.tokenizer(
                 words,
                 max_length=256,
@@ -216,6 +227,8 @@ class DistilBERTTokenExtractor:
 
         except Exception as e:
             print(f"Error in token extraction: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "extraction": {
                     "extracted_rules": [],
@@ -276,6 +289,12 @@ class DistilBERTTokenExtractor:
         for i, tag in enumerate(tags):
             if tag.startswith('B_OPERATION'):
                 word = words[i] if i < len(words) else None
+                # Defensive: normalize operation to lowercase string
+                if word is not None:
+                    try:
+                        word = word.lower()
+                    except Exception:
+                        word = str(word)
                 rule["operation"] = word
                 detailed_components["operations"].append({
                     "word": word,
