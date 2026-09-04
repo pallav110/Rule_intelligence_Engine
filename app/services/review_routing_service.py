@@ -41,6 +41,7 @@ class ReviewRouter:
         workspace_id: str,
         domain_id: str,
         clarification_required: bool = False,
+        mandatory_fields_valid: bool | None = True,
     ) -> Dict[str, Any]:
         confidence = classification.get("confidence", 0.0)
         suggested_rule = suggestion or extraction.get("suggested_rule", {})
@@ -59,7 +60,14 @@ class ReviewRouter:
         )
 
         # Clarification required takes precedence over everything else
-        if clarification_required:
+        # If mandatory fields failed schema validation, route immediately to mandatory manual review
+        if mandatory_fields_valid is False:
+            review_status = "mandatory_manual_review"
+            priority = ReviewPriority.URGENT
+            suggested_reviewer_type = ReviewerType.MANAGER
+            suggested_reviewer_id = self._select_reviewer(suggested_reviewer_type, domain_id)
+            reasoning_factors = ["Mandatory schema validation failed: route for manual review"]
+        elif clarification_required:
             review_status = "clarification_required"
             priority = ReviewPriority.HIGH
             suggested_reviewer_type = ReviewerType.QA
