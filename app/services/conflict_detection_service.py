@@ -425,6 +425,11 @@ class RealConflictDetectionService:
             }
         """
         try:
+            # Debug: show incoming suggested_rule for troubleshooting
+            try:
+                print("DEBUG: check_conflict - suggested_rule:", json.dumps(suggested_rule, default=str))
+            except Exception:
+                print("DEBUG: check_conflict - suggested_rule (repr):", repr(suggested_rule))
             # STAGE 1: Retrieve candidate rules using pgvector, then fallback to domain-packs JSON
             candidate_rules = self._retrieve_candidate_rules_pgvector(suggested_rule, domain_id) or self._fallback_load_domain_pack_rules(domain_id)
 
@@ -441,10 +446,23 @@ class RealConflictDetectionService:
             # STAGE 2: Structured rule comparison for each candidate
             conflicting_ids = []
             conflicts_found = []
+            # Debug: log candidate rules count and ids
+            if candidate_rules:
+                try:
+                    ids = [r.get("rule_id") for r in candidate_rules]
+                    print(f"DEBUG: Retrieved {len(candidate_rules)} candidate_rules, ids={ids}")
+                except Exception:
+                    print("DEBUG: Retrieved candidate_rules (could not extract ids)")
 
             for active_rule in candidate_rules:
                 # Compare suggested_rule with active_rule using structured logic
                 conflict_result = self._structured_rule_comparison(suggested_rule, active_rule)
+
+                # Debug: log per-candidate comparison result
+                try:
+                    print(f"DEBUG: comparing suggested_rule -> active_rule={active_rule.get('rule_id')}, conflict_result={json.dumps(conflict_result, default=str)}")
+                except Exception:
+                    print(f"DEBUG: comparing suggested_rule -> active_rule={active_rule.get('rule_id')}, conflict_result(repr)={repr(conflict_result)}")
 
                 if conflict_result["has_conflict"]:
                     conflicting_ids.append(active_rule.get("rule_id"))
@@ -508,6 +526,28 @@ class RealConflictDetectionService:
         """
         details = {}
 
+        # Normalize affected entities: accept either `affected_entities` or top-level
+        # `affected_tables` / `affected_columns` fields produced by extractors.
+        def _ensure_entities(rule: Dict[str, Any]):
+            if not rule.get("affected_entities"):
+                tables = rule.get("affected_tables") or rule.get("affected_tables") or []
+                cols = rule.get("affected_columns") or rule.get("affected_columns") or []
+                # also accept `affected_columns` sometimes named `affected_columns` or `columns`
+                if not cols and rule.get("columns"):
+                    cols = rule.get("columns")
+                rule["affected_entities"] = {"tables": tables, "columns": cols}
+
+        _ensure_entities(new_rule)
+        _ensure_entities(existing_rule)
+
+        # Debug: show normalized affected_entities
+        try:
+            print(f"DEBUG: normalized new_rule.affected_entities={json.dumps(new_rule.get('affected_entities'), default=str)}")
+            print(f"DEBUG: normalized existing_rule.affected_entities={json.dumps(existing_rule.get('affected_entities'), default=str)}")
+        except Exception:
+            print(f"DEBUG: normalized new_rule.affected_entities={repr(new_rule.get('affected_entities'))}")
+            print(f"DEBUG: normalized existing_rule.affected_entities={repr(existing_rule.get('affected_entities'))}")
+
         # 1. Business Term Comparison
         new_term = (new_rule.get("business_term") or "").lower()
         exist_term = (existing_rule.get("business_term") or "").lower()
@@ -518,6 +558,9 @@ class RealConflictDetectionService:
             "similarity": round(term_similarity, 3),
             "match": term_similarity > 0.85
         }
+
+        # Debug: log incoming terms and similarity
+        print(f"DEBUG: _structured_rule_comparison - new_term='{new_term}', exist_term='{exist_term}', similarity={details['business_term']['similarity']}")
 
         # If business terms don't match, no conflict possible
         if term_similarity < 0.85:
@@ -550,6 +593,16 @@ class RealConflictDetectionService:
         # 3. Affected Fields Comparison
         new_entities = new_rule.get("affected_entities", {})
         exist_entities = existing_rule.get("affected_entities", {})
+        # Accept top-level `affected_tables` / `affected_columns` if normalization missed
+        if (not new_entities.get("tables") or len(new_entities.get("tables", [])) == 0) and new_rule.get("affected_tables"):
+            new_entities["tables"] = new_rule.get("affected_tables")
+        if (not new_entities.get("columns") or len(new_entities.get("columns", [])) == 0) and new_rule.get("affected_columns"):
+            new_entities["columns"] = new_rule.get("affected_columns")
+
+        if (not exist_entities.get("tables") or len(exist_entities.get("tables", [])) == 0) and existing_rule.get("affected_tables"):
+            exist_entities["tables"] = existing_rule.get("affected_tables")
+        if (not exist_entities.get("columns") or len(exist_entities.get("columns", [])) == 0) and existing_rule.get("affected_columns"):
+            exist_entities["columns"] = existing_rule.get("affected_columns")
 
         new_tables = set(new_entities.get("tables", []))
         exist_tables = set(exist_entities.get("tables", []))
@@ -582,6 +635,9 @@ class RealConflictDetectionService:
             "existing_columns": list(exist_columns),
             "shared_columns": list(shared_columns),
         }
+
+        # Debug: log shared tables/columns
+        print(f"DEBUG: affected_fields shared_tables={details['affected_fields']['shared_tables']}, shared_columns={details['affected_fields']['shared_columns']}")
 
         # If no shared fields, no conflict
         if not shared_tables or not shared_columns:
@@ -652,6 +708,7 @@ class RealConflictDetectionService:
         # DECISION LOGIC per spec:
         # - Direct Conflict: Contradictory operations on shared fields with same business term and overlapping scope
         if operation_conflict and shared_columns and shared_tables:
+            print(f"DEBUG: operation_conflict detected (new_op={new_op}, exist_op={exist_op})")
             return {
                 "has_conflict": True,
                 "conflict_type": "direct_conflict",
