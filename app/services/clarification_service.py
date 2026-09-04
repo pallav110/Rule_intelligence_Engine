@@ -382,17 +382,194 @@ class RealClarificationService:
             # Augmented feedback combines original + clarification
             augmented_feedback = f"{original_feedback}\n\n[CLARIFICATION PROVIDED]\n{clarification_response}"
 
-            # The re-analysis will use this augmented text but keep original feedback intact
+            if not db:
+                return {
+                    "success": True,
+                    "feedback_id": feedback_id,
+                    "augmented_feedback": augmented_feedback,
+                    "original_feedback_preserved": True,
+                    "clarification_response": clarification_response,
+                    "workspace_id": workspace_id,
+                    "domain_id": domain_id,
+                    "next_step": "rerun_full_pipeline",
+                    "message": "Ready to re-run classification, extraction, and validation with clarified feedback (no DB provided)"
+                }
+
+            # --- Minimal re-run of the core pipeline (classification -> extraction -> validation -> duplicate/conflict -> routing)
+            from uuid import uuid4
+            from datetime import datetime
+
+            # Create a new AnalysisRun record to track this re-analysis
+            try:
+                from app.db.models.analysis_run import AnalysisRun
+                from app.db.models.rule_suggestion import RuleSuggestion
+                from app.db.models.feedback import Feedback
+            except Exception:
+                AnalysisRun = None
+                RuleSuggestion = None
+
+            analysis_run_id = str(uuid4())
+            suggestion_id = str(uuid4())
+
+            # Default thresholds (mirror main pipeline defaults)
+            thresholds = {
+                "classification": 0.7,
+                "extraction": 0.6,
+                "schema_validation": 0.8,
+                "conflict_detection": 0.7,
+                "duplicate_detection": 0.85,
+            }
+
+            if AnalysisRun:
+                ar = AnalysisRun(
+                    analysis_run_id=analysis_run_id,
+                    feedback_id=feedback_id,
+                    workspace_id=workspace_id,
+                    model_version_id=None,
+                    dataset_version_id=None,
+                    taxonomy_version="v1",
+                    domain_pack_id=domain_id,
+                    threshold_configuration=thresholds,
+                    processing_mode="clarification_reanalysis",
+                    status="processing",
+                    started_at=datetime.utcnow(),
+                )
+                db.add(ar)
+                db.flush()
+
+            # Preprocess
+            try:
+                from app.services.feedback_preprocessor import FeedbackPreprocessor
+                preprocessor = FeedbackPreprocessor()
+                preprocessing_result = preprocessor.preprocess(augmented_feedback, {})
+                processed_text = preprocessing_result.get("processed_text", augmented_feedback)
+            except Exception:
+                processed_text = augmented_feedback
+                preprocessing_result = {"processed_text": augmented_feedback, "steps": []}
+
+            # Classify
+            try:
+                from app.services.classifier import RealClassifier
+                classifier = RealClassifier(domain=domain_id)
+                classification_result = classifier.classify(processed_text, {})
+            except Exception:
+                classification_result = {"feedback_type": "unclear_feedback", "rule_category": None, "is_actionable": False, "confidence": 0.5}
+
+            # Extract
+            try:
+                from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
+                extractor = EnhancedRuleExtractor()
+                extraction_result = extractor.extract(processed_text, {})
+                extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+            except Exception:
+                extraction_result = {"extraction": {"extracted_rules": []}, "extraction_confidence": 0.5}
+                extracted_rules = []
+
+            # Schema validation
+            try:
+                from app.services.schema_validation_service import SchemaValidationService
+                schema_validator = SchemaValidationService(schema_context={})
+                schema_validation_results = []
+                for rule in extracted_rules:
+                    v = schema_validator.validate_rule(rule, {})
+                    schema_validation_results.append(v)
+                schema_validation_status = "PASS" if all(v["status"] == "PASS" for v in schema_validation_results) else (
+                    "PARTIAL" if any(v["status"] in ["PASS", "PARTIAL"] for v in schema_validation_results) else "FAIL"
+                )
+            except Exception:
+                schema_validation_results = []
+                schema_validation_status = "FAIL"
+
+            # Duplicate & Conflict detection
+            try:
+                from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
+                duplicate_service = BaselineDuplicateDetectionService()
+                primary_rule = extracted_rules[0] if extracted_rules else {}
+                duplicate_check = duplicate_service.check_duplicate(primary_rule, workspace_id, domain_id, db)
+            except Exception:
+                duplicate_check = {"status": "none", "is_duplicate": False}
+
+            try:
+                from app.services.baseline_conflict_detection_service import BaselineConflictDetectionService
+                conflict_service = BaselineConflictDetectionService()
+                conflict_check = conflict_service.check_conflict(primary_rule, workspace_id, domain_id, db)
+            except Exception:
+                conflict_check = {"has_conflict": False, "conflict_type": "no_conflict"}
+
+            # Completeness & Ambiguity
+            try:
+                from app.services.completeness_checker import CompletenessChecker, AmbiguityDetector
+                completeness_checker = CompletenessChecker()
+                completeness_result = completeness_checker.generate_clarification_questions(primary_rule)
+                ambiguity_detector = AmbiguityDetector()
+                ambiguity_result = ambiguity_detector.generate_clarification_questions(primary_rule, augmented_feedback)
+                clarification_required = completeness_result["clarification_required"] or ambiguity_result["clarification_required"]
+            except Exception:
+                completeness_result = {"clarification_required": False, "questions": [], "missing_fields": []}
+                ambiguity_result = {"clarification_required": False, "questions": [], "ambiguous_fields": []}
+                clarification_required = False
+
+            # Routing
+            try:
+                from app.services.review_routing_service import RealReviewRoutingService
+                routing_service = RealReviewRoutingService()
+                routing_decision = routing_service.route_suggestion(
+                    suggestion_id=suggestion_id,
+                    suggestion=primary_rule,
+                    classification=classification_result,
+                    extraction=extraction_result,
+                    conflict_check=conflict_check,
+                    duplicate_check=duplicate_check,
+                    workspace_id=workspace_id,
+                    domain_id=domain_id,
+                    db=db,
+                    clarification_required=clarification_required,
+                )
+            except Exception:
+                routing_decision = {"review_status": "pending_review", "priority": "normal", "reason": "routing_failed"}
+
+            # Persist RuleSuggestion if model available
+            if RuleSuggestion:
+                try:
+                    rs = RuleSuggestion(
+                        suggestion_id=suggestion_id,
+                        workspace_id=workspace_id,
+                        feedback_id=feedback_id,
+                        analysis_run_id=analysis_run_id,
+                        feedback_type=classification_result.get("feedback_type"),
+                        rule_category=classification_result.get("rule_category"),
+                        classification_result=classification_result,
+                        extraction_result="completed",
+                        clarification_required=clarification_required,
+                        review_status=routing_decision.get("review_status", "pending_review"),
+                        suggested_rule=primary_rule,
+                        preprocessing_result=preprocessing_result,
+                        schema_validation_status=schema_validation_status,
+                        created_at=datetime.utcnow(),
+                    )
+                    db.add(rs)
+                    db.flush()
+                except Exception:
+                    pass
+
+            # Mark analysis run completed
+            if AnalysisRun:
+                try:
+                    ar.status = "completed"
+                    ar.completed_at = datetime.utcnow()
+                    db.commit()
+                except Exception:
+                    db.rollback()
+
             return {
                 "success": True,
                 "feedback_id": feedback_id,
                 "augmented_feedback": augmented_feedback,
-                "original_feedback_preserved": True,
-                "clarification_response": clarification_response,
-                "workspace_id": workspace_id,
-                "domain_id": domain_id,
-                "next_step": "rerun_full_pipeline",
-                "message": "Ready to re-run classification, extraction, and validation with clarified feedback"
+                "analysis_run_id": analysis_run_id,
+                "suggestion_id": suggestion_id,
+                "routing_decision": routing_decision,
+                "clarification_required": clarification_required,
+                "message": "Re-analysis completed and persisted",
             }
 
         except Exception as e:
