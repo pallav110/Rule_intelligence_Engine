@@ -376,6 +376,16 @@ def re_analyze_feedback(
 
         # Review Routing
         routing_service = RealReviewRoutingService()
+        # Calibrate classification confidence and assess sensitivity before routing
+        try:
+            from app.services.calibration import calibrate_probability
+            from app.services.sensitivity_service import assess_sensitivity
+            temp = float(schema_context.get("calibration_temperature", 1.0)) if isinstance(schema_context, dict) else 1.0
+            raw_conf = float(classification_result_dict.get("confidence", 0.0) or 0.0)
+            classification_result_dict["calibrated_confidence"] = calibrate_probability(raw_conf, temp)
+            sensitivity = assess_sensitivity(primary_rule, classification_result_dict)
+        except Exception:
+            sensitivity = {"sensitive": False, "score": 0.0, "reasons": []}
         routing_decision = routing_service.route_suggestion(
             suggestion_id=None,
             suggestion=primary_rule,
@@ -386,6 +396,7 @@ def re_analyze_feedback(
             workspace_id=workspace_id,
             domain_id=domain_id,
             db=db,
+            sensitivity=sensitivity,
         )
 
         return {
@@ -1060,6 +1071,17 @@ def analyze_feedback(
 
     # STEP 8: Review Routing (V4 Policy-Driven)
     routing_service = RealReviewRoutingService()
+    # Calibrate classification confidence and assess sensitivity before routing
+    try:
+        from app.services.calibration import calibrate_probability
+        from app.services.sensitivity_service import assess_sensitivity
+        temp = float(schema_context.get("calibration_temperature", 1.0)) if isinstance(schema_context, dict) else 1.0
+        raw_conf = float(classification_result_dict.get("confidence", 0.0) or 0.0)
+        classification_result_dict["calibrated_confidence"] = calibrate_probability(raw_conf, temp)
+        sensitivity = assess_sensitivity(primary_rule, classification_result_dict)
+    except Exception:
+        sensitivity = {"sensitive": False, "score": 0.0, "reasons": []}
+
     routing_decision = routing_service.route_suggestion(
         suggestion_id=suggestion_id,
         suggestion=primary_rule,
@@ -1071,6 +1093,8 @@ def analyze_feedback(
         domain_id=domain_pack_id,
         db=db,
         clarification_required=clarification_required,
+        mandatory_fields_valid=(all(v.get("mandatory_fields_valid", True) for v in schema_validation_results) if schema_validation_results else False),
+        sensitivity=sensitivity,
     )
 
     # Record clarification timestamp
@@ -1204,6 +1228,73 @@ def analyze_feedback(
 
 
 # --- Suggestion APIs ---
+
+
+# Debug: return last saved analysis JSON if present (useful for UI inspection)
+@app.get("/debug/last-analysis", include_in_schema=False)
+def get_last_analysis_debug():
+    import os, json
+    from fastapi.responses import JSONResponse
+
+    # First, try common temporary path (used by local dev scripts)
+    candidate_paths = [
+        "/tmp/analysis_result.json",
+        "./tmp/analysis_result.json",
+        "/app/tmp/analysis_result.json",
+    ]
+
+    for path in candidate_paths:
+        try:
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                return JSONResponse(status_code=200, content=data)
+        except Exception:
+            # try next candidate
+            continue
+
+    # If no file available, try to return the most recent AnalysisRun + RuleSuggestion from DB
+    try:
+        from app.db.database import SessionLocal
+        from app.db.models.analysis_run import AnalysisRun
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        db = SessionLocal()
+        try:
+            ar = db.query(AnalysisRun).order_by(AnalysisRun.created_at.desc()).first()
+            if not ar:
+                return JSONResponse(status_code=404, content={"error": "no saved analysis file or analysis runs in DB"})
+
+            # Try to fetch associated suggestion
+            rs = db.query(RuleSuggestion).filter_by(analysis_run_id=ar.analysis_run_id).order_by(RuleSuggestion.created_at.desc()).first()
+
+            payload = {
+                "analysis_run_id": ar.analysis_run_id,
+                "feedback_id": ar.feedback_id,
+                "workspace_id": ar.workspace_id,
+                "domain_pack_id": ar.domain_pack_id,
+                "threshold_configuration": ar.threshold_configuration,
+                "status": ar.status,
+                "created_at": ar.created_at.isoformat() if ar.created_at else None,
+            }
+
+            if rs:
+                payload.update({
+                    "suggestion_id": rs.suggestion_id,
+                    "classification": rs.classification_result or {},
+                    # stored extraction_result may be a status or JSON; attempt to include
+                    "extraction": rs.suggested_rule or {},
+                    "schema_validation": {"status": rs.schema_validation_status},
+                    "clarification_required": bool(rs.clarification_required),
+                    "review_status": rs.review_status,
+                })
+
+            return JSONResponse(status_code=200, content=payload)
+        finally:
+            db.close()
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"fallback read failed: {str(e)}"})
+
 
 @app.post("/v1/suggestions", response_model=SuggestionResponse)
 def create_suggestion_route(
@@ -1712,36 +1803,55 @@ def get_dataset_version(dataset_id: str, db=Depends(get_db)):
 def create_model_version(payload: mv_schemas.ModelVersionCreateRequest, db=Depends(get_db)):
     service = ModelVersionService()
     try:
-        model = service.create_model_version(db, payload.model_name, payload.version, payload.workspace_id, "s3://mock")
-        return mv_schemas.ModelVersionResponse(
-            model_version_id=model.model_version_id,
-            model_name=model.model_name,
-            version=model.version,
-            status=model.status,
-            artifact_path=model.artifact_path
-        )
+        model = service.create_model_version(db, payload)
+        return mv_schemas.ModelVersionResponse.from_orm(model)
+    except ValueError as e:
+        raise HTTPException(status_code=409 if "already exists" in str(e) else 400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=409 if "Conflict" in str(e) else 400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/v1/model-versions", response_model=list[mv_schemas.ModelVersionResponse])
-def list_model_versions(db=Depends(get_db)):
+def list_model_versions(model_type: str = None, status: str = None, db=Depends(get_db)):
     service = ModelVersionService()
-    return service.list_model_versions(db)
+    models = service.list_model_versions(db, model_type=model_type, status=status)
+    return [mv_schemas.ModelVersionResponse.from_orm(m) for m in models]
 
 @app.get("/v1/model-versions/{model_id}", response_model=mv_schemas.ModelVersionResponse)
 def get_model_version(model_id: str, db=Depends(get_db)):
     service = ModelVersionService()
     try:
         model = service.get_model_version(db, model_id)
-        return mv_schemas.ModelVersionResponse(
-            model_version_id=model.model_version_id,
-            model_name=model.model_name,
-            version=model.version,
-            status=model.status,
-            artifact_path=model.artifact_path
-        )
+        return mv_schemas.ModelVersionResponse.from_orm(model)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@app.patch("/v1/model-versions/{model_id}", response_model=mv_schemas.ModelVersionResponse)
+def update_model_version(model_id: str, payload: mv_schemas.ModelVersionUpdateRequest, db=Depends(get_db)):
+    service = ModelVersionService()
+    try:
+        model = service.update_model_version(db, model_id, payload)
+        return mv_schemas.ModelVersionResponse.from_orm(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/v1/model-versions/{model_id}/promote", response_model=mv_schemas.ModelVersionResponse)
+def promote_model_version(model_id: str, target_status: mv_schemas.ModelVersionStatus, db=Depends(get_db)):
+    """Promote model through lifecycle: CANDIDATE -> APPROVED -> ACTIVE per spec 8.11."""
+    service = ModelVersionService()
+    try:
+        model = service.promote_model(db, model_id, target_status)
+        return mv_schemas.ModelVersionResponse.from_orm(model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/v1/model-versions/active/{model_type}", response_model=mv_schemas.ModelVersionResponse)
+def get_active_model(model_type: str, db=Depends(get_db)):
+    """Get the currently ACTIVE model for a given type (used for inference)."""
+    service = ModelVersionService()
+    model = service.get_active_model(db, model_type)
+    if not model:
+        raise HTTPException(status_code=404, detail=f"No ACTIVE model found for type: {model_type}")
+    return mv_schemas.ModelVersionResponse.from_orm(model)
 
 @app.get("/v1/analysis-runs/{run_id}", response_model=AnalysisRunResponse)
 def get_analysis_run(run_id: str, db=Depends(get_db)):

@@ -122,7 +122,7 @@ class SchemaValidationService:
             checks_total += 1
 
         # Check 2: Business term exists (glossary check)
-        business_term = rule.get("business_term", "").strip()
+        business_term = (rule.get("business_term") or "").strip()
         if business_term:
             if glossary is None:
                 glossary = self._extract_glossary_from_schema(schema)
@@ -146,7 +146,7 @@ class SchemaValidationService:
             check_results["business_term_exists"] = False
 
         # Check 3: Operation validation
-        operation = rule.get("operation", "").lower()
+        operation = (rule.get("operation") or "").lower()
         if operation in self.VALID_OPERATIONS:
             validated_fields.append("operation")
             check_results["valid_operation"] = True
@@ -194,7 +194,7 @@ class SchemaValidationService:
                 checks_passed += 1
 
             # Check 8: Scope validation
-            scope = rule.get("scope", "global").strip()
+            scope = (rule.get("scope") or "global").strip()
             scope_valid = self._validate_scope(scope, schema)
             check_results["valid_scope"] = scope_valid
             if scope_valid:
@@ -283,8 +283,8 @@ class SchemaValidationService:
             }
 
         for condition in conditions:
-            field = condition.get("field", "").strip()
-            operator = condition.get("operator", "").lower().strip()
+            field = (condition.get("field") or "").strip()
+            operator = (condition.get("operator") or "").lower().strip()
             value = condition.get("value")
 
             # Validate field format

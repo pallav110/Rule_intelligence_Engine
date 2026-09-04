@@ -450,6 +450,11 @@
                         <button class="example-btn" onclick="setExample('Customers in tier bronze should have limited access')">Tier-based Rule</button>
                         <button class="example-btn" onclick="setExample('What is the SLA for response time?')">Question</button>
                     </div>
+                    <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+                        <label for="load-json-file" style="font-size:11px; color:var(--text-secondary); margin:0">Load JSON:</label>
+                        <input id="load-json-file" type="file" accept="application/json" style="font-size:11px;" />
+                        <button onclick="loadServerSavedAnalysis()" style="padding:8px 10px;">Load Last Server Analysis</button>
+                    </div>
                 </div>
             </div>
 
@@ -526,6 +531,49 @@
     </div>
 
     <script>
+        // Wire file input for local JSON inspection
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('load-json-file');
+            fileInput.addEventListener('change', async (e) => {
+                const f = e.target.files && e.target.files[0];
+                if (!f) return;
+                try {
+                    const txt = await f.text();
+                    const data = JSON.parse(txt);
+                    // Use displayResults if structure matches pipeline response, else show combined
+                    if (data && (data.feedback_id || data.analysis_run_id || data.suggestion_id)) {
+                        displayResults(data);
+                    } else if (data && data.baseline && data.candidate) {
+                        comparisonResults = { baseline: { data: data.baseline, error: null }, candidate: { data: data.candidate, error: null } };
+                        displayComparisonResults();
+                    } else {
+                        document.getElementById('full-response').innerText = JSON.stringify(data, null, 2);
+                        document.getElementById('detailed-results').style.display = 'block';
+                    }
+                } catch (err) {
+                    alert('Failed to load JSON: ' + err.message);
+                }
+            });
+        });
+
+        async function loadServerSavedAnalysis() {
+            try {
+                const resp = await fetch(`${API_BASE}/debug/last-analysis`);
+                if (!resp.ok) {
+                    // Do not alert on 404; show a gentle status message instead
+                    updateStatus('No saved analysis found on server', 'warning');
+                    return null;
+                }
+                const data = await resp.json();
+                displayResults(data);
+                updateStatus('Loaded last saved analysis from server', 'success');
+                return data;
+            } catch (err) {
+                console.warn('Could not load server analysis:', err);
+                updateStatus('Could not load server analysis', 'error');
+                return null;
+            }
+        }
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let detectedDomain = null;
         let detectionConfidence = 0;
@@ -545,10 +593,18 @@
         }
 
         // Auto-detect domain when feedback text changes
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const feedbackInput = document.getElementById('feedback-input');
             feedbackInput.addEventListener('input', autoDetectDomain);
             feedbackInput.addEventListener('change', autoDetectDomain);
+
+            // Auto-load last saved analysis from server on page load (no button press)
+            // Best-effort: if nothing saved, keep the UI interactive
+            try {
+                await loadServerSavedAnalysis();
+            } catch (e) {
+                console.debug('Auto-load last analysis failed:', e);
+            }
         });
 
         function setExample(text) {
@@ -645,7 +701,8 @@
             }
 
             updateStatus('⏳ Processing feedback through both baseline and ML pipelines...', 'info');
-            document.getElementById('detailed-results').style.display = 'none';
+            // Keep current results visible while running new pipeline; do not clear the UI.
+            // This avoids flicker and preserves the last shown analysis for comparison.
 
             try {
                 // Prepare request payload
@@ -862,8 +919,8 @@
                 `${rules.length} rule${rules.length !== 1 ? 's' : ''}`;
             document.getElementById('result-validation').textContent =
                 schemaValidation.status === 'PASS' ? '✓ PASS' : (schemaValidation.status === 'PARTIAL' ? '⚠ PARTIAL' : '✗ FAIL');
-            document.getElementById('result-confidence').textContent =
-                `${(classification.confidence * 100).toFixed(1)}%`;
+            const classificationConfidence = (classification.calibrated_confidence !== undefined ? classification.calibrated_confidence : classification.confidence) || 0;
+            document.getElementById('result-confidence').textContent = `${(classificationConfidence * 100).toFixed(1)}%`;
 
             // Preprocessing details
             const preprocessingHtml = `
@@ -913,7 +970,7 @@
                 </div>
                 <div class="field">
                     <div class="field-label">Is Actionable</div>
-                    <div class="field-value">${classification.actionability ?
+                    <div class="field-value">${(classification.is_actionable || classification.actionability) ?
                         '<span class="status-badge status-success">YES</span>' :
                         '<span class="status-badge status-error">NO</span>'}</div>
                 </div>
@@ -925,10 +982,11 @@
                 </div>
                 <div class="field">
                     <div class="field-label">Classification Confidence</div>
-                    <div class="field-value">${(classification.confidence * 100).toFixed(2)}%</div>
+                    <div class="field-value">${(classification.calibrated_confidence !== undefined ? classification.calibrated_confidence : classification.confidence) ? ((classification.calibrated_confidence !== undefined ? classification.calibrated_confidence : classification.confidence) * 100).toFixed(2) + '%' : '0%'}</div>
                     <div class="confidence-bar">
-                        <div class="confidence-fill" style="width: ${(classification.confidence || 0) * 100}%"></div>
+                        <div class="confidence-fill" style="width: ${((classification.calibrated_confidence !== undefined ? classification.calibrated_confidence : classification.confidence) || 0) * 100}%"></div>
                     </div>
+                    ${classification.calibration ? `<div class="field" style="margin-top:6px; font-size:10px; color:var(--text-secondary);">Calibrated (T=${classification.calibration.temperature})</div>` : ''}
                 </div>
             `;
             document.getElementById('preprocessing-output').innerHTML = preprocessingHtml;
@@ -1122,12 +1180,21 @@
 
             // Clarification section
             if (data.clarification_required && clarification.questions) {
-                let clarificationHtml = '<div class="step" style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--warning);">';
+                let clarificationHtml = '<div class="step" style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--warning);">'
                 clarificationHtml += '<div class="step-title" style="color: var(--warning);">🔍 Clarification Required</div>';
-                clarificationHtml += `<div class="field"><div class="field-label">Reason</div><div class="field-value">${clarification.reason || ''}</div></div>`;
+                if (clarification.reason) {
+                    clarificationHtml += `<div class="field"><div class="field-label">Reason</div><div class="field-value">${clarification.reason}</div></div>`;
+                }
                 clarificationHtml += '<div class="field"><div class="field-label">Questions</div><div class="field-value" style="font-size: 11px;">';
                 clarification.questions.forEach((q, i) => {
-                    clarificationHtml += `<div style="margin-bottom: 6px;">${i + 1}. ${q}</div>`;
+                    if (typeof q === 'string') {
+                        clarificationHtml += `<div style="margin-bottom: 6px;">${i + 1}. ${q}</div>`;
+                    } else if (q && (q.question || q.field)) {
+                        const ctx = q.context ? ` <small style="color: var(--text-secondary);">(${q.context})</small>` : '';
+                        clarificationHtml += `<div style="margin-bottom: 6px;">${i + 1}. <strong>${q.field || ''}</strong> ${q.question || ''}${ctx}</div>`;
+                    } else {
+                        clarificationHtml += `<div style="margin-bottom: 6px;">${i + 1}. ${JSON.stringify(q)}</div>`;
+                    }
                 });
                 clarificationHtml += '</div></div></div>';
                 document.getElementById('entity-output').innerHTML += clarificationHtml;
@@ -1241,8 +1308,8 @@
 
             const baselineData = baselineResult.data?.classification || {};
             const candidateData = candidateResult.data?.classification || {};
-            const baselineConf = baselineData.confidence || 0;
-            const candidateConf = candidateData.confidence || 0;
+            const baselineConf = (baselineData.calibrated_confidence !== undefined ? baselineData.calibrated_confidence : baselineData.confidence) || 0;
+            const candidateConf = (candidateData.calibrated_confidence !== undefined ? candidateData.calibrated_confidence : candidateData.confidence) || 0;
 
             let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">CLASSIFICATION COMPARISON</div>';
 
@@ -1282,6 +1349,9 @@
         }
 
         function buildModelColumn(modelName, data, error, thisConf, otherConf, type) {
+            const displayConf = (data && (data.calibrated_confidence !== undefined ? data.calibrated_confidence : data.confidence)) || 0;
+            const displayActionable = data && (data.is_actionable || data.actionability);
+
             let html = `<div class="model-column ${type}">
                 <div class="model-column-header">
                     <span class="model-name">${modelName}</span>`;
@@ -1312,14 +1382,15 @@
                     </div>
                     <div class="field">
                         <div class="field-label">Actionable</div>
-                        <div class="field-value">${data.actionability ? '<span class="status-badge status-success">YES</span>' : '<span class="status-badge status-error">NO</span>'}</div>
+                        <div class="field-value">${displayActionable ? '<span class="status-badge status-success">YES</span>' : '<span class="status-badge status-error">NO</span>'}</div>
                     </div>
                     <div class="field">
                         <div class="field-label">Confidence</div>
-                        <div class="field-value">${(data.confidence * 100).toFixed(2)}%</div>
+                        <div class="field-value">${(displayConf * 100).toFixed(2)}%</div>
                         <div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${(data.confidence || 0) * 100}%"></div>
+                            <div class="confidence-fill" style="width: ${displayConf * 100}%"></div>
                         </div>
+                        ${data && data.calibration ? `<div style="margin-top:6px; font-size:10px; color:var(--text-secondary);">Calibrated (T=${data.calibration.temperature})</div>` : ''}
                     </div>
                 `;
             }

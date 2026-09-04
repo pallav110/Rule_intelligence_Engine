@@ -112,15 +112,15 @@ class DomainPackMatcher:
             best_score = 0.0
             best_reasons = []
 
-            extracted_term = extracted_rule.get("business_term", "").lower()
-            extracted_operation = extracted_rule.get("operation", "").lower()
+            extracted_term = (extracted_rule.get("business_term") or "").lower()
+            extracted_operation = (extracted_rule.get("operation") or "").lower()
             extracted_conditions = extracted_rule.get("conditions", [])
             extracted_tables = extracted_rule.get("affected_entities", {}).get("tables", [])
 
             # Try to match against each active rule
             for active_rule in active_rules:
-                active_term = active_rule.get("business_term", "").lower()
-                active_operation = active_rule.get("operation", "").lower()
+                active_term = (active_rule.get("business_term") or "").lower()
+                active_operation = (active_rule.get("operation") or "").lower()
                 active_conditions = active_rule.get("conditions", [])
                 active_tables = active_rule.get("affected_entities", {}).get("tables", [])
 
@@ -155,8 +155,8 @@ class DomainPackMatcher:
                     # At least one condition matches
                     for ext_cond in extracted_conditions:
                         for act_cond in active_conditions:
-                            ext_field = ext_cond.get("field", "").lower()
-                            act_field = act_cond.get("field", "").lower()
+                            ext_field = (ext_cond.get("field") or "").lower()
+                            act_field = (act_cond.get("field") or "").lower()
                             if ext_field == act_field or ext_field in act_field or act_field in ext_field:
                                 score += 0.1
                                 reasons.append("condition field match")
@@ -182,7 +182,7 @@ class DomainPackMatcher:
                         {
                             "active_rule_id": r.get("rule_id"),
                             "active_business_term": r.get("business_term"),
-                            "similarity": self._similarity_score(extracted_term, r.get("business_term", "").lower())
+                            "similarity": self._similarity_score(extracted_term, (r.get("business_term") or "").lower())
                         }
                         for r in active_rules[:3]  # Top 3 candidates
                     ]
@@ -289,12 +289,12 @@ class DomainPackMatcher:
         """Get related active rules based on extracted rule."""
         active_rules = self._load_active_rules(domain_pack_id)
 
-        extracted_term = extracted_rule.get("business_term", "").lower()
+        extracted_term = (extracted_rule.get("business_term") or "").lower()
         extracted_tables = set(extracted_rule.get("affected_entities", {}).get("tables", []))
 
         related = []
         for active_rule in active_rules:
-            active_term = active_rule.get("business_term", "").lower()
+            active_term = (active_rule.get("business_term") or "").lower()
             active_tables = set(active_rule.get("affected_entities", {}).get("tables", []))
 
             # Score based on term similarity and table overlap

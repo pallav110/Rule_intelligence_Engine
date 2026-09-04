@@ -25,6 +25,8 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
     from app.services.review_routing_service import RealReviewRoutingService
     from app.services.completeness_checker import CompletenessChecker, AmbiguityDetector
     from app.services.classifier import RealClassifier
+    from app.services.calibration import calibrate_probability
+    from app.services.sensitivity_service import assess_sensitivity
 
     schema_context = schema_context or {}
     domain_pack_id = domain_pack_id or schema_context.get("domain_pack_id", "ecommerce")
@@ -91,6 +93,18 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
     except Exception:
         classification_result = {"feedback_type": "unclear_feedback", "rule_category": None, "is_actionable": False, "confidence": 0.5}
 
+    # Calibrate classification probability (temperature can be passed via schema_context)
+    try:
+        # Respect classifier-provided calibrated confidence (e.g., DistilBERT may have applied per-task temps).
+        if 'calibrated_confidence' not in classification_result:
+            temp = float(schema_context.get("calibration_temperature", 1.0))
+            raw_conf = float(classification_result.get("confidence", 0.0) or 0.0)
+            calibrated_conf = calibrate_probability(raw_conf, temp)
+            classification_result["calibrated_confidence"] = calibrated_conf
+            classification_result["calibration"] = {"temperature": temp, "raw_confidence": raw_conf}
+    except Exception:
+        pass
+
     # Extract
     try:
         extractor = EnhancedRuleExtractor()
@@ -116,6 +130,12 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
 
     primary_rule = extracted_rules[0] if extracted_rules else {}
 
+    # Assess sensitivity
+    try:
+        sensitivity = assess_sensitivity(primary_rule, classification_result)
+    except Exception:
+        sensitivity = {"sensitive": False, "score": 0.0, "reasons": []}
+
     # Duplicate & Conflict detection
     try:
         duplicate_service = BaselineDuplicateDetectionService()
@@ -140,6 +160,18 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
         completeness_result = {"clarification_required": False, "questions": [], "missing_fields": []}
         ambiguity_result = {"clarification_required": False, "questions": [], "ambiguous_fields": []}
         clarification_required = False
+
+    # Build clarification payload (questions + context) without modifying original feedback
+    clarification_payload = None
+    try:
+        if clarification_required:
+            clarification_payload = {
+                "questions": completeness_result.get("questions", []) + ambiguity_result.get("questions", []),
+                "missing_fields": completeness_result.get("missing_fields", []) + ambiguity_result.get("ambiguous_fields", []),
+                "generated_at": datetime.utcnow().isoformat(),
+            }
+    except Exception:
+        clarification_payload = None
 
     # Enforce 'no inference' guard for mandatory fields: if any mandatory field missing, mark clarification_required and strip inferred values
     try:
@@ -185,12 +217,16 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
             db=db,
             clarification_required=clarification_required,
             mandatory_fields_valid=mandatory_fields_valid,
+            sensitivity=sensitivity,
         )
     except Exception:
         routing_decision = {"review_status": "pending_review", "priority": "normal", "reason": "routing_failed"}
 
     # Persist RuleSuggestion
     try:
+        # merge clarification payload into preprocessing_result for persistence
+        persisted_preprocessing = {**(preprocessing_result or {}), **({"clarification_requests": clarification_payload} if clarification_payload else {})}
+
         rs = RuleSuggestion(
             suggestion_id=suggestion_id,
             workspace_id=workspace_id,
@@ -201,9 +237,9 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
             classification_result=classification_result,
             extraction_result="completed",
             clarification_required=clarification_required,
+            preprocessing_result=persisted_preprocessing,
             review_status=routing_decision.get("review_status", "pending_review"),
             suggested_rule=primary_rule,
-            preprocessing_result=preprocessing_result,
             schema_validation_status=schema_validation_status,
             created_at=datetime.utcnow(),
         )
@@ -230,6 +266,7 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
         "suggestion_id": suggestion_id,
         "routing_decision": routing_decision,
         "clarification_required": clarification_required,
+        "clarification": clarification_payload,
         "classification": classification_result,
         "extraction": extraction_result,
         "schema_validation": {

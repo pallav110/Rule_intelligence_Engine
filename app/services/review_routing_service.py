@@ -42,6 +42,7 @@ class ReviewRouter:
         domain_id: str,
         clarification_required: bool = False,
         mandatory_fields_valid: bool | None = True,
+        sensitivity: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         confidence = classification.get("confidence", 0.0)
         suggested_rule = suggestion or extraction.get("suggested_rule", {})
@@ -67,6 +68,13 @@ class ReviewRouter:
             suggested_reviewer_type = ReviewerType.MANAGER
             suggested_reviewer_id = self._select_reviewer(suggested_reviewer_type, domain_id)
             reasoning_factors = ["Mandatory schema validation failed: route for manual review"]
+        # Sensitivity check escalates to senior reviewer
+        elif sensitivity and sensitivity.get("sensitive"):
+            review_status = "senior_review_required"
+            priority = ReviewPriority.URGENT
+            suggested_reviewer_type = ReviewerType.MANAGER
+            suggested_reviewer_id = self._select_reviewer(suggested_reviewer_type, domain_id)
+            reasoning_factors = [f"Sensitive business rule detected (score={sensitivity.get('score')})"]
         elif clarification_required:
             review_status = "clarification_required"
             priority = ReviewPriority.HIGH
@@ -309,17 +317,88 @@ class RealReviewRoutingService:
         domain_id: str,
         db=None,
         clarification_required: bool = False,
+        mandatory_fields_valid: bool | None = True,
+        sensitivity: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        routing_decision = self.router.route(
-            suggestion,
-            classification,
-            extraction,
-            conflict_check,
-            duplicate_check,
-            workspace_id,
-            domain_id,
-            clarification_required,
-        )
+        # First, evaluate explicit decision rules per spec (8.9.7 / 8.10)
+        try:
+            from app.services.decision_rules import evaluate_decision_table
+
+            override = evaluate_decision_table(
+                classification=classification,
+                extraction=extraction,
+                schema_validation=(extraction.get("schema_validation") if isinstance(extraction, dict) else None) or {},
+                duplicate_check=duplicate_check,
+                conflict_check=conflict_check,
+                sensitivity=sensitivity,
+                clarification_required=clarification_required,
+            )
+
+            if override:
+                # Map override actions to routing_decision structure expected downstream
+                action = override.get("action")
+                reason = override.get("reason", "decision_table_override")
+                if action == "manual_review":
+                    routing_decision = {
+                        "review_status": "mandatory_manual_review",
+                        "priority": ReviewPriority.URGENT.value,
+                        "suggested_reviewer_type": ReviewerType.MANAGER.value,
+                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.MANAGER, domain_id),
+                        "reason": reason,
+                    }
+                elif action == "clarification":
+                    routing_decision = {
+                        "review_status": "clarification_required",
+                        "priority": ReviewPriority.HIGH.value,
+                        "suggested_reviewer_type": ReviewerType.QA.value,
+                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.QA, domain_id),
+                        "reason": reason,
+                    }
+                elif action == "reviewer_verification":
+                    routing_decision = {
+                        "review_status": "reviewer_verification",
+                        "priority": ReviewPriority.HIGH.value,
+                        "suggested_reviewer_type": ReviewerType.QA.value,
+                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.QA, domain_id),
+                        "reason": reason,
+                    }
+                elif action == "senior_review":
+                    routing_decision = {
+                        "review_status": "senior_review_required",
+                        "priority": ReviewPriority.URGENT.value,
+                        "suggested_reviewer_type": ReviewerType.MANAGER.value,
+                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.MANAGER, domain_id),
+                        "reason": reason,
+                    }
+                else:
+                    routing_decision = {"review_status": "pending_review", "priority": ReviewPriority.NORMAL.value, "reason": reason}
+            else:
+                routing_decision = self.router.route(
+                    suggestion,
+                    classification,
+                    extraction,
+                    conflict_check,
+                    duplicate_check,
+                    workspace_id,
+                    domain_id,
+                    clarification_required=clarification_required,
+                    mandatory_fields_valid=mandatory_fields_valid,
+                    sensitivity=sensitivity,
+                )
+        except Exception:
+            # Fallback to router if decision_rules fails
+            routing_decision = self.router.route(
+                suggestion,
+                classification,
+                extraction,
+                conflict_check,
+                duplicate_check,
+                workspace_id,
+                domain_id,
+                clarification_required=clarification_required,
+                mandatory_fields_valid=mandatory_fields_valid,
+                sensitivity=sensitivity,
+            )
 
         if db and routing_decision["review_status"] != "auto_approved":
             try:

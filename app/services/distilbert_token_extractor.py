@@ -382,9 +382,11 @@ class DistilBERTTokenExtractor:
         return rule, component_mapping, detailed_components
 
 
+_distilbert_token_extractor = None
+
 def get_distilbert_token_extractor() -> DistilBERTTokenExtractor:
     """Get or create global token extractor instance."""
     global _distilbert_token_extractor
-    if '_distilbert_token_extractor' not in globals():
+    if _distilbert_token_extractor is None:
         _distilbert_token_extractor = DistilBERTTokenExtractor()
     return _distilbert_token_extractor
