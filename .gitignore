@@ -1,32 +1,41 @@
-.venv/
-__pycache__/
-*.py[cod]
-.env
-.vscode/
-.idea/
-.pytest_cache/
-*.db
-*.sqlite
-*.sqlite3
-*.log.env
-.claude
+# training artifacts - regenerated on every train/eval run
+rie_ml/models/distilbert_candidate/train_combined.jsonl
+rie_ml/models/distilbert_candidate/val_combined.jsonl
+rie_ml/models/distilbert_token_extractor/training_history.json
+rie_ml/models/distilbert_token_extractor/token_evaluation_results.json
+rie_ml/models/*/checkpoints/
+rie_ml/models/**/checkpoints/*.pt
+rie_ml/datasets/validation_report.json
 
-# Large model checkpoints - exclude to avoid repo bloat
-rie_ml/models/*/checkpoints/*.pt
-rie_ml/models/bert_candidate/
-rie_ml/models/roberta_candidate/
-
-# But track metadata, configs, and evaluation results
-!rie_ml/models/*/calibration_params.json
-!rie_ml/models/*/calibration_results.json
-!rie_ml/models/*/training_history.json
-!rie_ml/models/*/promotion_decision.json
-!rie_ml/models/model_comparison_report.json
-!rie_ml/models/registry/
-rie_ml/models/*/checkpoints/*.pt
-
-# Generated datasets - rebuild with scripts/generate_dataset.py (or dataset_generation/run_pipeline.py)
+# generated datasets - regenerated
 rie_ml/dataset_generation/output/
 rie_ml/datasets/extraction_bio/
 rie_ml/datasets/evaluation/
-rie_ml/datasets/validation_report.json
+
+# secrets - never commit
+.env
+rie_ml/.env
+**/.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+logs/
