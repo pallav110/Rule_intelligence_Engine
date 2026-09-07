@@ -22,6 +22,36 @@ class BaselineConflictDetector:
         """Initialize conflict detector."""
         self.confidence_threshold = 0.6
 
+    @staticmethod
+    def _get_effective_entities(rule: Dict[str, Any]) -> Dict[str, Any]:
+        """Build effective entities dict from affected_entities or affected_tables/affected_columns."""
+        entities = rule.get("affected_entities") or {}
+        tables = entities.get("tables") or rule.get("affected_tables") or []
+        columns = entities.get("columns") or rule.get("affected_columns") or []
+        return {"tables": tables, "columns": columns}
+
+    @staticmethod
+    def _singularize(token: str) -> str:
+        t = token.lower().strip()
+        return t[:-1] if t.endswith("s") and len(t) > 3 else t
+
+    def _field_tokens(self, field_name: str) -> set:
+        return set(f.strip().lower() for f in field_name.split(".") if f.strip())
+
+    def _fields_related(self, f1: str, f2: str) -> bool:
+        if not f1 or not f2:
+            return False
+        f1l, f2l = f1.lower(), f2.lower()
+        if f1l == f2l:
+            return True
+        tok1 = {self._singularize(t) for t in self._field_tokens(f1l)}
+        tok2 = {self._singularize(t) for t in self._field_tokens(f2l)}
+        if tok1 & tok2:
+            return True
+        leaf1 = f1l.rsplit(".", 1)[-1]
+        leaf2 = f2l.rsplit(".", 1)[-1]
+        return leaf1 == leaf2
+
     def detect(
         self,
         new_rule: Dict[str, Any],
@@ -131,28 +161,55 @@ class BaselineConflictDetector:
         if not details["scope_overlap"]:
             return self.NO_CONFLICT, 0.0, details
 
-        # 3. Check affected entities overlap
-        new_entities = new_rule.get("affected_entities", {})
-        existing_entities = existing_rule.get("affected_entities", {})
+        # 3. Check affected entities overlap — use effective entities (merge both key styles)
+        new_entities = self._get_effective_entities(new_rule)
+        existing_entities = self._get_effective_entities(existing_rule)
 
         new_tables = set(new_entities.get("tables", []))
         existing_tables = set(existing_entities.get("tables", []))
-        shared_tables = new_tables & existing_tables
-        details["shared_tables"] = list(shared_tables)
 
-        if not shared_tables:
-            return self.NO_CONFLICT, 0.0, details
+        # Fuzzy table match: singularized intersection
+        new_tables_norm = {self._singularize(t) for t in new_tables} if new_tables else set()
+        existing_tables_norm = {self._singularize(t) for t in existing_tables} if existing_tables else set()
+        shared_tables = (new_tables & existing_tables) | (new_tables_norm & existing_tables_norm)
 
         new_columns = set(new_entities.get("columns", []))
         existing_columns = set(existing_entities.get("columns", []))
+        new_conditions = new_rule.get("conditions", [])
+        new_candidates = new_rule.get("candidate_conditions", [])
+        existing_conditions = existing_rule.get("conditions", [])
+
+        # If new rule has no tables/conditions but same business_term+scope, don't short-circuit
+        if not shared_tables:
+            # If new rule has NO affected_entities (extractor didn't resolve tables)
+            # but has conditions and same business_term+scope, allow condition-level conflict check
+            if not new_tables and new_rule.get("conditions"):
+                details["shared_tables"] = []  # Allow fall-through to condition check
+            elif not new_tables and not new_columns:
+                # Truly empty new rule — allow fall-through if it has candidate conditions
+                if new_candidates:
+                    details["shared_tables"] = []
+                else:
+                    return self.NO_CONFLICT, 0.0, details
+            else:
+                return self.NO_CONFLICT, 0.0, details
+        else:
+            details["shared_tables"] = list(shared_tables)
+
         shared_columns = new_columns & existing_columns
+        # Fuzzy column match (singularized tokens)
+        if not shared_columns:
+            for nc in new_columns:
+                nc_tokens = {self._singularize(t) for t in self._field_tokens(nc)}
+                for ec in existing_columns:
+                    ec_tokens = {self._singularize(t) for t in self._field_tokens(ec)}
+                    if nc_tokens & ec_tokens:
+                        shared_columns = {nc, ec}
+                        break
         details["shared_columns"] = list(shared_columns)
         details["affected_field_overlap"] = len(shared_columns) > 0
 
         # 4. Check for contradictory conditions (INCLUDING candidate conditions)
-        new_conditions = new_rule.get("conditions", [])
-        new_candidates = new_rule.get("candidate_conditions", [])
-        existing_conditions = existing_rule.get("conditions", [])
 
         # If new rule has unresolved candidate conditions, flag for clarification
         if new_candidates and not new_conditions and existing_conditions:
@@ -177,8 +234,14 @@ class BaselineConflictDetector:
         operation_conflict = self._check_operation_conflict(new_op, existing_op)
         details["conflicting_operations"] = operation_conflict
 
-        if operation_conflict and shared_columns:
-            return self.DIRECT_CONFLICT, 0.85, details
+        # If operations conflict and either columns overlap OR conditions refer to same field
+        if operation_conflict:
+            condition_overlap = False
+            if len(new_conditions) > 0 and len(existing_conditions) > 0:
+                sim = self._calculate_condition_similarity(new_conditions, existing_conditions)
+                condition_overlap = sim > 0.4
+            if shared_columns or condition_overlap:
+                return self.DIRECT_CONFLICT, 0.85, details
 
         # 6. Check temporal overlap (for time-based rules)
         new_time_window = new_rule.get("time_window")
@@ -186,7 +249,9 @@ class BaselineConflictDetector:
         details["temporal_overlap"] = new_time_window == existing_time_window
 
         # 7. Potential conflict if conditions overlap but not contradictory
-        if shared_tables and len(new_conditions) > 0 and len(existing_conditions) > 0:
+        # Allow when tables unknown (new rule from extractor with no entities) but conditions exist
+        has_entity_basis = bool(shared_tables) or (not new_tables and not new_columns)
+        if has_entity_basis and len(new_conditions) > 0 and len(existing_conditions) > 0:
             condition_similarity = self._calculate_condition_similarity(new_conditions, existing_conditions)
             if condition_similarity > 0.4:
                 return self.POTENTIAL_CONFLICT, condition_similarity * 0.8, details
@@ -194,21 +259,21 @@ class BaselineConflictDetector:
         return self.NO_CONFLICT, 0.0, details
 
     def _find_contradictions(self, new_conditions: List[Dict], existing_conditions: List[Dict]) -> List[Dict]:
-        """Find contradictory conditions between two rules."""
+        """Find contradictory conditions between two rules (fuzzy field matching)."""
         contradictions = []
 
         for new_cond in new_conditions:
-            new_field = new_cond.get("field", "").lower()
-            new_operator = new_cond.get("operator", "").lower()
+            new_field = new_cond.get("field", "")
+            new_operator = (new_cond.get("operator") or "").lower()
             new_value = new_cond.get("value")
 
             for existing_cond in existing_conditions:
-                existing_field = existing_cond.get("field", "").lower()
-                existing_operator = existing_cond.get("operator", "").lower()
+                existing_field = existing_cond.get("field", "")
+                existing_operator = (existing_cond.get("operator") or "").lower()
                 existing_value = existing_cond.get("value")
 
-                # Same field, contradictory operators/values
-                if new_field == existing_field:
+                # Fuzzy field match
+                if self._fields_related(new_field, existing_field):
                     is_contradictory = self._operators_contradict(
                         new_operator, new_value, existing_operator, existing_value
                     )
@@ -216,7 +281,7 @@ class BaselineConflictDetector:
                     if is_contradictory:
                         contradictions.append(
                             {
-                                "field": new_field,
+                                "field": existing_field or new_field,
                                 "new_condition": f"{new_field} {new_operator} {new_value}",
                                 "existing_condition": f"{existing_field} {existing_operator} {existing_value}",
                                 "reason": self._contradiction_reason(
@@ -284,7 +349,7 @@ class BaselineConflictDetector:
         return False
 
     def _calculate_condition_similarity(self, conditions1: List[Dict], conditions2: List[Dict]) -> float:
-        """Calculate similarity between condition lists."""
+        """Calculate similarity between condition lists (fuzzy field matching)."""
         if not conditions1 or not conditions2:
             return 0.0
 
@@ -292,8 +357,8 @@ class BaselineConflictDetector:
         for cond1 in conditions1:
             for cond2 in conditions2:
                 if (
-                    cond1.get("field", "").lower() == cond2.get("field", "").lower()
-                    and cond1.get("operator", "").lower() == cond2.get("operator", "").lower()
+                    self._fields_related(cond1.get("field", ""), cond2.get("field", ""))
+                    and (cond1.get("operator") or "").lower() == (cond2.get("operator") or "").lower()
                 ):
                     matches += 1
                     break

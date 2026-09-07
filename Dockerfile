@@ -34,12 +34,13 @@ RUN mkdir -p ./rie_ml/models ./logs
 # Train models on startup (if not already trained)
 RUN python -c "from pathlib import Path; Path('./rie_ml/models/baseline_classifier.pkl').exists() or print('Models will be trained on first run')" 2>/dev/null || true
 
-# Health check
+# Health check — only for API service; workers override with their own healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Expose port
 EXPOSE 8000
 
-# Run migrations and start server
+# Default: run API server. The celery worker image overrides the CMD
+# and this healthcheck is disabled for the worker via environment.
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]

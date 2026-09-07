@@ -1104,6 +1104,23 @@ def analyze_feedback(
     clarification_questions = []
     clarification_reason = ""
 
+    # Also honor the extractor's own needs_clarification flags: a condition whose
+    # field could not be resolved (value extracted, field null) is not executable,
+    # so the rule must be routed to clarification rather than auto-approved.
+    for rule in extracted_rules:
+        if not isinstance(rule, dict):
+            continue
+        for cond in rule.get("conditions", []):
+            if isinstance(cond, dict) and cond.get("needs_clarification"):
+                clarification_required = True
+                clarification_questions.append(
+                    f"Which field does '{cond.get('value', 'this condition')}' apply to? "
+                    "No table.column reference could be resolved."
+                )
+                break
+        if clarification_required:
+            break
+
     if completeness_result["clarification_required"]:
         clarification_questions.extend([q["question"] for q in completeness_result["questions"]])
         clarification_reason = f"Missing mandatory fields: {', '.join(completeness_result['missing_fields'])}"
@@ -1114,6 +1131,9 @@ def analyze_feedback(
             clarification_reason += "; Ambiguous fields: " + ", ".join(ambiguity_result['ambiguous_fields'])
         else:
             clarification_reason = f"Ambiguous fields: {', '.join(ambiguity_result['ambiguous_fields'])}"
+
+    if clarification_required and not clarification_reason:
+        clarification_reason = "Extracted condition has no resolvable field reference"
 
     # STEP 8: Review Routing (V4 Policy-Driven)
     routing_service = RealReviewRoutingService()
@@ -1141,6 +1161,7 @@ def analyze_feedback(
         clarification_required=clarification_required,
         mandatory_fields_valid=(all(v.get("mandatory_fields_valid", True) for v in schema_validation_results) if schema_validation_results else False),
         sensitivity=sensitivity,
+        schema_validation=schema_validation,
     )
 
     # Record clarification timestamp
@@ -1281,7 +1302,11 @@ def analyze_feedback(
         routing_decision=RoutingDecisionResponse(
             review_status=routing_decision.get("review_status", "pending_review"),
             priority=routing_decision.get("priority", "normal"),
-            reason=routing_decision.get("reason", routing_decision.get("reasoning", {}).get("factors", [""])[0] if routing_decision.get("reasoning", {}).get("factors") else "")
+            reason=routing_decision.get("reason", routing_decision.get("reasoning", {}).get("factors", [""])[0] if routing_decision.get("reasoning", {}).get("factors") else ""),
+            suggested_reviewer_type=routing_decision.get("suggested_reviewer_type"),
+            suggested_reviewer_id=routing_decision.get("suggested_reviewer_id"),
+            auto_approval_eligible=routing_decision.get("auto_approval_eligible", False),
+            reasoning=routing_decision.get("reasoning", {}),
         ),
     )
 

@@ -258,7 +258,9 @@ class DomainPackMatcher:
 
             # Also check conditions for field references
             for condition in conditions:
-                field = condition.get("field", "")
+                if not condition or not isinstance(condition, dict):
+                    continue
+                field = condition.get("field") or ""
                 if '.' in field:
                     table, col = field.split('.', 1)
                     if table in schema_tables and col in schema_tables[table].get("columns", {}):

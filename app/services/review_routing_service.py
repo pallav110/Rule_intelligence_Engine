@@ -320,6 +320,7 @@ class RealReviewRoutingService:
         clarification_required: bool = False,
         mandatory_fields_valid: bool | None = True,
         sensitivity: Dict[str, Any] | None = None,
+        schema_validation: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         # First, evaluate explicit decision rules per spec (8.9.7 / 8.10)
         try:
@@ -328,7 +329,7 @@ class RealReviewRoutingService:
             override = evaluate_decision_table(
                 classification=classification,
                 extraction=extraction,
-                schema_validation=(extraction.get("schema_validation") if isinstance(extraction, dict) else None) or {},
+                schema_validation=schema_validation or {},
                 duplicate_check=duplicate_check,
                 conflict_check=conflict_check,
                 sensitivity=sensitivity,

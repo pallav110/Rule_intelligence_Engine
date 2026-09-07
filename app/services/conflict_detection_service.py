@@ -92,6 +92,38 @@ class ConflictDetector:
             },
         }
 
+    # ── helpers: same _get_effective_entities / _singularize / _field_tokens / _fields_related as baseline
+    @staticmethod
+    def _get_effective_entities(rule: Dict[str, Any]) -> Dict[str, Any]:
+        entities = rule.get("affected_entities") or {}
+        tables = entities.get("tables") or rule.get("affected_tables") or []
+        columns = entities.get("columns") or rule.get("affected_columns") or []
+        return {"tables": tables, "columns": columns}
+
+    @staticmethod
+    def _singularize(token: str) -> str:
+        t = token.lower().strip()
+        return t[:-1] if t.endswith("s") and len(t) > 3 else t
+
+    def _field_tokens(self, field_name: str) -> set:
+        return set(f.strip().lower() for f in field_name.split(".") if f.strip())
+
+    def _fields_related(self, f1: str, f2: str) -> bool:
+        if not f1 or not f2:
+            return False
+        f1l, f2l = f1.lower(), f2.lower()
+        if f1l == f2l:
+            return True
+        tok1 = {self._singularize(t) for t in self._field_tokens(f1l)}
+        tok2 = {self._singularize(t) for t in self._field_tokens(f2l)}
+        if tok1 & tok2:
+            return True
+        if self._string_similarity(f1l, f2l) > 0.6:
+            return True
+        leaf1 = f1l.rsplit(".", 1)[-1]
+        leaf2 = f2l.rsplit(".", 1)[-1]
+        return leaf1 == leaf2
+
     def _check_conflict(self, new_rule: Dict[str, Any], existing_rule: Dict[str, Any]) -> Tuple[str, float, Dict]:
         """Check for specific conflict between two rules."""
         details = {
@@ -122,21 +154,43 @@ class ConflictDetector:
         if not details["scope_overlap"]:
             return self.NO_CONFLICT, 0.0, details
 
-        # 3. Check affected entities overlap
-        new_entities = new_rule.get("affected_entities", {})
-        existing_entities = existing_rule.get("affected_entities", {})
+        # 3. Check affected entities overlap (use effective entities + fuzzy table match)
+        new_entities = self._get_effective_entities(new_rule)
+        existing_entities = self._get_effective_entities(existing_rule)
 
         new_tables = set(new_entities.get("tables", []))
         existing_tables = set(existing_entities.get("tables", []))
-        shared_tables = new_tables & existing_tables
+
+        new_tables_norm = {self._singularize(t) for t in new_tables} if new_tables else set()
+        existing_tables_norm = {self._singularize(t) for t in existing_tables} if existing_tables else set()
+        shared_tables = (new_tables & existing_tables) | (new_tables_norm & existing_tables_norm)
         details["shared_tables"] = list(shared_tables)
 
         if not shared_tables:
-            return self.NO_CONFLICT, 0.0, details
+            # If new rule has NO resolved tables/columns but has conditions and same term+scope,
+            # allow fall-through to condition-level conflict checks.
+            new_cols_eff = set(self._get_effective_entities(new_rule).get("columns", []))
+            has_any_entity = bool(new_tables or existing_tables or new_cols_eff)
+            # Let candidate_conditions / condition overlap checks decide; don't short-circuit here
+            if new_rule.get("conditions") or new_rule.get("candidate_conditions"):
+                details["shared_tables"] = []
+            else:
+                return self.NO_CONFLICT, 0.0, details
 
+        # Use fuzzy column overlap for shared_columns
         new_columns = set(new_entities.get("columns", []))
         existing_columns = set(existing_entities.get("columns", []))
         shared_columns = new_columns & existing_columns
+        if not shared_columns:
+            for nc in list(new_columns):
+                nc_tokens = {self._singularize(t) for t in self._field_tokens(nc)}
+                for ec in list(existing_columns):
+                    ec_tokens = {self._singularize(t) for t in self._field_tokens(ec)}
+                    if nc_tokens & ec_tokens:
+                        shared_columns = {nc, ec}
+                        break
+                if shared_columns and shared_columns != (new_columns & existing_columns):
+                    break
         details["shared_columns"] = list(shared_columns)
 
         # 4. Check subject overlap (semantic concept overlap)
@@ -161,23 +215,13 @@ class ConflictDetector:
         operation_conflict = self._check_operation_conflict(new_op, existing_op)
         details["conflicting_operations"] = operation_conflict
 
-        # Operation conflict detected - check conditions
-        if operation_conflict and shared_columns:
-            # Debug: Log what we're seeing
-            print(f"DEBUG: operation_conflict={operation_conflict}, shared_columns={shared_columns}")
-            print(f"DEBUG: business_term_similarity={details['business_term_similarity']}, subject_similarity={details['subject_similarity']}")
-
-            # If business terms match exactly and we have shared columns, it's a direct conflict
-            if details["business_term_similarity"] > 0.85:
-                print(f"DEBUG: Detected direct conflict via business_term_similarity > 0.85")
-                return self.DIRECT_CONFLICT, 0.85, details
-
-            # Simplify threshold to catch issues with subject similarity
-            if details["business_term_similarity"] > 0.7 or details["subject_similarity"] >= 0.0:
-                print(f"DEBUG: Possible conflict detected, returning direct conflict for testing.")
-                return self.DIRECT_CONFLICT, 0.85, details
-
-            print(f"DEBUG: operation_conflict conditions met but thresholds not passed")
+        # Operation conflict detected — also allow condition-overlap as surrogate for column overlap
+        condition_overlap = False
+        if len(new_conditions) > 0 and len(existing_conditions) > 0:
+            condition_overlap = self._calculate_condition_similarity(new_conditions, existing_conditions) > 0.4
+        if operation_conflict and (shared_columns or condition_overlap):
+            # Business term already required (NO_CONFLICT above if not), so this is a direct conflict
+            return self.DIRECT_CONFLICT, 0.85, details
 
         # 7. Check temporal overlap (for time-based rules)
         new_time_window = new_rule.get("time_window")
@@ -185,7 +229,9 @@ class ConflictDetector:
         details["temporal_overlap"] = new_time_window == existing_time_window
 
         # 8. Potential conflict if conditions overlap but not contradictory
-        if shared_tables and len(new_conditions) > 0 and len(existing_conditions) > 0:
+        # Allow when tables unknown (new rule from extractor with no resolved entities) but conditions exist
+        has_entity_basis = bool(shared_tables) or (not set(self._get_effective_entities(new_rule).get("tables", [])) and not set(self._get_effective_entities(new_rule).get("columns", [])) and bool(new_conditions))
+        if (shared_tables or has_entity_basis) and len(new_conditions) > 0 and len(existing_conditions) > 0:
             condition_similarity = self._calculate_condition_similarity(new_conditions, existing_conditions)
             if condition_similarity > 0.4:
                 return self.POTENTIAL_CONFLICT, condition_similarity * 0.8, details
@@ -212,8 +258,8 @@ class ConflictDetector:
                 existing_operator = existing_cond.get("operator", "").lower()
                 existing_value = existing_cond.get("value")
 
-                # Same field, contradictory operators/values
-                if new_field == existing_field:
+                # Fuzzy field match for contradictions
+                if self._fields_related(new_field, existing_field):
                     is_contradictory = self._operators_contradict(
                         new_operator, new_value, existing_operator, existing_value
                     )
@@ -289,7 +335,7 @@ class ConflictDetector:
         return False
 
     def _calculate_condition_similarity(self, conditions1: List[Dict], conditions2: List[Dict]) -> float:
-        """Calculate similarity between condition lists."""
+        """Calculate similarity between condition lists (fuzzy field matching)."""
         if not conditions1 or not conditions2:
             return 0.0
 
@@ -297,8 +343,8 @@ class ConflictDetector:
         for cond1 in conditions1:
             for cond2 in conditions2:
                 if (
-                    cond1.get("field", "").lower() == cond2.get("field", "").lower()
-                    and cond1.get("operator", "").lower() == cond2.get("operator", "").lower()
+                    self._fields_related(cond1.get("field", ""), cond2.get("field", ""))
+                    and (cond1.get("operator") or "").lower() == (cond2.get("operator") or "").lower()
                 ):
                     matches += 1
                     break
@@ -526,27 +572,13 @@ class RealConflictDetectionService:
         """
         details = {}
 
-        # Normalize affected entities: accept either `affected_entities` or top-level
-        # `affected_tables` / `affected_columns` fields produced by extractors.
-        def _ensure_entities(rule: Dict[str, Any]):
-            if not rule.get("affected_entities"):
-                tables = rule.get("affected_tables") or rule.get("affected_tables") or []
-                cols = rule.get("affected_columns") or rule.get("affected_columns") or []
-                # also accept `affected_columns` sometimes named `affected_columns` or `columns`
-                if not cols and rule.get("columns"):
-                    cols = rule.get("columns")
-                rule["affected_entities"] = {"tables": tables, "columns": cols}
-
-        _ensure_entities(new_rule)
-        _ensure_entities(existing_rule)
-
-        # Debug: show normalized affected_entities
-        try:
-            print(f"DEBUG: normalized new_rule.affected_entities={json.dumps(new_rule.get('affected_entities'), default=str)}")
-            print(f"DEBUG: normalized existing_rule.affected_entities={json.dumps(existing_rule.get('affected_entities'), default=str)}")
-        except Exception:
-            print(f"DEBUG: normalized new_rule.affected_entities={repr(new_rule.get('affected_entities'))}")
-            print(f"DEBUG: normalized existing_rule.affected_entities={repr(existing_rule.get('affected_entities'))}")
+        # Normalize affected entities using the same merge logic as baseline:
+        # accept either `affected_entities` or top-level `affected_tables` / `affected_columns` fields.
+        new_entities = self.detector._get_effective_entities(new_rule)
+        exist_entities = self.detector._get_effective_entities(existing_rule)
+        # Write back so downstream code sees the merged form
+        new_rule["affected_entities"] = new_entities
+        existing_rule["affected_entities"] = exist_entities
 
         # 1. Business Term Comparison
         new_term = (new_rule.get("business_term") or "").lower()
@@ -593,20 +625,13 @@ class RealConflictDetectionService:
         # 3. Affected Fields Comparison
         new_entities = new_rule.get("affected_entities", {})
         exist_entities = existing_rule.get("affected_entities", {})
-        # Accept top-level `affected_tables` / `affected_columns` if normalization missed
-        if (not new_entities.get("tables") or len(new_entities.get("tables", [])) == 0) and new_rule.get("affected_tables"):
-            new_entities["tables"] = new_rule.get("affected_tables")
-        if (not new_entities.get("columns") or len(new_entities.get("columns", [])) == 0) and new_rule.get("affected_columns"):
-            new_entities["columns"] = new_rule.get("affected_columns")
-
-        if (not exist_entities.get("tables") or len(exist_entities.get("tables", [])) == 0) and existing_rule.get("affected_tables"):
-            exist_entities["tables"] = existing_rule.get("affected_tables")
-        if (not exist_entities.get("columns") or len(exist_entities.get("columns", [])) == 0) and existing_rule.get("affected_columns"):
-            exist_entities["columns"] = existing_rule.get("affected_columns")
-
         new_tables = set(new_entities.get("tables", []))
         exist_tables = set(exist_entities.get("tables", []))
-        shared_tables = new_tables & exist_tables
+
+        # Fuzzy table match: singularized intersection
+        new_tables_norm = {self.detector._singularize(t) for t in new_tables} if new_tables else set()
+        exist_tables_norm = {self.detector._singularize(t) for t in exist_tables} if exist_tables else set()
+        shared_tables = (new_tables & exist_tables) | (new_tables_norm & exist_tables_norm)
 
         # Get columns from affected_entities, or derive from conditions if empty
         new_columns = set(new_entities.get("columns", []))
@@ -626,6 +651,17 @@ class RealConflictDetectionService:
                     exist_columns.add(field)
 
         shared_columns = new_columns & exist_columns
+        # Fuzzy column match (singularized tokens)
+        if not shared_columns:
+            for nc in list(new_columns):
+                nc_tokens = {self.detector._singularize(t) for t in self.detector._field_tokens(nc)}
+                for ec in list(exist_columns):
+                    ec_tokens = {self.detector._singularize(t) for t in self.detector._field_tokens(ec)}
+                    if nc_tokens & ec_tokens:
+                        shared_columns = {nc, ec}
+                        break
+                if shared_columns and shared_columns != (new_columns & exist_columns):
+                    break
 
         details["affected_fields"] = {
             "new_tables": list(new_tables),
@@ -639,14 +675,19 @@ class RealConflictDetectionService:
         # Debug: log shared tables/columns
         print(f"DEBUG: affected_fields shared_tables={details['affected_fields']['shared_tables']}, shared_columns={details['affected_fields']['shared_columns']}")
 
-        # If no shared fields, no conflict
+        # If no shared fields, allow fall-through for entity-less rules with conditions
         if not shared_tables or not shared_columns:
-            return {
-                "has_conflict": False,
-                "conflict_type": "no_conflict",
-                "confidence": 0.0,
-                "details": details,
-            }
+            # When new rule has no resolved entities but has conditions, allow condition-level check
+            new_has_any = bool(new_tables or new_columns)
+            if not new_has_any and (new_rule.get("conditions") or new_rule.get("candidate_conditions")):
+                pass  # Allow fall-through to condition comparison below
+            else:
+                return {
+                    "has_conflict": False,
+                    "conflict_type": "no_conflict",
+                    "confidence": 0.0,
+                    "details": details,
+                }
 
         # 4. Operation Comparison (Contradictory or Compatible)
         new_op = (new_rule.get("operation") or "").lower()
@@ -707,8 +748,9 @@ class RealConflictDetectionService:
 
         # DECISION LOGIC per spec:
         # - Direct Conflict: Contradictory operations on shared fields with same business term and overlapping scope
-        if operation_conflict and shared_columns and shared_tables:
-            print(f"DEBUG: operation_conflict detected (new_op={new_op}, exist_op={exist_op})")
+        #   Also fires when operation conflicts and conditions overlap (even without explicit shared columns)
+        condition_overlap = cond_similarity > 0.4
+        if operation_conflict and (shared_columns or shared_tables or condition_overlap):
             return {
                 "has_conflict": True,
                 "conflict_type": "direct_conflict",
@@ -717,7 +759,7 @@ class RealConflictDetectionService:
             }
 
         # - Potential Conflict: Similar conditions but not exact contradictory operations
-        if cond_similarity > 0.5 and shared_columns:
+        if cond_similarity > 0.5:
             return {
                 "has_conflict": True,
                 "conflict_type": "potential_conflict",

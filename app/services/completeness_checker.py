@@ -234,7 +234,7 @@ class AmbiguityDetector:
         ambiguity_details = {}
 
         # Check business term ambiguity
-        business_term = extracted_rule.get("business_term", "").lower()
+        business_term = (extracted_rule.get("business_term") or "").lower()
         term_ambiguous = any(term in business_term for term in self.ambiguous_terms)
         ambiguity_details["business_term"] = term_ambiguous
         if term_ambiguous:
@@ -267,7 +267,7 @@ class AmbiguityDetector:
             ambiguous_fields.append("conditions")
 
         # Check scope ambiguity
-        scope = extracted_rule.get("scope", "").lower()
+        scope = (extracted_rule.get("scope") or "").lower()
         scope_ambiguous = scope not in ["global"] and not scope.startswith("region:") and not scope.startswith("time:")
         ambiguity_details["scope"] = scope_ambiguous
         if scope_ambiguous:

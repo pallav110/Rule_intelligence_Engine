@@ -90,8 +90,12 @@ class ClarificationResponse(BaseModel):
 
 class RoutingDecisionResponse(BaseModel):
     review_status: str  # pending_review, clarification_required, auto_approved, etc.
-    priority: str = "normal"  # normal, high, urgent
+    priority: str = "normal"  # normal, high, urgent, auto_approve
     reason: str = ""
+    suggested_reviewer_type: str | None = None  # automated, domain_expert, manager, qa
+    suggested_reviewer_id: str | None = None
+    auto_approval_eligible: bool = False
+    reasoning: dict[str, Any] = Field(default_factory=dict)  # confidence/impact/complexity/risk scores + factors
 
 
 class PreprocessingResponse(BaseModel):

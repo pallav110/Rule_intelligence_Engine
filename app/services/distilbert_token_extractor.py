@@ -123,7 +123,22 @@ class DistilBERTTokenExtractor:
             self.model.eval()
 
             self.model_ready = True
-            print(f"✅ Loaded DistilBERT token extractor (95.6% accuracy)")
+
+            # Read actual metrics from latest eval file (always updated on retrain)
+            try:
+                eval_path = model_dir / "token_evaluation_results.json"
+                if eval_path.exists():
+                    with open(eval_path) as ef:
+                        eval_data = json.load(ef)
+                    self.token_accuracy = eval_data.get("overall_accuracy", 0.0)
+                    self.macro_f1 = eval_data.get("macro_f1", 0.0)
+                else:
+                    self.token_accuracy = 0.0
+                    self.macro_f1 = 0.0
+            except Exception:
+                self.token_accuracy = 0.0
+                self.macro_f1 = 0.0
+            print(f"✅ Loaded DistilBERT token extractor ({self.token_accuracy*100:.1f}% accuracy)")
 
         except Exception as e:
             print(f"⚠️  Failed to load token extractor: {e}")
@@ -144,8 +159,8 @@ class DistilBERTTokenExtractor:
                 },
                 "overall_confidence": float,
                 "model": "distilbert_token_classifier",
-                "token_accuracy": 0.956,
-                "macro_f1": 0.8276,
+                "token_accuracy": getattr(self, 'token_accuracy', 0.0),
+                "macro_f1": getattr(self, 'macro_f1', 0.0),
                 "validation_ready": bool
             }
         """
@@ -227,10 +242,10 @@ class DistilBERTTokenExtractor:
                     "component_mapping": component_mapping,
                     "detailed_components": detailed_components
                 },
-                "overall_confidence": constructed_rule.get("confidence", 0.956),
+                "overall_confidence": constructed_rule.get("confidence", getattr(self, 'token_accuracy', 0.0)),
                 "model": "distilbert_token_classifier",
-                "token_accuracy": 0.956,
-                "macro_f1": 0.8276,
+                "token_accuracy": getattr(self, 'token_accuracy', 0.0),
+                "macro_f1": getattr(self, 'macro_f1', 0.0),
                 "method": "bio_token_classification",
                 "validation_ready": len(constructed_rule.get("conditions", [])) > 0 and constructed_rule.get("operation") is not None
             }

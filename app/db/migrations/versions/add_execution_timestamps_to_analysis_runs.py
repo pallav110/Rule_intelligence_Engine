@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_execution_timestamps'
-down_revision: Union[str, None] = 'phase3_suggestion_audit_001_create_audit_table'
+down_revision: Union[str, None] = 'phase3_suggestion_audit_001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

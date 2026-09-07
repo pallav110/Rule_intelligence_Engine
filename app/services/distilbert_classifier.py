@@ -1,6 +1,7 @@
 """DistilBERT Classification Service - ML Candidate Model
 
-Uses trained DistilBERT model (98.01% accuracy on feedback type classification).
+Uses trained DistilBERT model for feedback type classification.
+Accuracy is read dynamically from comprehensive_eval_test.json at load time.
 This is the candidate ML approach compared against baseline TF-IDF in testing UI.
 """
 
@@ -128,7 +129,19 @@ class DistilBERTClassifier:
                     self.label_mappings = json.load(f)
 
             self.model_ready = True
-            print(f"✅ Loaded DistilBERT classification model (98.01% accuracy)")
+
+            # Read actual accuracy from latest eval file (always updated on retrain)
+            try:
+                eval_path = model_dir / "comprehensive_eval_test.json"
+                if eval_path.exists():
+                    with open(eval_path) as ef:
+                        eval_data = json.load(ef)
+                    self.accuracy = eval_data.get("feedback_type", {}).get("accuracy", 0.0)
+                else:
+                    self.accuracy = 0.0
+            except Exception:
+                self.accuracy = 0.0
+            print(f"✅ Loaded DistilBERT classification model ({self.accuracy*100:.1f}% accuracy)")
 
             # Try to load calibration parameters if present alongside the model
             try:
@@ -158,7 +171,7 @@ class DistilBERTClassifier:
                 "requires_clarification": bool,
                 "confidence": float,
                 "model": "distilbert",
-                "accuracy_on_validation": 0.9801
+                "accuracy_on_validation": getattr(self, 'accuracy', 0.0)
             }
         """
         if not self.model_ready:
@@ -245,7 +258,7 @@ class DistilBERTClassifier:
                         "requires_clarification": bool(rq_prob) if rq_prob is not None else False,
                         "confidence": float(_np.max(ft_probs)) if ft_probs is not None else None,
                         "model": "distilbert",
-                        "accuracy_on_validation": 0.9801,
+                        "accuracy_on_validation": getattr(self, 'accuracy', 0.0),
                         "method": "multi_task_distilbert",
                         "feedback_type_probs": ft_probs.tolist() if ft_probs is not None else None,
                         "rule_category_probs": rc_probs.tolist() if rc_probs is not None else None,
@@ -288,7 +301,7 @@ class DistilBERTClassifier:
                 "requires_clarification": False,
                 "confidence": min(0.99, confidence),
                 "model": "distilbert",
-                "accuracy_on_validation": 0.9801,
+                "accuracy_on_validation": getattr(self, 'accuracy', 0.0),
                 "method": "multi_task_distilbert"
             }
 

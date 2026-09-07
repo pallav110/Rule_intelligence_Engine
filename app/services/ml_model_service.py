@@ -164,9 +164,11 @@ class MLModelService:
             if checkpoint and checkpoint.exists():
                 result = self._extract_with_distilbert(feedback, checkpoint, schema_context)
                 if result.get("model") == "distilbert_token_classifier" and not result.get("error"):
-                    # Check if extraction actually produced rules
+                    # Check if extraction actually produced rules.
+                    # A valid rule requires at least an operation OR a business_term.
+                    # Rules with only conditions and no operation are too partial to use.
                     rules = result.get("extraction", {}).get("extracted_rules", [])
-                    if rules and rules[0].get("business_term"):
+                    if rules and (rules[0].get("business_term") or rules[0].get("operation")):
                         result["model_version_id"] = active["model_version_id"]
                         result["model_version"] = active["version"]
                         result["registry_status"] = "active_ml"

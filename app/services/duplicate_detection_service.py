@@ -100,15 +100,19 @@ class DuplicateDetector:
         existing_scope = existing_rule.get("scope", "").lower()
         details["scope_match"] = new_scope == existing_scope
 
-        # 4. Compare conditions
+        # 4. Compare conditions (including candidate conditions for semantic matching)
         new_conditions = new_rule.get("conditions", [])
         existing_conditions = existing_rule.get("conditions", [])
-        condition_similarity = self._compare_conditions(new_conditions, existing_conditions)
+        new_candidate_conditions = new_rule.get("candidate_conditions", [])
+        condition_similarity = self._compare_conditions(
+            new_conditions, existing_conditions, new_rule, existing_rule,
+            candidate_conditions=new_candidate_conditions,
+        )
         details["condition_similarity"] = round(condition_similarity, 3)
 
-        # 5. Compare affected entities (tables and columns)
-        new_entities = new_rule.get("affected_entities", {})
-        existing_entities = existing_rule.get("affected_entities", {})
+        # 5. Compare affected entities (tables and columns) — merge both key styles
+        new_entities = self._get_effective_entities(new_rule)
+        existing_entities = self._get_effective_entities(existing_rule)
         entities_similarity = self._compare_entities(new_entities, existing_entities)
         details["affected_entities_match"] = round(entities_similarity, 3)
 
@@ -126,29 +130,63 @@ class DuplicateDetector:
         """Calculate string similarity using SequenceMatcher."""
         return SequenceMatcher(None, s1, s2).ratio()
 
-    def _compare_conditions(self, new_conditions: List[Dict], existing_conditions: List[Dict]) -> float:
+    def _compare_conditions(
+        self, new_conditions: List[Dict], existing_conditions: List[Dict],
+        new_rule: Dict = None, existing_rule: Dict = None,
+        candidate_conditions: List[Dict] = None,
+    ) -> float:
         """
         Compare condition lists.
         Returns similarity score 0.0-1.0.
 
         Strategy:
         - If BOTH are empty: perfect match (1.0)
-        - If ONE is empty: partial match (0.5) - feedback may not have conditions extracted yet
-        - If BOTH have conditions: compare field-by-field
+        - If ONE is empty, check if entities/fuzzy match gives partial credit (0.5)
+        - If candidate conditions present, boost similarity via fuzzy token overlap
+        - If BOTH have conditions: compare field-by-field with fuzzy matching
         """
         if not new_conditions and not existing_conditions:
             return 1.0
 
-        # NEW: If one is empty, return partial match instead of 0.0
-        # This handles cases where conditions haven't been extracted from feedback yet
+        # If new rule has no conditions but HAS candidate conditions, boost similarity
+        if not new_conditions and candidate_conditions and existing_conditions:
+            candidate_texts = [c.get("text", "").lower() for c in candidate_conditions]
+            candidate_text = " ".join(candidate_texts)
+            for cond in existing_conditions if existing_conditions else []:
+                field = (cond.get("field") or "").lower()
+                for token in self._field_tokens(field):
+                    if token in candidate_text or self._singularize(token) in candidate_text:
+                        return 0.65  # Good semantic match via candidate conditions
+
         if not new_conditions or not existing_conditions:
+            if new_conditions and not existing_conditions:
+                # New rule has conditions, existing doesn't — check effective entities
+                existing_ent = self._get_effective_entities(existing_rule) if existing_rule else {}
+                existing_fields = set(f.lower() for f in existing_ent.get("columns", []))
+                new_fields = set((cond.get("field") or "").lower() for cond in new_conditions if cond)
+                for nf in new_fields:
+                    nf_tokens = {self._singularize(t) for t in self._field_tokens(nf)}
+                    for ef in existing_fields:
+                        ef_tokens = {self._singularize(t) for t in self._field_tokens(ef)}
+                        if nf_tokens & ef_tokens:
+                            return 0.5
+            elif existing_conditions and not new_conditions:
+                new_ent = self._get_effective_entities(new_rule) if new_rule else {}
+                new_fields = set(f.lower() for f in new_ent.get("columns", []))
+                existing_fields = set((cond.get("field") or "").lower() for cond in existing_conditions if cond)
+                for nf in new_fields:
+                    nf_tokens = {self._singularize(t) for t in self._field_tokens(nf)}
+                    for ef in existing_fields:
+                        ef_tokens = {self._singularize(t) for t in self._field_tokens(ef)}
+                        if nf_tokens & ef_tokens:
+                            return 0.5
             return 0.5
 
         # Normalize conditions for comparison
         new_normalized = self._normalize_conditions(new_conditions)
         existing_normalized = self._normalize_conditions(existing_conditions)
 
-        # Count matching conditions
+        # Count matching conditions using fuzzy field comparison
         matching = 0
         for new_cond in new_normalized:
             for existing_cond in existing_normalized:
@@ -159,60 +197,99 @@ class DuplicateDetector:
         total = max(len(new_normalized), len(existing_normalized))
         return matching / total if total > 0 else 0.0
 
-    def _normalize_conditions(self, conditions: List[Dict]) -> List[Dict]:
+    def _normalize_conditions(self, conditions) -> List[Dict]:
         """Normalize condition representation for comparison."""
+        if not conditions:
+            return []
         normalized = []
         for cond in conditions:
+            if not cond or not isinstance(cond, dict):
+                continue
             normalized.append(
                 {
-                    "field": cond.get("field", "").lower(),
-                    "operator": cond.get("operator", "").lower(),
+                    "field": (cond.get("field") or "").lower(),
+                    "operator": (cond.get("operator") or "").lower(),
                     "value": str(cond.get("value", "")).lower() if cond.get("value") is not None else None,
                 }
             )
         return normalized
 
+    @staticmethod
+    def _get_effective_entities(rule: Dict[str, Any]) -> Dict[str, Any]:
+        """Build effective entities dict from affected_entities or affected_tables/affected_columns."""
+        entities = rule.get("affected_entities") or {}
+        tables = entities.get("tables") or rule.get("affected_tables") or []
+        columns = entities.get("columns") or rule.get("affected_columns") or []
+        return {"tables": tables, "columns": columns}
+
+    @staticmethod
+    def _field_tokens(field_name: str) -> set:
+        """Split a field name into lowercase tokens (e.g. 'orders.status' -> {'orders','status'})."""
+        return set(f.strip().lower() for f in field_name.split(".") if f.strip())
+
+    @staticmethod
+    def _singularize(token: str) -> str:
+        """Very simple singularization: remove trailing 's' for plural forms."""
+        t = token.lower().strip()
+        return t[:-1] if t.endswith("s") and len(t) > 3 else t
+
+    def _fields_related(self, f1: str, f2: str) -> bool:
+        """Check if two field names are related via fuzzy comparison."""
+        if not f1 or not f2:
+            return False
+        f1l, f2l = f1.lower(), f2.lower()
+        if f1l == f2l:
+            return True
+        tok1 = {self._singularize(t) for t in self._field_tokens(f1l)}
+        tok2 = {self._singularize(t) for t in self._field_tokens(f2l)}
+        if tok1 & tok2:
+            return True
+        if self._string_similarity(f1l, f2l) > 0.6:
+            return True
+        leaf1 = f1l.rsplit(".", 1)[-1]
+        leaf2 = f2l.rsplit(".", 1)[-1]
+        return leaf1 == leaf2
+
     def _conditions_equal(self, cond1: Dict, cond2: Dict) -> bool:
-        """Check if two conditions are equivalent."""
-        field_match = cond1.get("field") == cond2.get("field")
-        operator_match = cond1.get("operator") == cond2.get("operator")
+        """Check if two conditions are equivalent (fuzzy field matching)."""
+        field_match = self._fields_related(cond1.get("field") or "", cond2.get("field") or "")
+        operator_match = (cond1.get("operator") or "").lower() == (cond2.get("operator") or "").lower()
 
         # Special handling for value comparison
         val1 = cond1.get("value")
         val2 = cond2.get("value")
 
         # For null checks, treat None and "None" as equivalent
-        if cond1.get("operator") in ["is_not_null", "is_null"]:
+        if (cond1.get("operator") or "").lower() in ["is_not_null", "is_null"]:
             value_match = True
         else:
-            value_match = val1 == val2
+            value_match = str(val1).lower() == str(val2).lower() if val1 is not None and val2 is not None else val1 == val2
 
         return field_match and operator_match and value_match
 
     def _compare_entities(self, new_entities: Dict, existing_entities: Dict) -> float:
         """
         Compare affected entities (tables and columns).
-        Returns similarity score 0.0-1.0
+        Returns similarity score 0.0-1.0 (fuzzy matching for tables/columns).
         """
         new_tables = set(new_entities.get("tables", []))
         existing_tables = set(existing_entities.get("tables", []))
+        new_columns = list(new_entities.get("columns", []))
+        existing_columns = list(existing_entities.get("columns", []))
 
-        new_columns = set(new_entities.get("columns", []))
-        existing_columns = set(existing_entities.get("columns", []))
-
-        # Calculate Jaccard similarity for tables
+        # Fuzzy Jaccard for tables (singularized tokens)
         if new_tables or existing_tables:
-            table_intersection = len(new_tables & existing_tables)
-            table_union = len(new_tables | existing_tables)
-            table_similarity = table_intersection / table_union if table_union > 0 else 0.0
+            new_tok = {self._singularize(t) for t in new_tables}
+            exist_tok = {self._singularize(t) for t in existing_tables}
+            table_similarity = len(new_tok & exist_tok) / len(new_tok | exist_tok) if (new_tok | exist_tok) else 0.0
         else:
             table_similarity = 1.0
 
-        # Calculate Jaccard similarity for columns
+        # Fuzzy Jaccard for columns (singularized tokens)
         if new_columns or existing_columns:
-            col_intersection = len(new_columns & existing_columns)
-            col_union = len(new_columns | existing_columns)
-            col_similarity = col_intersection / col_union if col_union > 0 else 0.0
+            new_tok2 = {self._singularize(t) for t in new_columns}
+            exist_tok2 = {self._singularize(t) for t in existing_columns}
+            col_similarity = len(new_tok2 & exist_tok2) / len(new_tok2 | exist_tok2) if (new_tok2 | exist_tok2) else 0.0
         else:
             col_similarity = 1.0
 
@@ -227,6 +304,18 @@ class DuplicateDetector:
         scope_match = details["scope_match"]
         entities_sim = details["affected_entities_match"]
 
+        new_has_conditions = len(new_rule.get("conditions", [])) > 0
+        existing_has_conditions = len(existing_rule.get("conditions", [])) > 0
+        new_has_candidates = len(new_rule.get("candidate_conditions", [])) > 0
+
+        # Check if entities are "unknown" (not extracted)
+        new_entities = self._get_effective_entities(new_rule)
+        existing_entities = self._get_effective_entities(existing_rule)
+        both_entities_unknown = (
+            (new_entities.get("columns", []) == ["unknown.unknown"] or not new_entities.get("columns")) and
+            (existing_entities.get("columns", []) == ["unknown.unknown"] or not existing_entities.get("columns"))
+        )
+
         # EXACT DUPLICATE: everything matches perfectly
         if (
             business_term_match
@@ -238,29 +327,42 @@ class DuplicateDetector:
             confidence = 0.99
             return self.EXACT_DUPLICATE, confidence
 
-        # SEMANTIC DUPLICATE: business term + operation match, conditions partial or missing
-        # This handles feedback extraction where conditions haven't been fully extracted yet
-        if business_term_match and operation_match and condition_sim >= 0.5:
-            # High confidence if conditions match well (>0.7)
-            # Medium confidence if conditions partially present (0.5)
-            if condition_sim > 0.70 and entities_sim > 0.75:
-                confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.05)
-            else:
-                # Conditions not fully extracted but business term + operation match active rule
-                confidence = min(0.85, 0.6 + condition_sim * 0.2)
+        # SEMANTIC DUPLICATE: business term + high condition/entity match
+        if (
+            business_term_match
+            and operation_match
+            and scope_match
+            and (
+                (condition_sim > 0.85 and entities_sim > 0.8) or
+                # One rule has conditions, other doesn't, but same intent
+                (new_has_conditions != existing_has_conditions and entities_sim > 0.6)
+            )
+        ):
+            confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.1)
             return self.SEMANTIC_DUPLICATE, confidence
 
         # MODIFICATION: same business term, same operation, different conditions
         if (
             business_term_match
             and operation_match
-            and condition_sim >= 0.3
-            and condition_sim < 0.85
+            and (condition_sim > 0.5 and condition_sim < 0.9)
         ):
             confidence = min(0.85, (condition_sim + 0.7) / 2)
             return self.MODIFICATION, confidence
 
-        # EXTENSION: same business term, same operation, more conditions or entities
+        # EXTENSION: candidate conditions matching existing rule's intent
+        if (
+            new_has_candidates
+            and not new_has_conditions
+            and existing_has_conditions
+            and business_term_match
+            and operation_match
+        ):
+            if both_entities_unknown or entities_sim > 0.3:
+                confidence = 0.70
+                return self.EXTENSION, confidence
+
+        # EXTENSION: same operation/scope but more conditions or entities
         if (
             business_term_match
             and operation_match
@@ -395,6 +497,8 @@ class RealDuplicateDetectionService:
             result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
                 "exact_duplicate",
                 "semantic_duplicate",
+                "extension",
+                "modification",
             ]
             # semantic_similarity removed in V4 - using deterministic baseline
             result["retrieval_stage"] = len(candidates)
