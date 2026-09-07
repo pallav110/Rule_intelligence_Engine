@@ -416,7 +416,7 @@ class BaselineDuplicateDetectionService:
         self,
         suggested_rule: Dict[str, Any],
         workspace_id: str,
-        domain_id: str,
+        domain_id: str = None,
         db=None,
     ) -> Dict[str, Any]:
         """
@@ -440,6 +440,19 @@ class BaselineDuplicateDetectionService:
                 "details": {...}
             }
         """
+        # Handle None domain (gibberish/noise)
+        if not domain_id:
+            return {
+                "is_duplicate": False,
+                "relationship": "unrelated",
+                "matching_rule_id": None,
+                "confidence": 0.0,
+                "deterministic_match": True,
+                "normalized_rule_hash": self.detector._generate_rule_hash(suggested_rule),
+                "retrieval_stage": 0,
+                "details": {"reason": "No domain detected - skipping duplicate detection"}
+            }
+
         # For baseline, we retrieve ALL rules (no semantic retrieval)
         try:
             from sqlalchemy import text

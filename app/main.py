@@ -1035,23 +1035,45 @@ def analyze_feedback(
     # Record schema validation timestamp
     analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 5: Duplicate Detection (V4 Baseline)
-    duplicate_service = BaselineDuplicateDetectionService()
-    duplicate_check = duplicate_service.check_duplicate(
-        suggested_rule=primary_rule,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        db=db,
-    )
+    # STEP 5: Duplicate Detection (V4 Baseline) - only if we have a domain
+    if domain_pack_id:
+        duplicate_service = BaselineDuplicateDetectionService()
+        duplicate_check = duplicate_service.check_duplicate(
+            suggested_rule=primary_rule,
+            workspace_id=payload.workspace_id,
+            domain_id=domain_pack_id,
+            db=db,
+        )
+    else:
+        duplicate_check = {
+            "is_duplicate": False,
+            "relationship": "unrelated",
+            "matching_rule_id": None,
+            "confidence": 0.0,
+            "retrieval_stage": 0,
+            "similar_rules": [],
+            "details": {"reason": "No domain detected - skipping duplicate detection"}
+        }
 
-    # STEP 6: Conflict Detection
-    conflict_service = BaselineConflictDetectionService()
-    conflict_check = conflict_service.check_conflict(
-        suggested_rule=primary_rule,
-        workspace_id=payload.workspace_id,
-        domain_id=domain_pack_id,
-        db=db,
-    )
+    # STEP 6: Conflict Detection - only if we have a domain
+    if domain_pack_id:
+        conflict_service = BaselineConflictDetectionService()
+        conflict_check = conflict_service.check_conflict(
+            suggested_rule=primary_rule,
+            workspace_id=payload.workspace_id,
+            domain_id=domain_pack_id,
+            db=db,
+        )
+    else:
+        conflict_check = {
+            "has_conflict": False,
+            "conflict_type": "no_conflict",
+            "conflicting_rule_ids": [],
+            "confidence": 0.0,
+            "deterministic_comparison": True,
+            "retrieval_stage": 0,
+            "details": {"reason": "No domain detected - skipping conflict detection"}
+        }
 
     # Record duplicate and conflict detection timestamps
     analysis_run.execution_timestamps["duplicate_detection_completed"] = datetime.utcnow().isoformat()

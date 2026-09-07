@@ -44,6 +44,9 @@ class GlossaryService:
 
     def load_glossary_for_domain(self, domain_pack_id: str) -> Dict[str, Any]:
         """Load glossary for a specific domain pack."""
+        if not domain_pack_id:
+            return {}
+
         if domain_pack_id in self.glossaries:
             return self.glossaries[domain_pack_id]
 

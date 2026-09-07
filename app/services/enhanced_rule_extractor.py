@@ -118,13 +118,13 @@ class EnhancedRuleExtractor:
             }
         """
         schema_context = schema_context or {}
-        domain_pack_id = schema_context.get("domain_pack_id", "ecommerce")
+        domain_pack_id = schema_context.get("domain_pack_id")
 
-        # Load domain pack resources
-        domain_config = self._load_domain_config(domain_pack_id)
-        schema = self._load_schema(domain_pack_id)
-        relationships = self._load_relationships(domain_pack_id)
-        taxonomy = self._load_taxonomy(domain_pack_id)
+        # Load domain pack resources (only if domain_pack_id is provided)
+        domain_config = self._load_domain_config(domain_pack_id) if domain_pack_id else {}
+        schema = self._load_schema(domain_pack_id) if domain_pack_id else {}
+        relationships = self._load_relationships(domain_pack_id) if domain_pack_id else {}
+        taxonomy = self._load_taxonomy(domain_pack_id) if domain_pack_id else {}
 
         # Extract business terms
         business_terms = self._extract_business_terms(feedback, domain_pack_id)
@@ -268,13 +268,17 @@ class EnhancedRuleExtractor:
         }
 
     def _extract_business_terms(
-        self, feedback: str, domain_pack_id: str
+        self, feedback: str, domain_pack_id: str = None
     ) -> List[Dict[str, Any]]:
         """Extract business terms with glossary definitions including table/column mapping.
 
         Returns only the PRIMARY business term from the feedback (not all related
         glossary terms). Related terms are tracked as candidates for disambiguation.
         """
+        # Handle None domain (gibberish/noise)
+        if not domain_pack_id:
+            return []
+
         glossary_service = get_glossary_service()
         glossary_terms = glossary_service.extract_glossary_terms(
             feedback, domain_pack_id

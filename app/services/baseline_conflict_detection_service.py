@@ -374,7 +374,7 @@ class BaselineConflictDetectionService:
         if not existing_rules:
             return {
                 "has_conflict": False,
-                "conflict_type": self.NO_CONFLICT,
+                "conflict_type": self.detector.NO_CONFLICT,
                 "conflicting_rule_ids": [],
                 "confidence": 0.0,
                 "deterministic_comparison": True,
