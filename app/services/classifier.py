@@ -59,6 +59,18 @@ class RealClassifier:
                 "confidence": 0.0-1.0
             }
         """
+        # Gibberish / spam / noise is detected FIRST, before any model runs.
+        # A trained model can otherwise assign high confidence to a random class
+        # for nonsense input (e.g. a strong "business_rule_correction" prediction
+        # for "asdf qwerty"). The deterministic heuristic wins over both model and regex.
+        if self._is_gibberish(feedback):
+            return {
+                "feedback_type": "irrelevant_spam",
+                "rule_category": "unknown",
+                "is_actionable": False,
+                "confidence": 0.95,
+            }
+
         if self.is_trained and self.model and not self._fallback_to_regex:
             result = self._classify_with_model(feedback)
             # Fall back to regex if model confidence is low (< 0.6)
@@ -68,6 +80,32 @@ class RealClassifier:
             return result
         else:
             return self._classify_with_regex(feedback)
+
+    def _is_gibberish(self, feedback: str) -> bool:
+        """Heuristics to detect spam / gibberish / irrelevant input.
+
+        Any of these conditions flags the input as noise:
+        1. Very short feedback
+        2. Common non-actionable single-word responses
+        3. No alphabetic characters at all
+        4. High non-alphanumeric ratio (lots of brackets, symbols, numbers)
+        5. No recognizable English words (dictionary check)
+        """
+        feedback = feedback or ""
+        feedback_lower = feedback.lower().strip()
+        words = feedback_lower.split()
+        alnum_count = sum(1 for c in feedback if c.isalnum())
+        total_chars = len(feedback)
+        non_alnum_ratio = (total_chars - alnum_count) / max(total_chars, 1)
+        has_real_word = any(len(w) >= 3 and w.isalpha() for w in words)
+
+        return (
+            total_chars < 10
+            or feedback_lower in ["ok", "yes", "no", "thanks", "thank you", "hi", "hello"]
+            or not any(c.isalpha() for c in feedback)
+            or non_alnum_ratio > 0.5  # More than 50% special chars = likely gibberish
+            or (len(words) > 0 and not has_real_word and total_chars > 20)  # Long but no real words
+        )
 
     def _classify_with_model(self, feedback: str) -> Dict[str, Any]:
         """Classify using trained baseline model."""
@@ -170,33 +208,9 @@ class RealClassifier:
                 is_actionable = False
                 confidence = 0.3  # Lower confidence for questions
 
-        # Check for spam/irrelevant/gibberish
-        # Heuristics for gibberish detection:
-        # 1. Very short feedback
-        # 2. Common non-actionable responses
-        # 3. No alphabetic characters at all
-        # 4. HIGH NON-ALPHANUMERIC RATIO (lots of brackets, symbols, numbers)
-        # 5. NO RECOGNIZABLE ENGLISH WORDS (dictionary check)
-        words = feedback_lower.split()
-        alpha_count = sum(1 for c in feedback if c.isalpha())
-        alnum_count = sum(1 for c in feedback if c.isalnum())
-        total_chars = len(feedback)
-
-        # Calculate ratio of non-alphanumeric characters
-        non_alnum_ratio = (total_chars - alnum_count) / max(total_chars, 1)
-
-        # Check if any word looks like a real English word (3+ letters, mostly alphabetic)
-        has_real_word = any(len(w) >= 3 and w.isalpha() for w in words)
-
-        is_gibberish = (
-            len(feedback) < 10 or
-            feedback_lower in ["ok", "yes", "no", "thanks", "thank you", "hi", "hello"] or
-            not any(c.isalpha() for c in feedback) or
-            non_alnum_ratio > 0.5 or  # More than 50% special chars = likely gibberish
-            (len(words) > 0 and not has_real_word and len(feedback) > 20)  # Long but no real words
-        )
-
-        if is_gibberish:
+        # Spam/irrelevant/gibberish handled by shared heuristic (already applied at
+        # the top of classify()); kept here as a defensive re-check for direct callers.
+        if self._is_gibberish(feedback):
             feedback_type = "irrelevant_spam"
             is_actionable = False
             confidence = 0.95

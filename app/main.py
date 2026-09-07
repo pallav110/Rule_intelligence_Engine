@@ -158,6 +158,14 @@ def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
     feedback_text = payload.feedback_text or ""
     detected_domain, confidence = detect_domain_pack(feedback_text)
 
+    if detected_domain is None:
+        return {
+            "detected_domain": None,
+            "confidence": 0.0,
+            "recommended": None,
+            "reasoning": "No domain could be reliably detected from the input"
+        }
+
     return {
         "detected_domain": detected_domain,
         "confidence": round(confidence, 3),
@@ -997,8 +1005,8 @@ def analyze_feedback(
         except Exception as e:
             print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
 
-    # Pass domain_pack_schema in schema_context to ensure validator has access
-    full_schema_context = dict(payload.schema_context) if payload.schema_context else {}
+    # Pass domain_pack_schema into the same context that already holds
+    # domain_pack_id / detection metadata (don't replace the dict and lose them).
     full_schema_context["domain_pack_schema"] = domain_schema
 
     schema_validator = SchemaValidationService(schema_context=full_schema_context)

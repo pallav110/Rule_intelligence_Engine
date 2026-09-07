@@ -66,7 +66,7 @@ class DomainPackDetector:
             (domain_pack_id, confidence, reasoning)
         """
         if not feedback_text or not feedback_text.strip():
-            return "customer_support", 0.0, {"error": "Empty feedback"}
+            return None, 0.0, {"reason": "Empty feedback - no domain assigned"}
 
         feedback_lower = feedback_text.lower()
         scores: Dict[str, float] = {}
@@ -128,6 +128,15 @@ class DomainPackDetector:
 
         best_domain = max(scores, key=scores.get)
         best_score = scores[best_domain]
+
+        # Minimum-score gate: a single coincidental keyword/schema match (e.g. a lone
+        # word like "error") is not enough to commit to a domain. Require ~2 keyword
+        # matches or a keyword + a couple of schema-term matches.
+        MIN_STRONG_SCORE = 4.0
+        if best_score < MIN_STRONG_SCORE:
+            return None, 0.0, {
+                "reason": f"Best domain score {best_score:.1f} below minimum {MIN_STRONG_SCORE} - input too weak/ambiguous to assign a domain"
+            }
 
         # Normalize confidence to 0-1 range (increased from 20 to 30 for heuristics)
         max_possible_score = 30.0

@@ -130,6 +130,7 @@ class ReviewRouter:
         return {
             "review_status": review_status,
             "priority": priority.value,
+            "reason": "; ".join(reasoning_factors) if reasoning_factors else f"Routed to {review_status}",
             "suggested_reviewer_type": suggested_reviewer_type.value,
             "suggested_reviewer_id": suggested_reviewer_id,
             "reasoning": {
