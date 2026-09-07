@@ -4,9 +4,11 @@
 import json
 import os
 import sys
+from pathlib import Path
 
-# Add app to path
-sys.path.insert(0, '/home/spxlpt133/Desktop/Rule-intelligence-Engine')
+# Add app to path (resolve repo root from script location)
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
 from app.db.database import SessionLocal
 from app.db.models.domain_pack import DomainPack
@@ -90,7 +92,7 @@ def load_domain_pack(domain_dir):
 def update_domain_packs():
     db = SessionLocal()
     try:
-        domain_packs_dir = '/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie_ml/domain-packs'
+        domain_packs_dir = REPO_ROOT / "rie_ml" / "domain-packs"
 
         for domain_name in os.listdir(domain_packs_dir):
             domain_dir = os.path.join(domain_packs_dir, domain_name)

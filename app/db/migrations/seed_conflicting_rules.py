@@ -114,10 +114,9 @@ def seed_all_domains(db, workspace_id: str):
     """Seed conflicting rules for all domain packs."""
     from pathlib import Path
 
-    # Try multiple possible paths
+    # Try multiple possible paths (no hardcoded absolute paths)
     possible_paths = [
-        Path("/home/spxlpt133/Desktop/Rule-intelligence-Engine/rie_ml/domain-packs"),
-        Path(__file__).parent.parent.parent / "rie_ml" / "domain-packs",
+        Path(__file__).resolve().parent.parent.parent / "rie_ml" / "domain-packs",
         Path.cwd() / "rie_ml" / "domain-packs",
     ]
 
