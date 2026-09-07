@@ -372,6 +372,7 @@ class RealClarificationService:
         original_feedback: str,
         workspace_id: str,
         domain_id: str = "ecommerce",
+        clarification_id: str | None = None,
         db=None,
     ) -> Dict[str, Any]:
         """

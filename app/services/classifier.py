@@ -90,6 +90,9 @@ class RealClassifier:
         3. No alphabetic characters at all
         4. High non-alphanumeric ratio (lots of brackets, symbols, numbers)
         5. No recognizable English words (dictionary check)
+        6. Keyboard-mash runs (e.g. "asdf qwerty zxcv") - real words are
+           essentially never contiguous substrings of a single QWERTY home row,
+           so this is precise with little false-positive risk.
         """
         feedback = feedback or ""
         feedback_lower = feedback.lower().strip()
@@ -97,7 +100,7 @@ class RealClassifier:
         alnum_count = sum(1 for c in feedback if c.isalnum())
         total_chars = len(feedback)
         non_alnum_ratio = (total_chars - alnum_count) / max(total_chars, 1)
-        has_real_word = any(len(w) >= 3 and w.isalpha() for w in words)
+        has_real_word = any(len(w) >= 3 and w.isalpha() and not self._is_keyboard_mash(w) for w in words)
 
         return (
             total_chars < 10
@@ -105,7 +108,32 @@ class RealClassifier:
             or not any(c.isalpha() for c in feedback)
             or non_alnum_ratio > 0.5  # More than 50% special chars = likely gibberish
             or (len(words) > 0 and not has_real_word and total_chars > 20)  # Long but no real words
+            or self._is_keyboard_mash_run(words)
         )
+
+    # QWERTY home rows. Real English words are rarely contiguous substrings of a
+    # single row, so a word matching one is almost always keyboard-mashing.
+    _QWERTY_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
+
+    @staticmethod
+    def _is_keyboard_mash(word: str) -> bool:
+        """True if a lowercased word is a contiguous substring of one QWERTY row."""
+        if len(word) < 3 or not word.isalpha():
+            return False
+        return any(word in row for row in RealClassifier._QWERTY_ROWS)
+
+    @staticmethod
+    def _is_keyboard_mash_run(words) -> bool:
+        """True if the input is dominated by keyboard-mash words.
+
+        Requires at least two mash words to avoid flagging a single incidental
+        match, and mash words must form at least half of the token stream so a
+        mash alongside real signal (e.g. "asdf refund") is not mistaken for noise.
+        """
+        if len(words) < 2:
+            return False
+        mash_count = sum(1 for w in words if RealClassifier._is_keyboard_mash(w))
+        return mash_count >= 2 and mash_count >= len(words) / 2
 
     def _classify_with_model(self, feedback: str) -> Dict[str, Any]:
         """Classify using trained baseline model."""
