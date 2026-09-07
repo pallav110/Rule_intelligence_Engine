@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
 """
-Prepare BIO Token-Level Training Data (Fixed Version)
+Prepare BIO Token-Level Training Data (Spec 8.4 / 8.12 compliant)
 
-Uses exact character-position matching for entity boundaries to ensure
-precise token-level annotations. Solves class imbalance by proper alignment.
+Converts extraction.jsonl (per domain) into BIO token-labeled training data
+exactly as a human annotator would label per Spec 8.4's annotation scheme:
+
+- FIELD is labeled only over the surface field word present in the text
+  (e.g. "status" in "status equals cancelled"); the canonical "orders.status"
+  is resolved in Rule Construction (Stage 2), not invented here.
+- OPERATION covers BOTH the rule-level business operation phrase
+  ("exclude", "must not include", "should use ... instead") and the
+  condition operator words ("greater than", "above", ...) as shown in the
+  spec's Condition Transformation Example ([OPERATION: "equals"]).
+- VALUE/THRESHOLD use subword-span matching so tokens like "₹999" and
+  "1,500" are labeled correctly.
+- BUSINESS_TERM / SCOPE / TIME_WINDOW / TABLE / COLUMN labeled when the
+  surface words exist in the text; nothing is invented (Spec 8.8).
+
+Splits are rule_family_id aware (Spec 8.12: same-family examples stay in
+the same split to prevent leakage).
 """
 
 import json
-import numpy as np
+import re
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import List, Dict, Tuple
 import sys
 
@@ -39,6 +54,46 @@ LABEL2ID = {label: idx for idx, label in enumerate(BIO_LABELS)}
 ID2LABEL = {idx: label for label, idx in LABEL2ID.items()}
 
 
+def _humanize(token: str) -> str:
+    return token.replace("_", " ").strip()
+
+
+# Rule-level operation surface phrases, keyed by canonical operation.
+# Longest phrases first so "must not include" beats ...; phrases must never
+# collide with a DIFFERENT operation's literal word (e.g. an EXCLUDE rule
+# whose text says "must not include" must not label "include").
+RULE_OP_SURFACE: Dict[str, List[str]] = {
+    "exclude": [
+        "must not include", "does not count", "do not count", "don't count",
+        "should be excluded", "excluded from", "exclude", "not contribute",
+        "removed from", "remove",
+    ],
+    "include": [
+        "must include", "should be part of", "accounts for", "part of",
+        "include", "count toward", "counts toward",
+    ],
+    "restrict": [
+        "restricted to", "access should be limited to", "limited to",
+        "only show", "restrict",
+    ],
+    "replace": [
+        "instead of", "rely on", "switch", "use", "instead",
+    ],
+    "subtract": ["net out", "subtract", "deduct"],
+    "add": ["also account for", "add to", "add"],
+}
+
+# Condition operator word phrases (Spec 8.4 Condition Transformation Example:
+# [OPERATION: "equals"]).
+COND_OP_SURFACE = {
+    "equals": ["equal to", "equals"],
+    "greater_than": ["greater than", "more than", "exceeds", "above", "over"],
+    "less_than": ["less than", "below", "under"],
+    "not_equals": ["does not equal", "doesn't equal", "not equal"],
+    "is_not_null": ["is present", "has a value", "non-empty"],
+}
+
+
 def tokenize_with_offsets(text: str) -> List[Tuple[str, int, int]]:
     """
     Tokenize text and return tokens with their character offsets.
@@ -63,6 +118,33 @@ def tokenize_with_offsets(text: str) -> List[Tuple[str, int, int]]:
 
 def find_exact_positions(text: str, target: str, case_sensitive: bool = False) -> List[Tuple[int, int]]:
     """Find exact character positions of target string in text."""
+    if not target:
+        return []
+
+    # Normalize numeric formatting: "1,500" and "₹1,500" both match "1500"
+    if target.isdigit() or (target.lstrip("-").replace(",", "").isdigit() and "." not in target.replace(",", "")):
+        digits = target.replace(",", "")
+        spaced = f" {digits} , "  # placeholder unused; plain digit search below
+        positions = []
+        for m in re.finditer(r"[\d][\d,]*(?:\.\d+)?", text, re.IGNORECASE):
+            if m.group().replace(",", "").replace("₹", "").replace("$", "") == digits.replace(".", ""):
+                positions.append((m.start(), m.end()))
+                # Hmm: "999" vs "₹999" - group() is "999" (₹ not in \d class)
+        # Fall back to verbatim search for non-currency strings
+        text_search = text.lower() if not case_sensitive else text
+        target_search = target.lower() if not case_sensitive else target
+        extra = []
+        start = 0
+        while True:
+            pos = text_search.find(target_search, start)
+            if pos == -1:
+                break
+            extra.append((pos, pos + len(target)))
+            start = pos + 1
+        if positions:
+            return positions
+        return extra
+
     if not case_sensitive:
         text_search = text.lower()
         target_search = target.lower()
@@ -72,7 +154,6 @@ def find_exact_positions(text: str, target: str, case_sensitive: bool = False) -
 
     positions = []
     start = 0
-
     while True:
         pos = text_search.find(target_search, start)
         if pos == -1:
@@ -85,99 +166,168 @@ def find_exact_positions(text: str, target: str, case_sensitive: bool = False) -
 
 def assign_bio_labels_precise(text: str, rule: Dict) -> List[str]:
     """
-    Assign BIO labels using exact character-position matching.
+    Assign BIO labels using span matching a human annotator would use.
 
-    This ensures precise token boundaries without fuzzy matching.
+    Subword spans are allowed: a token overlapping the entity position
+    ("₹999" contains "999") is labeled as a whole, mirroring how the token
+    classifier will later consume it.
     """
     tokens_with_offsets = tokenize_with_offsets(text)
     labels = ['O'] * len(tokens_with_offsets)
 
-    # Track which character ranges have been labeled
-    labeled_ranges = []
+    # Track which token ranges have been labeled to prevent conflicts
+    labeled_token_ids = set()
 
     def add_label(entity_text: str, bio_label_prefix: str):
-        """Add BIO labels for entity, respecting token boundaries."""
-        positions = find_exact_positions(text, entity_text, case_sensitive=False)
+        """Add BIO labels for entity over every occurrence in text."""
+        positions = find_exact_positions(text, entity_text)
+        if not positions:
+            return
 
         for pos_start, pos_end in positions:
             is_first_token = True
-
             for token_idx, (token, tok_start, tok_end) in enumerate(tokens_with_offsets):
-                # Check if token overlaps with entity position
-                if tok_start >= pos_start and tok_end <= pos_end:
-                    # Check for conflicts with previously labeled ranges
-                    conflict = False
-                    for labeled_start, labeled_end in labeled_ranges:
-                        if not (tok_end <= labeled_start or tok_start >= labeled_end):
-                            conflict = True
-                            break
+                if tok_start >= pos_end:
+                    break  # past the entity
+                entity_is_number = entity_text.replace(",", "").isdigit()
+                if entity_is_number:
+                    # Number entities: token may contain the number with
+                    # currency/units attached ("₹999", "$1500", "90%")
+                    overlaps = tok_start < pos_end and tok_end > pos_start
+                else:
+                    # Word entities: token must START at the entity start
+                    # (covers trailing punctuation: "tickets." vs "tickets")
+                    # or sit fully inside the entity span ("total amount")
+                    starts_at = tok_start <= pos_start < tok_end or (tok_start == pos_start and tok_end > pos_start)
+                    fully_inside = tok_start >= pos_start and tok_end <= pos_end
+                    overlaps = starts_at or fully_inside
+                if overlaps:
+                    if token_idx in labeled_token_ids:
+                        # Skip tokens already claimed by a more specific label
+                        continue
+                    labels[token_idx] = f"B_{bio_label_prefix}" if is_first_token else f"I_{bio_label_prefix}"
+                    if tok_end > pos_end:
+                        is_first_token = True  # entity continues on next word
+                    else:
+                        is_first_token = False
+                    labeled_token_ids.add(token_idx)
 
-                    if not conflict:
-                        if is_first_token:
-                            labels[token_idx] = f"B_{bio_label_prefix}"
-                            is_first_token = False
-                        else:
-                            labels[token_idx] = f"I_{bio_label_prefix}"
+    # ---- 1. Business term (highest priority, most specific) ----
+    business_term = rule.get("business_term")
+    if business_term:
+        add_label(business_term, "BUSINESS_TERM")
+        if isinstance(business_term, str) and "_" in business_term:
+            add_label(_humanize(business_term), "BUSINESS_TERM")
 
-                        labeled_ranges.append((tok_start, tok_end))
+    # ---- 2. Conditions: field, then threshold/value --------------
+    # Priority: THRESHOLD (numeric comparison) > VALUE (categorical)
+    conditions = rule.get("conditions") or []
+    for condition in conditions:
+        field = condition.get("field")
+        if field:
+            simple = field.split(".")[-1] if "." in str(field) else str(field)
+            if not simple:
+                simple = str(field)
+            add_label(simple, "FIELD")
+            if "_" in simple:
+                add_label(_humanize(simple), "FIELD")
 
-    # Label entities in priority order (most specific first)
+    # Second pass: threshold first (higher priority for numeric ops)
+    for condition in conditions:
+        value = condition.get("value")
+        if value is None:
+            continue
+        value_str = str(value).lower()
+        if len(value_str) <= 1 and not value_str.isdigit():
+            continue
+        operator = (condition.get("operator") or "").lower()
+        rule_threshold = rule.get("threshold")
+        is_threshold = (
+            operator in ("greater_than", "less_than")
+            or (rule_threshold is not None and str(rule_threshold).replace(",", "") == value_str.replace(",", ""))
+        )
+        if is_threshold:
+            add_label(value_str, "THRESHOLD")
 
-    # 1. Business term (high priority)
-    if 'business_term' in rule and rule['business_term']:
-        add_label(rule['business_term'], 'BUSINESS_TERM')
+    # Third pass: remaining values (categorical)
+    for condition in conditions:
+        value = condition.get("value")
+        if value is None:
+            continue
+        value_str = str(value).lower()
+        if len(value_str) <= 1 and not value_str.isdigit():
+            continue
+        operator = (condition.get("operator") or "").lower()
+        rule_threshold = rule.get("threshold")
+        is_threshold = (
+            operator in ("greater_than", "less_than")
+            or (rule_threshold is not None and str(rule_threshold).replace(",", "") == value_str.replace(",", ""))
+        )
+        if not is_threshold:
+            add_label(value_str, "VALUE")
 
-    # 2. Conditions (fields, operators, values)
-    if 'conditions' in rule and rule['conditions']:
-        for condition in rule['conditions']:
-            if 'field' in condition and condition['field']:
-                add_label(condition['field'], 'FIELD')
+    # ---- 3. Rule-level operation --------------------------------
+    operation = (rule.get("operation") or "").lower()
+    if operation:
+        # Literal operation word when it appears verbatim
+        add_label(operation, "OPERATION")
+        # Surface phrases for that specific operation
+        for phrase in RULE_OP_SURFACE.get(operation, []):
+            add_label(phrase, "OPERATION")
 
-            if 'value' in condition and condition['value']:
-                value_str = str(condition['value'])
-                # Only add if value is reasonably long (avoid single chars)
-                if len(value_str) > 1:
-                    add_label(value_str, 'VALUE')
+    # Condition operator words: label only when the condition's value is
+    # present in the same sentence (anchors the operator span)
+    for condition in conditions:
+        value = condition.get("value")
+        if value is None or str(value).lower() not in text.lower()[:-1] or len(str(value)) <= 1:
+            continue
+        operator = (condition.get("operator") or "").lower()
+        for phrase in COND_OP_SURFACE.get(operator, []):
+            add_label(phrase, "OPERATION")
 
-    # 3. Operation
-    if 'operation' in rule and rule['operation']:
-        add_label(rule['operation'], 'OPERATION')
-
-    # 4. Scope
-    if 'scope' in rule and rule['scope']:
-        scope_str = rule['scope']
-        if scope_str not in ['global']:  # Don't label 'global' as it's common
-            add_label(scope_str, 'SCOPE')
-
-    # 5. Time window
-    if 'time_window' in rule and rule['time_window']:
-        if isinstance(rule['time_window'], dict):
-            for key, val in rule['time_window'].items():
-                if val and len(str(val)) > 1:
-                    add_label(str(val).lower(), 'TIME_WINDOW')
+    # ---- 4. Scope -------------------------------------------------
+    scope = rule.get("scope")
+    if scope and str(scope) not in ("global", "Global"):
+        scope_str = str(scope)
+        add_label(scope_str, "SCOPE")
+        if ":" in scope_str:
+            suffix = scope_str.split(":", 1)[1]
+            add_label(suffix, "SCOPE")
+            add_label(_humanize(suffix), "SCOPE")
         else:
-            time_str = str(rule['time_window']).lower()
+            add_label(_humanize(scope_str), "SCOPE")
+
+    # ---- 5. Time window -------------------------------------------
+    time_window = rule.get("time_window")
+    if time_window:
+        if isinstance(time_window, dict):
+            for key, val in time_window.items():
+                if val is None:
+                    continue
+                val_str = str(val).lower()
+                if len(val_str) > 1:
+                    add_label(val_str, "TIME_WINDOW")
+                    add_label(_humanize(val_str), "TIME_WINDOW")
+                if key in ("type", "unit") and len(val_str) > 1:
+                    add_label(_humanize(val_str), "TIME_WINDOW")
+        else:
+            time_str = str(time_window).lower()
             if len(time_str) > 1:
-                add_label(time_str, 'TIME_WINDOW')
+                add_label(time_str, "TIME_WINDOW")
+                add_label(_humanize(time_str), "TIME_WINDOW")
 
-    # 6. Threshold
-    if 'threshold' in rule and rule['threshold']:
-        threshold_str = str(rule['threshold'])
-        if len(threshold_str) > 1:
-            add_label(threshold_str, 'THRESHOLD')
-
-    # 7. Affected entities (tables/columns)
-    if 'affected_entities' in rule:
-        entities = rule['affected_entities']
-        if 'tables' in entities:
-            for table in entities['tables']:
-                if table:
-                    add_label(table, 'TABLE')
-        if 'columns' in entities:
-            for column in entities['columns']:
-                if column:
-                    # Try full column name first
-                    add_label(column, 'COLUMN')
+    # ---- 6. Affected entities (tables / columns) ------------------
+    entities = rule.get("affected_entities") or {}
+    for table in entities.get("tables", []):
+        if table:
+            add_label(table, "TABLE")
+    for column in entities.get("columns", []):
+        if column:
+            col = str(column)
+            simple = col.split(".")[-1]
+            add_label(simple, "COLUMN")
+            if "_" in simple:
+                add_label(_humanize(simple), "COLUMN")
 
     return labels
 
@@ -202,7 +352,7 @@ def process_extraction_file(file_path: Path) -> List[Dict]:
     """Process extraction.jsonl file and create BIO training samples."""
     samples = []
 
-    with open(file_path, 'r') as f:
+    with open(file_path) as f:
         for line_idx, line in enumerate(f):
             if not line.strip():
                 continue
@@ -211,10 +361,12 @@ def process_extraction_file(file_path: Path) -> List[Dict]:
                 data = json.loads(line)
                 feedback_text = data.get('feedback_text', '')
                 rules = data.get('rules', [])
+                family_id = data.get('rule_family_id', 'unknown')
 
                 # Create a sample for each rule
                 for rule in rules:
                     sample = prepare_training_sample(feedback_text, rule)
+                    sample['rule_family_id'] = family_id
                     samples.append(sample)
 
             except Exception as e:
@@ -224,16 +376,42 @@ def process_extraction_file(file_path: Path) -> List[Dict]:
     return samples
 
 
+def split_by_rule_family(samples: List[Dict], val_ratio: float = 0.18, test_ratio: float = 0.18) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    """
+    Rule-family-aware split (Spec 8.12): every sample of the same
+    rule_family_id goes to the same split, preventing leakage through
+    paraphrases of the same rule.
+    """
+    import random
+
+    families: Dict[str, List[Dict]] = defaultdict(list)
+    for sample in samples:
+        families[sample.get("rule_family_id", "unknown")].append(sample)
+
+    family_ids = list(families.keys())
+    random.Random(42).shuffle(family_ids)
+
+    n = len(family_ids)
+    n_val = int(n * val_ratio)
+    n_test = int(n * test_ratio)
+
+    train_s, val_s, test_s = [], [], []
+    for idx, fam in enumerate(family_ids):
+        bucket = "test" if idx < n_test else "val" if idx < n_test + n_val else "train"
+        target = {"train": train_s, "val": val_s, "test": test_s}[bucket]
+        target.extend(families[fam])
+
+    return train_s, val_s, test_s
+
+
 def main():
     """Prepare BIO training data from all domains."""
-    from sklearn.model_selection import train_test_split
-
     output_dir = Path(__file__).parent.parent / "datasets" / "extraction_bio"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("\n" + "="*80)
-    print("PREPARING BIO TOKEN-LEVEL TRAINING DATA (FIXED - PRECISE MATCHING)")
-    print("="*80)
+    print("\n" + "=" * 80)
+    print("PREPARING BIO TOKEN-LEVEL TRAINING DATA (SPEC 8.4/8.12 COMPLIANT)")
+    print("=" * 80)
 
     all_samples = []
     domains = ["ecommerce", "customer_support", "saas_subscription"]
@@ -262,7 +440,6 @@ def main():
         return
 
     # Analyze label distribution
-    from collections import Counter
     label_dist = Counter()
     for sample in all_samples:
         for label in sample['bio_labels']:
@@ -271,13 +448,12 @@ def main():
     print(f"\n📈 Label Distribution (All Data):")
     for label, count in sorted(label_dist.items(), key=lambda x: -x[1]):
         pct = count / sum(label_dist.values()) * 100
-        print(f"   {label:<20} {count:>5} ({pct:>5.1f}%)")
+        print(f"   {label:<20} {count:>5} ({pct:>5.2f}%)")
 
-    # Split into train/val/test
-    train_samples, temp_samples = train_test_split(all_samples, test_size=0.2, random_state=42)
-    val_samples, test_samples = train_test_split(temp_samples, test_size=0.5, random_state=42)
+    # Split by rule family (Spec 8.12: no leakage across paraphrases)
+    train_samples, val_samples, test_samples = split_by_rule_family(all_samples)
 
-    print(f"\n📋 Split Summary:")
+    print(f"\n📋 Split Summary (rule-family aware):")
     print(f"   Train: {len(train_samples)} samples ({len(train_samples)/len(all_samples)*100:.1f}%)")
     print(f"   Val:   {len(val_samples)} samples ({len(val_samples)/len(all_samples)*100:.1f}%)")
     print(f"   Test:  {len(test_samples)} samples ({len(test_samples)/len(all_samples)*100:.1f}%)")
@@ -310,7 +486,7 @@ def main():
     good_sample = None
     for sample in train_samples:
         label_counts = Counter(sample['bio_labels'])
-        if label_counts['O'] < 0.95 * len(sample['bio_labels']):  # Has entities
+        if label_counts['O'] < 0.90 * len(sample['bio_labels']):  # Has entities
             good_sample = sample
             break
 
@@ -320,9 +496,9 @@ def main():
         print(f"   Tokens: {good_sample['tokens']}")
         print(f"   Labels: {good_sample['bio_labels']}")
 
-    print("\n" + "="*80)
-    print("✅ BIO DATA PREPARATION COMPLETE (FIXED)")
-    print("="*80)
+    print("\n" + "=" * 80)
+    print("✅ BIO DATA PREPARATION COMPLETE")
+    print("=" * 80)
 
 
 if __name__ == "__main__":

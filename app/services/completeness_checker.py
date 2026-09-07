@@ -254,8 +254,8 @@ class AmbiguityDetector:
         conditions = extracted_rule.get("conditions", [])
         conditions_ambiguous = False
         for cond in conditions:
-            field = cond.get("field", "").lower()
-            value = str(cond.get("value", "")).lower()
+            field = str(cond.get("field", "") or "").lower()
+            value = str(cond.get("value", "") or "").lower()
 
             if any(term in field for term in self.ambiguous_terms) or \
                any(term in value for term in self.ambiguous_terms):

@@ -57,35 +57,51 @@ def _humanize(token: str) -> str:
 
 
 def natural_condition_phrase(cond: dict[str, Any], table_hint: str = "") -> str:
-    """Turn a single condition dict into a natural-language phrase."""
+    """Turn a single condition dict into a natural-language phrase that
+    preserves the field word and operation word for BIO labeling.
+
+    Per spec Section 8.4 example: "Order Status is cancelled" →
+    [FIELD: "orders.status"] [OPERATION: "equals"] [VALUE: "Cancelled"]
+    The surface text must contain the field token and operation token so
+    the BIO tagger can learn them.
+    """
     field = cond.get("field", "") or ""
     operator = cond.get("operator", "")
     value = cond.get("value", "")
     field_simple = field.split(".")[-1] if "." in field else field
     table = field.split(".")[0] if "." in field else table_hint
 
+    # Operation word mapping for natural language (matches spec 8.4 table)
+    OP_WORDS = {
+        "equals": "equals",
+        "greater_than": "greater than",
+        "less_than": "less than",
+        "is_not_null": "is present",
+        "not_equals": "does not equal",
+    }
+    op_word = OP_WORDS.get(operator, operator)
+
     if operator == "equals":
         if isinstance(value, bool) and value is True:
             if field_simple in BOOLEAN_FIELD_PHRASES:
+                # e.g. "is_test = true" -> keep natural phrase but add colon for traceability
                 return BOOLEAN_FIELD_PHRASES[field_simple]
-            return f"{_humanize(field_simple.removeprefix('is_'))} records"
-        if field_simple.endswith("status"):
-            # e.g. orders.status = cancelled -> "cancelled orders"
-            noun = _humanize(table) if table else "records"
-            return f"{value} {noun}"
-        return f"{_humanize(field_simple)} of {value}"
+            # Boolean true without special phrase: "field_name is true"
+            return f"{_humanize(field_simple)} {op_word} true"
+        # Always include the field word: "status equals cancelled" (not "cancelled orders")
+        return f"{_humanize(field_simple)} {op_word} {value}"
 
     if operator == "greater_than":
-        return f"{_humanize(field_simple)} above {value}"
+        return f"{_humanize(field_simple)} {op_word} {value}"
 
     if operator == "less_than":
-        return f"{_humanize(field_simple)} below {value}"
+        return f"{_humanize(field_simple)} {op_word} {value}"
 
     if operator == "is_not_null":
-        return f"{_humanize(field_simple)} being present"
+        return f"{_humanize(field_simple)} {op_word}"
 
-    # Fallback for any operator we haven't special-cased.
-    return f"{_humanize(field_simple)} {operator} {value}"
+    # Fallback
+    return f"{_humanize(field_simple)} {op_word} {value}"
 
 
 def build_condition_text(rule: dict[str, Any]) -> str:

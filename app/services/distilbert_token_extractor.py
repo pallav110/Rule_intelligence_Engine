@@ -131,7 +131,7 @@ class DistilBERTTokenExtractor:
             traceback.print_exc()
             self.model_ready = False
 
-    def extract(self, feedback: str) -> Dict[str, Any]:
+    def extract(self, feedback: str, schema_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Extract rule components using DistilBERT token classifier (ML candidate).
 
@@ -211,18 +211,28 @@ class DistilBERTTokenExtractor:
             # Extract entities from BIO tags with component mapping
             extracted_rule, component_mapping, detailed_components = self._extract_entities_from_tags(words, predictions)
 
+            # ---- Rule Construction (Spec 8.4 Stage 2) ----
+            constructed_rule = self._construct_rule(
+                extracted_rule,
+                component_mapping,
+                detailed_components,
+                feedback,
+                logits,
+                predictions,
+            )
+
             return {
                 "extraction": {
-                    "extracted_rules": [extracted_rule],
+                    "extracted_rules": [constructed_rule],
                     "component_mapping": component_mapping,
                     "detailed_components": detailed_components
                 },
-                "overall_confidence": 0.956,
+                "overall_confidence": constructed_rule.get("confidence", 0.956),
                 "model": "distilbert_token_classifier",
                 "token_accuracy": 0.956,
                 "macro_f1": 0.8276,
                 "method": "bio_token_classification",
-                "validation_ready": len(extracted_rule.get("conditions", [])) > 0
+                "validation_ready": len(constructed_rule.get("conditions", [])) > 0 and constructed_rule.get("operation") is not None
             }
 
         except Exception as e:
@@ -380,6 +390,206 @@ class DistilBERTTokenExtractor:
         component_mapping["extraction_confidence"] = 0.956
 
         return rule, component_mapping, detailed_components
+
+
+    def _construct_rule(
+        self,
+        raw_rule: Dict[str, Any],
+        component_mapping: Dict[str, Any],
+        detailed_components: Dict[str, Any],
+        feedback_text: str,
+        logits: torch.Tensor,
+        predictions: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Rule Construction layer per Spec 8.4 (Stage 2).
+
+        Converts raw BIO entities into complete normalized rules:
+        - Canonicalizes operation strings
+        - Resolves TABLE+VALUE → FIELD via domain schema heuristics
+        - Ensures field is always populated (or flagged needs_clarification)
+        - Builds per-field confidence from logits
+        """
+        import re
+
+        # Extract words for resolution context
+        words = feedback_text.split()
+
+        # Build domain context
+        business_term = raw_rule.get("business_term")
+
+        # ---- 1. Canonicalize operation ----
+        raw_op = raw_rule.get("operation")
+        canonical_op = None
+        op_confidence = 0.956
+        if raw_op:
+            op_lower = raw_op.lower().strip()
+            op_surface_map = {
+                "exclude": "EXCLUDE", "must not include": "EXCLUDE",
+                "does not count": "EXCLUDE", "don't count": "EXCLUDE",
+                "not contribute": "EXCLUDE", "excluded from": "EXCLUDE",
+                "remove": "EXCLUDE", "removed from": "EXCLUDE",
+                "excluded": "EXCLUDE",
+                "include": "INCLUDE", "must include": "INCLUDE",
+                "should be part of": "INCLUDE", "accounts for": "INCLUDE",
+                "part of": "INCLUDE", "count toward": "INCLUDE",
+                "restricted to": "RESTRICT", "access should be limited to": "RESTRICT",
+                "limited to": "RESTRICT", "only show": "RESTRICT",
+                "restrict": "RESTRICT",
+                "replace": "REPLACE", "instead of": "REPLACE",
+                "rely on": "REPLACE", "switch": "REPLACE",
+                "use": "REPLACE", "instead": "REPLACE",
+                "subtract": "SUBTRACT", "net out": "SUBTRACT",
+                "deduct": "SUBTRACT",
+                "add": "ADD", "also account for": "ADD", "add to": "ADD",
+            }
+            if op_lower in op_surface_map:
+                canonical_op = op_surface_map[op_lower]
+            else:
+                for phrase, canonical in sorted(op_surface_map.items(), key=lambda x: -len(x[0])):
+                    if phrase in op_lower:
+                        canonical_op = canonical
+                        break
+                if not canonical_op:
+                    canonical_op = "EXCLUDE"
+
+        # ---- 2. Resolve TABLE+VALUE → FIELD via schema ----
+        # Build per-table status column map
+        status_by_table = {
+            "orders": "status", "refunds": "status", "payments": "status",
+            "tickets": "is_internal", "customers": "is_internal",
+            "organizations": "status", "subscriptions": "cancel_at_period_end",
+        }
+
+        def resolve_field(table: str, value: str, domain: str = "") -> Optional[str]:
+            """Deterministic schema resolution."""
+            table_lower = table.lower().rstrip(".")
+            # Try known status column
+            if table_lower in status_by_table:
+                return f"{table_lower}.{status_by_table[table_lower]}"
+            return None
+
+        # ---- 3. Canonicalize condition operators ----
+        op_canonical = {
+            "equal to": "EQUALS", "equals": "EQUALS",
+            "greater than": "GREATER_THAN", "more than": "GREATER_THAN",
+            "exceeds": "GREATER_THAN", "above": "GREATER_THAN",
+            "over": "GREATER_THAN",
+            "less than": "LESS_THAN", "below": "LESS_THAN",
+            "under": "LESS_THAN",
+            "does not equal": "NOT_EQUALS", "doesn't equal": "NOT_EQUALS",
+            "not equal": "NOT_EQUALS",
+            "is present": "IS_NOT_NULL", "has a value": "IS_NOT_NULL",
+            "non-empty": "IS_NOT_NULL",
+        }
+
+        def canonicalize_cond_op(op_str: str) -> str:
+            op_l = op_str.lower().strip() if op_str else ""
+            for phrase, canonical in sorted(op_canonical.items(), key=lambda x: -len(x[0])):
+                if phrase in op_l:
+                    return canonical
+            return "EQUALS"
+
+        # ---- 4. Build complete conditions ----
+        constructed = {
+            "business_term": business_term,
+            "operation": canonical_op,
+            "conditions": [],
+            "scope": raw_rule.get("scope", "global"),
+            "time_window": raw_rule.get("time_window"),
+            "threshold": raw_rule.get("threshold"),
+            "affected_tables": list(raw_rule.get("affected_tables", [])),
+            "affected_columns": list(raw_rule.get("affected_columns", [])),
+        }
+
+        raw_conditions = raw_rule.get("conditions", [])
+        if isinstance(component_mapping.get("conditions"), list):
+            raw_conditions = component_mapping.get("conditions", raw_conditions)
+
+        # Use logits confidence if available
+        confidence_per_field = {}
+        try:
+            probs = torch.softmax(logits[0], dim=-1)
+            max_probs = torch.max(probs, dim=-1).values.cpu().numpy()
+            mean_conf = float(max_probs.mean()) if len(max_probs) > 0 else 0.956
+            confidence_per_field = {
+                "business_term": mean_conf,
+                "operation": mean_conf,
+                "conditions": mean_conf,
+                "scope": mean_conf,
+                "affected_entities": mean_conf,
+            }
+        except Exception:
+            mean_conf = 0.956
+            confidence_per_field = {
+                "business_term": mean_conf,
+                "operation": mean_conf,
+                "conditions": mean_conf,
+                "scope": mean_conf,
+                "affected_entities": mean_conf,
+            }
+
+        constructed["confidence"] = mean_conf
+        constructed["per_field_confidence"] = confidence_per_field
+
+        for cond in (raw_conditions or []):
+            if not isinstance(cond, dict):
+                continue
+            field = cond.get("field")
+            op_surface = cond.get("operator", "equals")
+            value = cond.get("value")
+            extraction_method = cond.get("extraction_method", "explicit_field_value")
+
+            canonical_cond_op = canonicalize_cond_op(op_surface)
+
+            inferred_field = None
+            if field is None and value is not None:
+                tables = constructed.get("affected_tables", [])
+                if not tables:
+                    tables = [t.get("word", "") for t in detailed_components.get("tables", [])]
+                    tables = [t.rstrip(".") for t in tables if t]
+                for table in tables:
+                    table_clean = table.lower().rstrip(".")
+                    resolved = resolve_field(table_clean, str(value))
+                    if resolved:
+                        inferred_field = resolved
+                        extraction_method = "resolved_table_value"
+                        break
+                if inferred_field:
+                    field = inferred_field
+
+            if field is not None:
+                constructed["conditions"].append({
+                    "field": field,
+                    "operator": canonical_cond_op,
+                    "value": value,
+                    "extraction_method": extraction_method,
+                    "confidence": mean_conf,
+                })
+                # Update affected entities from resolved field
+                if "." in str(field):
+                    parts = str(field).split(".")
+                    if parts[0] and parts[0] not in constructed["affected_tables"]:
+                        constructed["affected_tables"].append(parts[0])
+                    if parts[1] and parts[1] not in constructed["affected_columns"]:
+                        constructed["affected_columns"].append(parts[1])
+            elif value is not None:
+                constructed["conditions"].append({
+                    "field": None,
+                    "operator": canonical_cond_op,
+                    "value": value,
+                    "extraction_method": "value_only_needs_clarification",
+                    "confidence": 0.3,
+                    "needs_clarification": True,
+                })
+
+        # Deduplicate affected entities
+        constructed["affected_tables"] = sorted(set(t.rstrip(".") for t in constructed["affected_tables"] if t))
+        constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
+
+        # Merge from construction: if we inferred fields, update conditions count
+        constructed["confidence"] = mean_conf
+        return constructed
 
 
 _distilbert_token_extractor = None

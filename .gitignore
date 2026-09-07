@@ -24,3 +24,9 @@ rie_ml/models/roberta_candidate/
 !rie_ml/models/model_comparison_report.json
 !rie_ml/models/registry/
 rie_ml/models/*/checkpoints/*.pt
+
+# Generated datasets - rebuild with scripts/generate_dataset.py (or dataset_generation/run_pipeline.py)
+rie_ml/dataset_generation/output/
+rie_ml/datasets/extraction_bio/
+rie_ml/datasets/evaluation/
+rie_ml/datasets/validation_report.json

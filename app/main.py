@@ -955,26 +955,31 @@ def analyze_feedback(
     # Record preprocessing timestamp
     analysis_run.execution_timestamps["preprocessing_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 2: Classification (with domain-aware baseline model)
+    # STEP 2: Classification (best available model: DistilBERT if ACTIVE, else baseline)
+    from app.services.ml_model_service import MLModelService
+    mls = MLModelService(db=db)
     domain_pack_id = full_schema_context.get("domain_pack_id")
-    classifier = RealClassifier(domain=domain_pack_id or "ecommerce")
-    classification_result = classifier.classify(
-        processed_feedback, full_schema_context
-    )
+    classification_result = mls.classify(processed_feedback, domain=domain_pack_id)
     classification_result_dict = {
         "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
         "rule_category": classification_result.get("rule_category", "unknown"),
         "is_actionable": classification_result.get("is_actionable", False),
         "confidence": classification_result.get("confidence", 0.5),
     }
+    # Record which model was used (for registry tracking / comparison)
+    classification_result_dict["model"] = classification_result.get("model")
+    classification_result_dict["registry_status"] = classification_result.get("registry_status")
+    classification_result_dict["model_version_id"] = classification_result.get("model_version_id")
+    classification_result_dict["model_version"] = classification_result.get("model_version")
 
     # Record classification timestamp
     analysis_run.execution_timestamps["classification_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 2: Rule Extraction (with glossary, evidence, per-field confidence)
-    extractor = EnhancedRuleExtractor()
-    extraction_result = extractor.extract(processed_feedback, full_schema_context)
+    # STEP 2: Rule Extraction (best available model: DistilBERT if ACTIVE, else baseline)
+    extraction_result = mls.extract(processed_feedback, full_schema_context)
     extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+    # Record which model was used for extraction
+    extraction_result["model"] = extraction_result.get("model", "baseline")
 
     # Record extraction timestamp
     analysis_run.execution_timestamps["extraction_completed"] = datetime.utcnow().isoformat()
@@ -1204,7 +1209,11 @@ def analyze_feedback(
         rules=extraction_data.get("rules", []),
         confidence=extraction_confidence,
         evidence=extraction_result.get("evidence", ""),
-        rule_count=extraction_result.get("rule_count", {"extracted": 0, "candidates": 0})
+        rule_count=extraction_result.get("rule_count", {"extracted": 0, "candidates": 0}),
+        model=extraction_result.get("model"),
+        model_version_id=extraction_result.get("model_version_id"),
+        model_version=extraction_result.get("model_version"),
+        registry_status=extraction_result.get("registry_status"),
     )
 
     return FeedbackAnalysisResponse(
@@ -1224,6 +1233,10 @@ def analyze_feedback(
             rule_category=classification_result_dict["rule_category"],
             confidence=classification_result_dict["confidence"],
             is_actionable=classification_result_dict["is_actionable"],
+            model=classification_result_dict.get("model"),
+            model_version_id=classification_result_dict.get("model_version_id"),
+            model_version=classification_result_dict.get("model_version"),
+            registry_status=classification_result_dict.get("registry_status"),
         ),
         extraction=extraction_response,
         schema_validation=schema_validation_obj,

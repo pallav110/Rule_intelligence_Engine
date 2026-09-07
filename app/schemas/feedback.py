@@ -16,6 +16,10 @@ class ClassificationResponse(BaseModel):
     rule_category: str | None  # metric_definition, filter_rule, etc.
     confidence: float  # 0.0-1.0
     is_actionable: bool
+    model: str | None = None  # Which model produced this result (distilbert / baseline)
+    model_version_id: str | None = None
+    model_version: str | None = None
+    registry_status: str | None = None  # active_ml / baseline_fallback / no_active_model
 
 
 class PerFieldConfidence(BaseModel):
@@ -34,6 +38,10 @@ class ExtractionResponse(BaseModel):
     confidence: PerFieldConfidence  # Per-field confidence with semantic labels
     evidence: str = ""
     rule_count: dict[str, int]  # {"extracted": int, "candidates": int}
+    model: str | None = None  # Which model produced this result (distilbert_token_classifier / baseline)
+    model_version_id: str | None = None
+    model_version: str | None = None
+    registry_status: str | None = None  # active_ml / baseline_fallback / no_active_model
 
 
 class SchemaValidationResponse(BaseModel):
