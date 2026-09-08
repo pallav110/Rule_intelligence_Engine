@@ -395,6 +395,388 @@
         .recommendation-row strong {
             color: var(--success);
         }
+
+        /* ============ Endpoint Lifecycle Flow Panel ============ */
+        .container {
+            transition: margin-right 0.25s ease;
+        }
+
+        body.flow-open .container {
+            margin-right: 410px;
+        }
+
+        .flow-toggle {
+            position: fixed;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            z-index: 1100;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            padding: 16px 7px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            writing-mode: vertical-rl;
+            text-transform: uppercase;
+            box-shadow: -3px 3px 12px rgba(0, 0, 0, 0.45);
+            transition: right 0.25s ease, background 0.2s ease;
+        }
+
+        .flow-toggle:hover {
+            background: #2563eb;
+        }
+
+        body.flow-open .flow-toggle {
+            right: 400px;
+        }
+
+        .flow-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 400px;
+            max-width: 94vw;
+            z-index: 1050;
+            background: var(--secondary);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(102%);
+            transition: transform 0.25s ease;
+            box-shadow: -6px 0 30px rgba(0, 0, 0, 0.55);
+        }
+
+        body.flow-open .flow-panel {
+            transform: translateX(0);
+        }
+
+        .flow-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
+        }
+
+        .flow-header-title {
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .flow-header-sub {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 3px;
+        }
+
+        .flow-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .flow-reset {
+            padding: 4px 10px;
+            font-size: 10px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .flow-reset:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        .flow-close {
+            margin-left: auto;
+            background: transparent;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            font-size: 13px;
+        }
+
+        .flow-close:hover {
+            color: var(--danger);
+            background: transparent;
+        }
+
+        .flow-legend {
+            display: flex;
+            gap: 10px;
+            font-size: 9px;
+            color: var(--text-secondary);
+        }
+
+        .flow-legend span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .flow-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .flow-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .flow-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .flow-branch-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin: 14px 0 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .flow-branch-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .flow-node-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 8px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            font-size: 11px;
+            min-height: 32px;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .flow-node-row:hover {
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .flow-node-row.hitting {
+            background: rgba(59, 130, 246, 0.12);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .flow-method {
+            flex: 0 0 auto;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            letter-spacing: 0.5px;
+            min-width: 34px;
+            text-align: center;
+        }
+
+        .method-post {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .method-get {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
+
+        .method-internal {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+        }
+
+        .flow-path {
+            font-family: 'Roboto Mono', 'Monaco', monospace;
+            font-size: 10px;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        .flow-step {
+            flex: 0 0 auto;
+            font-size: 9px;
+            color: var(--accent);
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .flow-spec {
+            flex: 0 0 auto;
+            font-size: 8px;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .flow-status {
+            margin-left: auto;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            font-family: 'Roboto Mono', 'Monaco', monospace;
+        }
+
+        .flow-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #475569;
+            flex: 0 0 auto;
+        }
+
+        .flow-status.pending {
+            color: var(--text-secondary);
+        }
+
+        .flow-status.hitting .dot {
+            background: var(--accent);
+            animation: flowPulse 1s ease-in-out infinite;
+        }
+
+        .flow-status.ok {
+            color: var(--success);
+        }
+
+        .flow-status.ok .dot {
+            background: var(--success);
+        }
+
+        .flow-status.err {
+            color: var(--danger);
+        }
+
+        .flow-status.err .dot {
+            background: var(--danger);
+        }
+
+        .flow-status.skip {
+            color: var(--warning);
+        }
+
+        .flow-status.skip .dot {
+            background: var(--warning);
+        }
+
+        .flow-time {
+            flex: 0 0 auto;
+            font-size: 9px;
+            color: var(--text-secondary);
+            font-family: 'Roboto Mono', 'Monaco', monospace;
+        }
+
+        .flow-node-children {
+            margin-left: 18px;
+            padding-left: 12px;
+            border-left: 1px dashed var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .flow-node-children .flow-node-row {
+            font-size: 10px;
+            padding: 5px 8px;
+            min-height: 26px;
+        }
+
+        .flow-inline-note {
+            font-size: 9px;
+            color: var(--text-secondary);
+            margin: 2px 0 6px 18px;
+            padding-left: 12px;
+            border-left: 1px dashed var(--border);
+            font-style: italic;
+        }
+
+        @keyframes flowPulse {
+            0%, 100% {
+                opacity: 0.3;
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+            }
+            50% {
+                opacity: 1;
+                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0);
+            }
+        }
+
+        .flow-log-wrap {
+            margin-top: 16px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        .flow-log-title {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .flow-log {
+            font-family: 'Roboto Mono', 'Monaco', monospace;
+            font-size: 9px;
+            line-height: 1.7;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        .flow-log .log-hitting {
+            color: var(--accent);
+        }
+
+        .flow-log .log-ok {
+            color: var(--success);
+        }
+
+        .flow-log .log-err {
+            color: var(--danger);
+        }
+
+        .flow-log .log-skip {
+            color: var(--warning);
+        }
+
+        .flow-log .log-sep {
+            color: var(--text-secondary);
+            border-top: 1px dashed var(--border);
+            margin: 6px 0;
+            padding-top: 6px;
+        }
+
+        @media (max-width: 900px) {
+            body.flow-open .container {
+                margin-right: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -449,11 +831,6 @@
                         <button class="example-btn" onclick="setExample('Revenue should exclude cancelled orders')">Revenue Rule</button>
                         <button class="example-btn" onclick="setExample('Customers in tier bronze should have limited access')">Tier-based Rule</button>
                         <button class="example-btn" onclick="setExample('What is the SLA for response time?')">Question</button>
-                    </div>
-                    <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-                        <label for="load-json-file" style="font-size:11px; color:var(--text-secondary); margin:0">Load JSON:</label>
-                        <input id="load-json-file" type="file" accept="application/json" style="font-size:11px;" />
-                        <button onclick="loadServerSavedAnalysis()" style="padding:8px 10px;">Load Last Server Analysis</button>
                     </div>
                 </div>
             </div>
@@ -530,50 +907,34 @@
         </div>
     </div>
 
-    <script>
-        // Wire file input for local JSON inspection
-        document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('load-json-file');
-            fileInput.addEventListener('change', async (e) => {
-                const f = e.target.files && e.target.files[0];
-                if (!f) return;
-                try {
-                    const txt = await f.text();
-                    const data = JSON.parse(txt);
-                    // Use displayResults if structure matches pipeline response, else show combined
-                    if (data && (data.feedback_id || data.analysis_run_id || data.suggestion_id)) {
-                        displayResults(data);
-                    } else if (data && data.baseline && data.candidate) {
-                        comparisonResults = { baseline: { data: data.baseline, error: null }, candidate: { data: data.candidate, error: null } };
-                        displayComparisonResults();
-                    } else {
-                        document.getElementById('full-response').innerText = JSON.stringify(data, null, 2);
-                        document.getElementById('detailed-results').style.display = 'block';
-                    }
-                } catch (err) {
-                    alert('Failed to load JSON: ' + err.message);
-                }
-            });
-        });
+    <!-- Endpoint Lifecycle Flow Panel -->
+    <div class="flow-panel" id="flowPanel" aria-hidden="true">
+        <div class="flow-header">
+            <div class="flow-header-title">🔄 Endpoint Lifecycle</div>
+            <div class="flow-header-sub">Live flow of API calls as the pipeline runs</div>
+            <div class="flow-actions">
+                <span class="flow-legend">
+                    <span><span class="flow-dot" style="background:#475569"></span> waiting</span>
+                    <span><span class="flow-dot" style="background:var(--accent); animation:flowPulse 1s infinite"></span> running</span>
+                    <span><span class="flow-dot" style="background:var(--success)"></span> done</span>
+                    <span><span class="flow-dot" style="background:var(--danger)"></span> error</span>
+                    <span><span class="flow-dot" style="background:var(--warning)"></span> skipped</span>
+                </span>
+                <button class="flow-reset" id="flowReset" title="Reset all nodes to waiting">Reset</button>
+                <button class="flow-close" id="flowClose">✕</button>
+            </div>
+        </div>
+        <div class="flow-scroll">
+            <div class="flow-tree" id="flowTree"></div>
+            <div class="flow-log-wrap">
+                <div class="flow-log-title">Call Log</div>
+                <div class="flow-log" id="flowLog"></div>
+            </div>
+        </div>
+    </div>
+    <button class="flow-toggle" id="flowToggle" title="Toggle endpoint lifecycle panel">◀ Endpoint Flow</button>
 
-        async function loadServerSavedAnalysis() {
-            try {
-                const resp = await fetch(`${API_BASE}/debug/last-analysis`);
-                if (!resp.ok) {
-                    // Do not alert on 404; show a gentle status message instead
-                    updateStatus('No saved analysis found on server', 'warning');
-                    return null;
-                }
-                const data = await resp.json();
-                displayResults(data);
-                updateStatus('Loaded last saved analysis from server', 'success');
-                return data;
-            } catch (err) {
-                console.warn('Could not load server analysis:', err);
-                updateStatus('Could not load server analysis', 'error');
-                return null;
-            }
-        }
+    <script>
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let detectedDomain = null;
         let detectionConfidence = 0;
@@ -597,14 +958,6 @@
             const feedbackInput = document.getElementById('feedback-input');
             feedbackInput.addEventListener('input', autoDetectDomain);
             feedbackInput.addEventListener('change', autoDetectDomain);
-
-            // Auto-load last saved analysis from server on page load (no button press)
-            // Best-effort: if nothing saved, keep the UI interactive
-            try {
-                await loadServerSavedAnalysis();
-            } catch (e) {
-                console.debug('Auto-load last analysis failed:', e);
-            }
         });
 
         function setExample(text) {
@@ -636,7 +989,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE}/api/detect-domain-pack`, {
+                const response = await trackedFetch(`${API_BASE}/api/detect-domain-pack`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -644,7 +997,7 @@
                         feedback_text: feedbackText,
                         schema_context: {}
                     })
-                });
+                }, 'domain');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -700,6 +1053,7 @@
                 return;
             }
 
+            flowResetRun();
             updateStatus('⏳ Processing feedback through both baseline and ML pipelines...', 'info');
             // Keep current results visible while running new pipeline; do not clear the UI.
             // This avoids flicker and preserves the last shown analysis for comparison.
@@ -737,20 +1091,22 @@
 
         async function runBaselinePipeline(payload) {
             try {
-                const response = await fetch(`${API_BASE}/v1/feedback/analyze`, {
+                const response = await trackedFetch(`${API_BASE}/v1/feedback/analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
-                });
+                }, 'baseline');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
+                markBaselineChildren(true);
                 return { data, error: null };
 
             } catch (error) {
+                markBaselineChildren(false);
                 return { data: null, error: error.message };
             }
         }
@@ -759,16 +1115,16 @@
             try {
                 // Run classification and extraction in PARALLEL for speed
                 const [classificationResp, extractionResp] = await Promise.all([
-                    fetch(`${API_BASE}/v1/feedback/classify-distilbert`, {
+                    trackedFetch(`${API_BASE}/v1/feedback/classify-distilbert`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                    }).catch(e => ({ ok: false, status: 0, error: e })),
-                    fetch(`${API_BASE}/v1/feedback/extract-distilbert`, {
+                    }, 'cclass').catch(e => ({ ok: false, status: 0, error: e })),
+                    trackedFetch(`${API_BASE}/v1/feedback/extract-distilbert`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                    }).catch(e => ({ ok: false, status: 0, error: e }))
+                    }, 'cext').catch(e => ({ ok: false, status: 0, error: e }))
                 ]);
 
                 let classification = {};
@@ -794,11 +1150,11 @@
                     }
                 };
 
-                const schemaValidationResp = await fetch(`${API_BASE}/v1/feedback/validate-schema-distilbert`, {
+                const schemaValidationResp = await trackedFetch(`${API_BASE}/v1/feedback/validate-schema-distilbert`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(validationPayload)
-                }).catch(e => ({ ok: false, status: 0, error: e }));
+                }, 'cval').catch(e => ({ ok: false, status: 0, error: e }));
 
                 let schemaValidation = {};
                 if (schemaValidationResp.ok) {
@@ -820,11 +1176,11 @@
                         dupUrl.searchParams.set('domain_id', domainId);
                         dupUrl.searchParams.set('model', 'semantic');
 
-                        const dupResp = await fetch(dupUrl.toString(), {
+                        const dupResp = await trackedFetch(dupUrl.toString(), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(rule)
-                        }).catch(e => ({ ok: false, status: 0, error: e }));
+                        }, 'cdup').catch(e => ({ ok: false, status: 0, error: e }));
 
                         if (dupResp.ok) {
                             duplicateDetection = await dupResp.json();
@@ -832,6 +1188,8 @@
                     } catch (dupError) {
                         console.warn('Duplicate detection error:', dupError);
                     }
+                } else {
+                    flowSetStatus('cdup', 'skip');
                 }
 
                 let error = null;
@@ -862,11 +1220,11 @@
                         console.log('Calling conflict detection endpoint:', conflictUrl.toString());
                         console.log('With rule:', rule);
 
-                        const conflictResp = await fetch(conflictUrl.toString(), {
+                        const conflictResp = await trackedFetch(conflictUrl.toString(), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ suggested_rule: rule })
-                        }).catch(e => ({ ok: false, status: 0, error: e }));
+                        }, 'ccon').catch(e => ({ ok: false, status: 0, error: e }));
 
                         console.log('Conflict detection response:', conflictResp);
 
@@ -883,6 +1241,7 @@
                     }
                 } else {
                     conflictDetection = { has_conflict: false, conflict_type: 'no_conflict', confidence: 0.0, retrieval_stage: 0 };
+                    flowSetStatus('ccon', 'skip');
                 }
 
                 // Combine results into a response object
@@ -890,7 +1249,7 @@
                 const candidateData = {
                     classification: classification,
                     extraction: extraction.extraction || extraction,  // Handle both nested and flat
-                    preprocessing: { original_text: payload.feedback_text, processed_text: payload.feedback_text },
+                    preprocessing: classification.preprocessing || extraction.preprocessing || { original_text: payload.feedback_text, processed_text: payload.feedback_text },
                     schema_validation: schemaValidation,
                     duplicate_detection: duplicateDetection,
                     conflict_detection: conflictDetection,
@@ -1855,6 +2214,255 @@
             html += '</div></div>';
             return html;
         }
+        // ============ Endpoint Lifecycle Flow Panel ============
+
+        const FLOW_DEF = [
+            { group: 'Domain Detection' },
+            { id: 'domain', method: 'POST', path: '/api/detect-domain-pack', label: 'Auto-detect domain pack' },
+            { group: 'Baseline  ·  POST /v1/feedback/analyze' },
+            { id: 'baseline', method: 'POST', path: '/v1/feedback/analyze', label: 'End-to-end baseline pipeline', children: [
+                { id: 'bs0', step: '0', name: 'Feedback Preprocessing', spec: '8.2' },
+                { id: 'bs1', step: '1', name: 'Classification', spec: '8.3' },
+                { id: 'bs2', step: '2', name: 'Rule Extraction', spec: '8.5' },
+                { id: 'bs3', step: '3', name: 'Schema Validation', spec: '8.4' },
+                { id: 'bs4', step: '4', name: 'Duplicate Detection', spec: '8.6' },
+                { id: 'bs5', step: '5', name: 'Conflict Detection', spec: '8.7' },
+                { id: 'bs6', step: '6', name: 'Clarification', spec: '8.8' },
+                { id: 'bs7', step: '7', name: 'Review Routing', spec: '8.9' },
+            ]},
+            { group: 'ML Candidate  ·  DistilBERT (5 endpoints)' },
+            { id: 'cclass', method: 'POST', path: '/v1/feedback/classify-distilbert', label: 'Classification (DistilBERT)' },
+            { id: 'cext', method: 'POST', path: '/v1/feedback/extract-distilbert', label: 'Rule Extraction (DistilBERT)' },
+            { id: 'cval', method: 'POST', path: '/v1/feedback/validate-schema-distilbert', label: 'Schema Validation' },
+            { id: 'cdup', method: 'POST', path: '/v1/rules/check-duplicate', q: 'model=semantic', label: 'Duplicate Detection' },
+            { id: 'ccon', method: 'POST', path: '/v1/rules/check-conflict', q: 'model=semantic', label: 'Conflict Detection' },
+        ];
+
+        const flowState = {};      // id → {status, ms, code}
+        const KEEP_IDS = ['domain', 'last']; // don't reset these on new run
+
+        function buildFlowTree() {
+            const tree = document.getElementById('flowTree');
+            if (!tree) return;
+            tree.innerHTML = '';
+            FLOW_DEF.forEach(def => {
+                if (def.group) {
+                    const g = document.createElement('div');
+                    g.className = 'flow-branch-label';
+                    g.textContent = def.group;
+                    tree.appendChild(g);
+                    return;
+                }
+                const wrap = document.createElement('div');
+                wrap.className = 'flow-node';
+                wrap.dataset.id = def.id;
+
+                const row = document.createElement('div');
+                row.className = 'flow-node-row';
+                row.id = 'flow-row-' + def.id;
+
+                const methodEl = document.createElement('span');
+                const isGet = def.method === 'GET';
+                methodEl.className = 'flow-method ' + (isGet ? 'method-get' : 'method-post');
+                methodEl.textContent = def.method;
+
+                const pathEl = document.createElement('span');
+                pathEl.className = 'flow-path';
+                pathEl.textContent = def.path + (def.q ? '?' + def.q : '');
+                pathEl.title = def.label + (def.desc ? ' (' + def.desc + ')' : '');
+
+                const statusEl = document.createElement('span');
+                statusEl.className = 'flow-status pending';
+                statusEl.id = 'flow-status-' + def.id;
+                const dot = document.createElement('span');
+                dot.className = 'dot';
+                statusEl.appendChild(dot);
+                const stLabel = document.createElement('span');
+                stLabel.className = 'st';
+                stLabel.textContent = 'waiting';
+                statusEl.appendChild(stLabel);
+
+                const timeEl = document.createElement('span');
+                timeEl.className = 'flow-time';
+                timeEl.id = 'flow-time-' + def.id;
+
+                row.appendChild(methodEl);
+                row.appendChild(pathEl);
+                row.appendChild(statusEl);
+                row.appendChild(timeEl);
+                wrap.appendChild(row);
+
+                if (def.children) {
+                    const kids = document.createElement('div');
+                    kids.className = 'flow-node-children';
+                    def.children.forEach(c => {
+                        const krow = document.createElement('div');
+                        krow.className = 'flow-node-row';
+                        krow.id = 'flow-row-' + c.id;
+                        const stp = document.createElement('span');
+                        stp.className = 'flow-step';
+                        stp.textContent = 'S' + c.step;
+                        const nm = document.createElement('span');
+                        nm.className = 'flow-path';
+                        nm.textContent = c.name;
+                        const specEl = document.createElement('span');
+                        specEl.className = 'flow-spec';
+                        specEl.textContent = 'spec ' + c.spec;
+                        const kstatus = document.createElement('span');
+                        kstatus.className = 'flow-status pending';
+                        kstatus.id = 'flow-status-' + c.id;
+                        const kdot = document.createElement('span');
+                        kdot.className = 'dot';
+                        kstatus.appendChild(kdot);
+                        const kst = document.createElement('span');
+                        kst.className = 'st';
+                        kst.textContent = 'waiting';
+                        kstatus.appendChild(kst);
+                        krow.appendChild(stp);
+                        krow.appendChild(nm);
+                        krow.appendChild(specEl);
+                        krow.appendChild(kstatus);
+                        kids.appendChild(krow);
+                        flowState[c.id] = { status: 'pending', ms: null, code: null };
+                    });
+                    wrap.appendChild(kids);
+                    const note = document.createElement('div');
+                    note.className = 'flow-inline-note';
+                    note.textContent = 'These 8 steps run server-side inside /v1/feedback/analyze — no separate HTTP calls. ✓ marks appear when the analyze call completes.';
+                    wrap.appendChild(note);
+                }
+
+                tree.appendChild(wrap);
+                flowState[def.id] = { status: 'pending', ms: null, code: null };
+            });
+        }
+
+        function flowSetStatus(id, status, opts) {
+            opts = opts || {};
+            const st = flowState[id];
+            if (!st) return;
+            st.status = status;
+            if (opts.ms !== undefined) st.ms = opts.ms;
+            if (opts.code !== undefined) st.code = opts.code;
+
+            const el = document.getElementById('flow-status-' + id);
+            if (!el) return;
+            el.className = 'flow-status ' + status;
+            const lbl = el.querySelector('.st');
+            const code = opts.code;
+            const labels = {
+                pending: 'waiting',
+                hitting: '● running…',
+                ok: (code ? code + ' ✓' : '✓ done'),
+                err: (code && code > 0 ? code + ' ✗' : '✗ failed'),
+                skip: '— skipped',
+            };
+            if (lbl) lbl.textContent = labels[status] || status;
+
+            const tEl = document.getElementById('flow-time-' + id);
+            if (tEl && opts.ms !== undefined && opts.ms !== null) {
+                tEl.textContent = (opts.ms / 1000).toFixed(2) + 's';
+            }
+            const row = document.getElementById('flow-row-' + id);
+            if (row) row.classList.toggle('hitting', status === 'hitting');
+        }
+
+        function flowLog(text, cls) {
+            const log = document.getElementById('flowLog');
+            if (!log) return;
+            const div = document.createElement('div');
+            if (cls) div.className = cls;
+            const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
+            div.textContent = ts + '  ' + text;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function prettyEndpoint(urlStr) {
+            try {
+                const u = new URL(urlStr);
+                let s = u.pathname;
+                const params = [];
+                if (u.searchParams.has('model')) params.push('model=' + u.searchParams.get('model'));
+                if (u.searchParams.has('domain_id')) params.push('domain=' + u.searchParams.get('domain_id'));
+                if (params.length) s += '?' + params.join('&');
+                return s;
+            } catch (e) {
+                return urlStr;
+            }
+        }
+
+        async function trackedFetch(url, fetchOpts, id) {
+            fetchOpts = fetchOpts || {};
+            const t0 = performance.now();
+            if (id) flowSetStatus(id, 'hitting');
+            const urlStr = (url instanceof URL) ? url.toString() : String(url);
+            const pretty = prettyEndpoint(urlStr);
+            const method = (fetchOpts.method || 'GET').toUpperCase();
+            flowLog('▶ ' + method + ' ' + pretty, 'log-hitting');
+            try {
+                const resp = await fetch(url, fetchOpts);
+                const ms = performance.now() - t0;
+                if (id) flowSetStatus(id, resp.ok ? 'ok' : 'err', { ms: ms, code: resp.status });
+                flowLog((resp.ok ? '✓' : '✗') + ' ' + pretty + ' → ' + resp.status + '  (' + (ms / 1000).toFixed(2) + 's)', resp.ok ? 'log-ok' : 'log-err');
+                return resp;
+            } catch (e) {
+                const ms = performance.now() - t0;
+                if (id) flowSetStatus(id, 'err', { ms: ms, code: 0 });
+                flowLog('✗ ' + pretty + ' → network error  (' + (ms / 1000).toFixed(2) + 's)', 'log-err');
+                throw e;
+            }
+        }
+
+        function flowResetRun() {
+            Object.keys(flowState).forEach(id => {
+                if (!KEEP_IDS.includes(id)) flowSetStatus(id, 'pending');
+            });
+            const log = document.getElementById('flowLog');
+            if (log) {
+                const sep = document.createElement('div');
+                sep.className = 'log-sep';
+                sep.textContent = '— new run — ' + new Date().toLocaleTimeString('en-GB', { hour12: false });
+                log.appendChild(sep);
+            }
+        }
+
+        function markBaselineChildren(ok) {
+            var ids = ['bs0', 'bs1', 'bs2', 'bs3', 'bs4', 'bs5', 'bs6', 'bs7'];
+            ids.forEach((id, i) => {
+                setTimeout(() => {
+                    flowSetStatus(id, ok ? 'ok' : 'err', { ms: ok ? 0 : 0, code: ok ? 200 : 0 });
+                }, ok ? i * 130 : 0);
+            });
+            if (ok) {
+                flowLog('   ↳ S0 preprocessing → S7 routing (8 internal steps completed)', 'log-ok');
+            } else {
+                flowLog('   ↳ internal steps aborted — analyze call failed', 'log-err');
+            }
+        }
+
+        // --- Panel open / close ---
+        function flowTogglePanel(open) {
+            var want = open !== undefined ? open : !document.body.classList.contains('flow-open');
+            document.body.classList.toggle('flow-open', want);
+            var panel = document.getElementById('flowPanel');
+            var toggle = document.getElementById('flowToggle');
+            if (panel) panel.setAttribute('aria-hidden', String(!want));
+            if (toggle) toggle.textContent = want ? '▶ Hide Flow' : '◀ Endpoint Flow';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            buildFlowTree();
+            flowTogglePanel(true);  // open panel by default
+
+            document.getElementById('flowToggle').addEventListener('click', () => flowTogglePanel());
+            document.getElementById('flowClose').addEventListener('click', () => flowTogglePanel(false));
+            document.getElementById('flowReset').addEventListener('click', () => {
+                Object.keys(flowState).forEach(id => flowSetStatus(id, 'pending'));
+                var log = document.getElementById('flowLog');
+                if (log) log.innerHTML = '';
+            });
+        });
     </script>
 </body>
 </html>

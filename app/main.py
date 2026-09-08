@@ -1252,7 +1252,7 @@ def analyze_feedback(
         preprocessing=PreprocessingResponse(
             original_text=payload.feedback_text,
             processed_text=preprocessing_result.get("processed_text", payload.feedback_text),
-            preprocessing_steps=preprocessing_result.get("steps", []),
+            preprocessing_steps=preprocessing_result.get("preprocessing_steps", []),
             detected_keywords=preprocessing_result.get("detected_keywords", []),
             detected_schema_refs=preprocessing_result.get("detected_schema_refs", []),
             language_normalized=preprocessing_result.get("language_normalized", False),
@@ -1314,71 +1314,6 @@ def analyze_feedback(
 
 # --- Suggestion APIs ---
 
-
-# Debug: return last saved analysis JSON if present (useful for UI inspection)
-@app.get("/debug/last-analysis", include_in_schema=False)
-def get_last_analysis_debug():
-    import os, json
-    from fastapi.responses import JSONResponse
-
-    # First, try common temporary path (used by local dev scripts)
-    candidate_paths = [
-        "/tmp/analysis_result.json",
-        "./tmp/analysis_result.json",
-        "/app/tmp/analysis_result.json",
-    ]
-
-    for path in candidate_paths:
-        try:
-            if os.path.exists(path):
-                with open(path, 'r') as f:
-                    data = json.load(f)
-                return JSONResponse(status_code=200, content=data)
-        except Exception:
-            # try next candidate
-            continue
-
-    # If no file available, try to return the most recent AnalysisRun + RuleSuggestion from DB
-    try:
-        from app.db.database import SessionLocal
-        from app.db.models.analysis_run import AnalysisRun
-        from app.db.models.rule_suggestion import RuleSuggestion
-
-        db = SessionLocal()
-        try:
-            ar = db.query(AnalysisRun).order_by(AnalysisRun.created_at.desc()).first()
-            if not ar:
-                return JSONResponse(status_code=404, content={"error": "no saved analysis file or analysis runs in DB"})
-
-            # Try to fetch associated suggestion
-            rs = db.query(RuleSuggestion).filter_by(analysis_run_id=ar.analysis_run_id).order_by(RuleSuggestion.created_at.desc()).first()
-
-            payload = {
-                "analysis_run_id": ar.analysis_run_id,
-                "feedback_id": ar.feedback_id,
-                "workspace_id": ar.workspace_id,
-                "domain_pack_id": ar.domain_pack_id,
-                "threshold_configuration": ar.threshold_configuration,
-                "status": ar.status,
-                "created_at": ar.created_at.isoformat() if ar.created_at else None,
-            }
-
-            if rs:
-                payload.update({
-                    "suggestion_id": rs.suggestion_id,
-                    "classification": rs.classification_result or {},
-                    # stored extraction_result may be a status or JSON; attempt to include
-                    "extraction": rs.suggested_rule or {},
-                    "schema_validation": {"status": rs.schema_validation_status},
-                    "clarification_required": bool(rs.clarification_required),
-                    "review_status": rs.review_status,
-                })
-
-            return JSONResponse(status_code=200, content=payload)
-        finally:
-            db.close()
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"fallback read failed: {str(e)}"})
 
 
 @app.post("/v1/suggestions", response_model=SuggestionResponse)
@@ -1967,9 +1902,17 @@ def classify_with_distilbert(payload: FeedbackAnalysisRequest):
     """
     try:
         from app.services.distilbert_classifier import get_distilbert_classifier
+        from app.services.feedback_preprocessor import FeedbackPreprocessor
+
+        # STEP 0: Feedback Preprocessing (domain-aware, spec 8.2)
+        preprocessor = FeedbackPreprocessor()
+        preprocessing_result = preprocessor.preprocess(
+            payload.feedback_text, payload.schema_context
+        )
+        processed_text = preprocessing_result["processed_text"]
 
         classifier = get_distilbert_classifier()
-        result = classifier.classify(payload.feedback_text)
+        result = classifier.classify(processed_text)
 
         return {
             "feedback_type": result.get("feedback_type"),
@@ -1978,7 +1921,15 @@ def classify_with_distilbert(payload: FeedbackAnalysisRequest):
             "requires_clarification": result.get("requires_clarification"),
             "confidence": result.get("confidence"),
             "model": "distilbert",
-            "accuracy_on_validation": result.get("accuracy_on_validation", 0.9801)
+            "accuracy_on_validation": result.get("accuracy_on_validation", 0.9801),
+            "preprocessing": {
+                "original_text": preprocessing_result.get("original_text", payload.feedback_text),
+                "processed_text": preprocessing_result.get("processed_text", payload.feedback_text),
+                "detected_keywords": preprocessing_result.get("detected_keywords", []),
+                "detected_schema_refs": preprocessing_result.get("detected_schema_refs", []),
+                "language_normalized": preprocessing_result.get("language_normalized", False),
+                "preprocessing_steps": preprocessing_result.get("preprocessing_steps", [])
+            }
         }
     except Exception as e:
         logger.error(f"Error in DistilBERT classification: {e}")
@@ -2004,9 +1955,17 @@ def extract_with_distilbert(payload: FeedbackAnalysisRequest):
     try:
         from app.services.distilbert_token_extractor import get_distilbert_token_extractor
         from app.services.domain_pack_matcher import DomainPackMatcher
+        from app.services.feedback_preprocessor import FeedbackPreprocessor
+
+        # STEP 0: Feedback Preprocessing (domain-aware, spec 8.2)
+        preprocessor = FeedbackPreprocessor()
+        preprocessing_result = preprocessor.preprocess(
+            payload.feedback_text, payload.schema_context
+        )
+        processed_text = preprocessing_result["processed_text"]
 
         extractor = get_distilbert_token_extractor()
-        result = extractor.extract(payload.feedback_text)
+        result = extractor.extract(processed_text)
 
         extracted_rules = result.get("extraction", {}).get("extracted_rules", [])
         domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce") if payload.schema_context else "ecommerce"
@@ -2044,7 +2003,15 @@ def extract_with_distilbert(payload: FeedbackAnalysisRequest):
             "macro_f1": result.get("macro_f1", 0.8276),
             "method": result.get("method", "bio_token_classification"),
             "validation_ready": result.get("validation_ready", False),
-            "domain_pack_id": domain_pack_id
+            "domain_pack_id": domain_pack_id,
+            "preprocessing": {
+                "original_text": preprocessing_result.get("original_text", payload.feedback_text),
+                "processed_text": preprocessing_result.get("processed_text", payload.feedback_text),
+                "detected_keywords": preprocessing_result.get("detected_keywords", []),
+                "detected_schema_refs": preprocessing_result.get("detected_schema_refs", []),
+                "language_normalized": preprocessing_result.get("language_normalized", False),
+                "preprocessing_steps": preprocessing_result.get("preprocessing_steps", [])
+            }
         }
     except Exception as e:
         logger.error(f"Error in DistilBERT token extraction: {e}")
