@@ -478,7 +478,7 @@ class ConflictDetectionService:
 
         try:
             if self.engine == "semantic":
-                candidates = self._retrieve_candidates_semantic(suggested_rule, domain_id)
+                candidates = self._retrieve_candidates_semantic(suggested_rule, workspace_id, domain_id)
             else:
                 candidates = self._retrieve_candidates_baseline(workspace_id, domain_id, db)
 
@@ -635,7 +635,7 @@ class ConflictDetectionService:
     # ------------------------------------------------------------------
 
     def _retrieve_candidates_semantic(
-        self, suggested_rule: Dict[str, Any], domain_id: str,
+        self, suggested_rule: Dict[str, Any], workspace_id: str, domain_id: str,
     ) -> List[Dict[str, Any]]:
         """Top-K semantic retrieval via pgvector, merged with domain-pack rules."""
         candidates = self._load_domain_pack_rules(domain_id)
@@ -648,6 +648,7 @@ class ConflictDetectionService:
                     if embedding:
                         user_candidates = self._pgvector_service.retrieve_similar_rules(
                             embedding=embedding,
+                            workspace_id=workspace_id,
                             domain_id=domain_id,
                             top_k=self.CANDIDATE_K,
                             similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,

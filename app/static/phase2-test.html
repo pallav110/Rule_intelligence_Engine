@@ -817,9 +817,10 @@
                 <div class="model-selector">
                     <label style="margin: 0; flex-basis: 100%;">Model Comparison</label>
                     <div class="model-toggle">
-                        <button class="active" onclick="setModelDisplay('both')" data-model="both">Both Models</button>
+                        <button class="active" onclick="setModelDisplay('all')" data-model="all">All Three Columns</button>
+                        <button onclick="setModelDisplay('production')" data-model="production">Production Only</button>
+                        <button onclick="setModelDisplay('candidate')" data-model="candidate">Candidate Only</button>
                         <button onclick="setModelDisplay('baseline')" data-model="baseline">Baseline Only</button>
-                        <button onclick="setModelDisplay('candidate')" data-model="candidate">Candidate ML Only</button>
                     </div>
                 </div>
 
@@ -938,8 +939,8 @@
         const API_BASE = window.location.origin || 'http://localhost:8000';
         let detectedDomain = null;
         let detectionConfidence = 0;
-        let modelDisplay = 'both'; // 'both', 'baseline', 'candidate'
-        let comparisonResults = { baseline: {}, candidate: {} };
+        let modelDisplay = 'all'; // 'all', 'production', 'candidate', 'baseline'
+        let comparisonResults = { production: {}, candidate: {}, baseline: {} };
 
         // JSON formatting with syntax highlighting
         function formatJson(data) {
@@ -975,7 +976,7 @@
                 }
             });
             // Refresh display if results exist
-            if (comparisonResults.baseline.data || comparisonResults.candidate.data) {
+            if (comparisonResults.production.data || comparisonResults.candidate.data || comparisonResults.baseline.data) {
                 displayComparisonResults();
             }
         }
@@ -1054,7 +1055,7 @@
             }
 
             flowResetRun();
-            updateStatus('⏳ Processing feedback through both baseline and ML pipelines...', 'info');
+            updateStatus('⏳ Processing feedback through production, ML candidate, and baseline pipelines...', 'info');
             // Keep current results visible while running new pipeline; do not clear the UI.
             // This avoids flicker and preserves the last shown analysis for comparison.
 
@@ -1069,19 +1070,21 @@
                     }
                 };
 
-                // Run both pipelines in parallel
-                const [baselineResult, candidateResult] = await Promise.all([
-                    runBaselinePipeline(payload),
-                    runCandidatePipeline(payload)
+                // Run all three pipelines in parallel
+                const [productionResult, candidateResult, baselineResult] = await Promise.all([
+                    runProductionPipeline(payload),
+                    runCandidatePipeline(payload),
+                    runBaselinePipeline(payload)
                 ]);
 
                 comparisonResults = {
-                    baseline: baselineResult,
-                    candidate: candidateResult
+                    production: productionResult,
+                    candidate: candidateResult,
+                    baseline: baselineResult
                 };
 
                 displayComparisonResults();
-                updateStatus('✓ Both pipelines completed successfully', 'success');
+                updateStatus('✓ All three pipelines completed successfully', 'success');
 
             } catch (error) {
                 updateStatus(`✗ Error: ${error.message}`, 'error');
@@ -1089,9 +1092,35 @@
             }
         }
 
-        async function runBaselinePipeline(payload) {
+        // Production pipeline — /v1/feedback/analyze (default model=active, uses best ACTIVE models)
+        async function runProductionPipeline(payload) {
             try {
                 const response = await trackedFetch(`${API_BASE}/v1/feedback/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }, 'production');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                markProductionChildren(true);
+                return { data, error: null };
+
+            } catch (error) {
+                markProductionChildren(false);
+                return { data: null, error: error.message };
+            }
+        }
+
+        // Baseline pipeline — /v1/feedback/analyze?model=baseline (forces TF-IDF + regex + baseline engine)
+        async function runBaselinePipeline(payload) {
+            try {
+                const baseUrl = new URL(`${API_BASE}/v1/feedback/analyze`);
+                baseUrl.searchParams.set('model', 'baseline');
+                const response = await trackedFetch(baseUrl.toString(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -1140,7 +1169,8 @@
                 // Get extracted rules - handle nested structure from new API
                 const extractedRules = extraction.extraction?.extracted_rules || extraction.extracted_rules || [];
 
-                // 3. Schema Validation (pass extracted rules to avoid re-extraction)
+                // 3. Schema Validation - use the SAME deterministic validator as production
+                // (Schema validation has no ML model - it's deterministic per spec 8.5)
                 const validationPayload = {
                     ...payload,
                     schema_context: {
@@ -1150,7 +1180,11 @@
                     }
                 };
 
-                const schemaValidationResp = await trackedFetch(`${API_BASE}/v1/feedback/validate-schema-distilbert`, {
+                // Call the production analyze endpoint to get schema validation (includes all steps)
+                // But for candidate pipeline we only need schema validation - let's call it directly via the service
+                // Since schema validation is deterministic, the "candidate" result equals "production" result
+                // We'll reuse the production pipeline's schema validation for candidate
+                const schemaValidationResp = await trackedFetch(`${API_BASE}/v1/feedback/analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(validationPayload)
@@ -1158,7 +1192,8 @@
 
                 let schemaValidation = {};
                 if (schemaValidationResp.ok) {
-                    schemaValidation = await schemaValidationResp.json();
+                    const fullResult = await schemaValidationResp.json();
+                    schemaValidation = fullResult.schema_validation || {};
                 }
 
                 // 4. Duplicate Detection - call actual endpoint with first extracted rule
@@ -1200,7 +1235,7 @@
                     error = 'Extraction endpoint unavailable';
                 }
                 if (!schemaValidationResp.ok && schemaValidationResp.status === 0 && !error) {
-                    error = 'Schema validation endpoint unavailable';
+                    error = 'Schema validation (via analyze endpoint) unavailable';
                 }
 
                 // 5. Conflict Detection - call actual endpoint with first extracted rule
@@ -1567,21 +1602,20 @@
         }
 
         function displayComparisonResults() {
-            const baselineResult = comparisonResults.baseline;
+            const productionResult = comparisonResults.production;
             const candidateResult = comparisonResults.candidate;
+            const baselineResult = comparisonResults.baseline;
 
             // Update summary section
-            updateComparisonSummary(baselineResult.data, candidateResult.data);
-
-            // Build preprocessing comparison
-            const preprocessingHtml = buildPreprocessingComparison(baselineResult, candidateResult);
+            updateComparisonSummary(productionResult?.data, candidateResult?.data, baselineResult?.data);
 
             // Build comparison grids for each stage
-            const classificationHtml = buildClassificationComparison(baselineResult, candidateResult);
-            const extractionHtml = buildExtractionComparison(baselineResult, candidateResult);
-            const validationHtml = buildValidationComparison(baselineResult, candidateResult);
-            const duplicateHtml = buildDuplicateComparison(baselineResult, candidateResult);
-            const conflictHtml = buildConflictComparison(baselineResult, candidateResult);
+            const preprocessingHtml = buildPreprocessingComparison(productionResult, candidateResult, baselineResult);
+            const classificationHtml = buildClassificationComparison(productionResult, candidateResult, baselineResult);
+            const extractionHtml = buildExtractionComparison(productionResult, candidateResult, baselineResult);
+            const validationHtml = buildValidationComparison(productionResult, candidateResult, baselineResult);
+            const duplicateHtml = buildDuplicateComparison(productionResult, candidateResult, baselineResult);
+            const conflictHtml = buildConflictComparison(productionResult, candidateResult, baselineResult);
 
             // Update output sections
             document.getElementById('preprocessing-output').innerHTML = preprocessingHtml;
@@ -1591,69 +1625,87 @@
 
             // Display full response as combined JSON
             const combinedResponse = {
-                baseline: baselineResult.data,
-                candidate: candidateResult.data
+                production: productionResult?.data,
+                candidate: candidateResult?.data,
+                baseline: baselineResult?.data
             };
             document.getElementById('full-response').innerHTML = formatJson(combinedResponse);
+
+            let statusMsg = '✓ All three pipelines completed successfully';
+            if ((productionResult && productionResult.error) && (candidateResult && candidateResult.error) && (baselineResult && baselineResult.error)) {
+                statusMsg = '✗ All pipelines failed';
+            } else if (productionResult?.error || candidateResult?.error || baselineResult?.error) {
+                statusMsg = '⚠ Some pipelines completed with errors';
+            }
+            updateStatus(statusMsg, statusMsg.includes('All pipelines failed') ? 'error' : (statusMsg.includes('completed successfully') ? 'success' : 'info'));
 
             // Show results
             document.getElementById('detailed-results').style.display = 'block';
         }
 
-        function updateComparisonSummary(baselineData, candidateData) {
+        function updateComparisonSummary(productionData, candidateData, baselineData) {
             // Extract key metrics for comparison
-            const baselineClass = baselineData?.classification || {};
+            const productionClass = productionData?.classification || {};
             const candidateClass = candidateData?.classification || {};
-            const baselineConf = baselineClass.confidence || 0;
-            const candidateConf = candidateClass.confidence || 0;
+            const baselineClass = baselineData?.classification || {};
+            const productionConf = (productionClass.calibrated_confidence !== undefined ? productionClass.calibrated_confidence : productionClass.confidence) || 0;
+            const candidateConf = (candidateClass.calibrated_confidence !== undefined ? candidateClass.calibrated_confidence : candidateClass.confidence) || 0;
+            const baselineConf = (baselineClass.calibrated_confidence !== undefined ? baselineClass.calibrated_confidence : baselineClass.confidence) || 0;
 
-            document.getElementById('result-classification').textContent =
-                `${baselineClass.feedback_type || 'unknown'} / ${baselineClass.rule_category || 'N/A'}`;
+            const winner = productionClass.feedback_type || candidateClass.feedback_type || baselineClass.feedback_type || 'unknown';
+            const winnerCat = productionClass.rule_category || candidateClass.rule_category || baselineClass.rule_category || 'N/A';
+            document.getElementById('result-classification').textContent = `${winner} / ${winnerCat}`;
             document.getElementById('result-extraction').textContent = 'Comparing...';
+
+            const prodStatus = productionData?.schema_validation?.status;
+            const candStatus = candidateData?.schema_validation?.status;
+            const baseStatus = baselineData?.schema_validation?.status;
+            const anyPass = [prodStatus, candStatus, baseStatus].includes('PASS');
+            const anyFail = [prodStatus, candStatus, baseStatus].includes('FAIL');
             document.getElementById('result-validation').textContent =
-                baselineData?.schema_validation?.status === 'PASS' ? '✓ PASS' : '⚠ CHECK';
+                anyFail ? '✗ FAIL' : (anyPass ? '✓ PASS' : '⚠ CHECK');
             document.getElementById('result-confidence').textContent =
-                `Baseline: ${(baselineConf * 100).toFixed(1)}% | Candidate: ${(candidateConf * 100).toFixed(1)}%`;
+                `Prod: ${(productionConf * 100).toFixed(1)}% | Cand: ${(candidateConf * 100).toFixed(1)}% | Base: ${(baselineConf * 100).toFixed(1)}%`;
         }
 
-        function buildPreprocessingComparison(baselineResult, candidateResult) {
-            const baselineData = baselineResult.data?.preprocessing || {};
-            const candidateData = candidateResult.data?.preprocessing || {};
+        function buildColumnBlock(title, color, data, show) {
+            if (!show) return '';
+            return `
+                <div style="border-left: 3px solid ${color}; padding-left: 12px;">
+                    <div style="font-size: 11px; font-weight: 600; color: ${color}; margin-bottom: 8px;">${title}</div>
+                    <div class="field">
+                        <div class="field-label">Original Text</div>
+                        <div class="field-value">${(data && data.original_text) || 'N/A'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Processed Text</div>
+                        <div class="field-value">${(data && data.processed_text) || 'N/A'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Detected Keywords</div>
+                        <div class="field-value">${(data && data.detected_keywords) ? data.detected_keywords.join(', ') : 'None'}</div>
+                    </div>
+                </div>`;
+        }
+
+        function buildPreprocessingComparison(productionResult, candidateResult, baselineResult) {
+            const productionData = productionResult?.data?.preprocessing || {};
+            const candidateData = candidateResult?.data?.preprocessing || {};
+            const baselineData = baselineResult?.data?.preprocessing || {};
+
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
+
+            const colCount = (showProduction ? 1 : 0) + (showCandidate ? 1 : 0) + (showBaseline ? 1 : 0);
 
             const preprocessingHtml = `
                 <div style="margin-bottom: 20px;">
                     <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">PREPROCESSING COMPARISON</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div style="border-left: 3px solid var(--accent); padding-left: 12px;">
-                            <div style="font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">BASELINE</div>
-                            <div class="field">
-                                <div class="field-label">Original Text</div>
-                                <div class="field-value">${baselineData.original_text || 'N/A'}</div>
-                            </div>
-                            <div class="field">
-                                <div class="field-label">Processed Text</div>
-                                <div class="field-value">${baselineData.processed_text || 'N/A'}</div>
-                            </div>
-                            <div class="field">
-                                <div class="field-label">Detected Keywords</div>
-                                <div class="field-value">${baselineData.detected_keywords ? baselineData.detected_keywords.join(', ') : 'None'}</div>
-                            </div>
-                        </div>
-                        <div style="border-left: 3px solid var(--success); padding-left: 12px;">
-                            <div style="font-size: 11px; font-weight: 600; color: var(--success); margin-bottom: 8px;">ML CANDIDATE</div>
-                            <div class="field">
-                                <div class="field-label">Original Text</div>
-                                <div class="field-value">${candidateData.original_text || 'N/A'}</div>
-                            </div>
-                            <div class="field">
-                                <div class="field-label">Processed Text</div>
-                                <div class="field-value">${candidateData.processed_text || 'N/A'}</div>
-                            </div>
-                            <div class="field">
-                                <div class="field-label">Detected Keywords</div>
-                                <div class="field-value">${candidateData.detected_keywords ? candidateData.detected_keywords.join(', ') : 'None'}</div>
-                            </div>
-                        </div>
+                    <div style="display: grid; grid-template-columns: repeat(${colCount}, 1fr); gap: 16px;">
+                        ${buildColumnBlock('⚡ Production (Active Models)', 'var(--accent)', productionData, showProduction)}
+                        ${buildColumnBlock('🤖 ML Candidate (DistilBERT)', 'var(--success)', candidateData, showCandidate)}
+                        ${buildColumnBlock('📊 Baseline (TF-IDF/Regex)', 'var(--warning)', baselineData, showBaseline)}
                     </div>
                 </div>
             `;
@@ -1661,44 +1713,51 @@
             return preprocessingHtml;
         }
 
-        function buildClassificationComparison(baselineResult, candidateResult) {
-            const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
-            const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
+        function buildClassificationComparison(productionResult, candidateResult, baselineResult) {
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
 
-            const baselineData = baselineResult.data?.classification || {};
-            const candidateData = candidateResult.data?.classification || {};
-            const baselineConf = (baselineData.calibrated_confidence !== undefined ? baselineData.calibrated_confidence : baselineData.confidence) || 0;
+            const productionData = productionResult?.data?.classification || {};
+            const candidateData = candidateResult?.data?.classification || {};
+            const baselineData = baselineResult?.data?.classification || {};
+            const productionConf = (productionData.calibrated_confidence !== undefined ? productionData.calibrated_confidence : productionData.confidence) || 0;
             const candidateConf = (candidateData.calibrated_confidence !== undefined ? candidateData.calibrated_confidence : candidateData.confidence) || 0;
+            const baselineConf = (baselineData.calibrated_confidence !== undefined ? baselineData.calibrated_confidence : baselineData.confidence) || 0;
 
             let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">CLASSIFICATION COMPARISON</div>';
 
-            if (!showBaseline && !showCandidate) {
+            if (!showProduction && !showCandidate && !showBaseline) {
                 html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
                 return html + '</div></div>';
             }
 
-            html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
+            html += '<div class="comparison-grid' + (modelDisplay !== 'all' ? ' full' : '') + '">';
 
-            if (showBaseline) {
-                html += buildModelColumn('Baseline (TF-IDF)', baselineData, baselineResult.error, baselineConf, candidateConf, 'baseline');
+            if (showProduction) {
+                html += buildModelColumn('⚡ Production (Active Models)', productionData, productionResult?.error, productionConf, candidateConf, 'baseline');
             }
 
             if (showCandidate) {
-                html += buildModelColumn('ML Candidate (DistilBERT)', candidateData, candidateResult.error, candidateConf, baselineConf, 'candidate');
+                html += buildModelColumn('🤖 ML Candidate (DistilBERT)', candidateData, candidateResult?.error, candidateConf, productionConf, 'candidate');
+            }
+
+            if (showBaseline) {
+                html += buildModelColumn('📊 Baseline (TF-IDF)', baselineData, baselineResult?.error, baselineConf, productionConf, 'baseline');
             }
 
             html += '</div>';
 
-            // Add recommendation
-            if (showBaseline && showCandidate && !baselineResult.error && !candidateResult.error) {
-                const difference = Math.abs(candidateConf - baselineConf);
+            // Add recommendation comparing production vs baseline
+            if (showProduction && showBaseline && !productionResult?.error && !baselineResult?.error) {
+                const difference = Math.abs(productionConf - baselineConf);
                 let recommendation = '';
                 if (difference < 0.05) {
-                    recommendation = '~ Similar confidence - both models agree';
-                } else if (candidateConf > baselineConf) {
-                    recommendation = `✓ ML Model performs better (+${(difference * 100).toFixed(1)}% confidence)`;
+                    recommendation = '~ Similar confidence - production and baseline agree';
+                } else if (productionConf > baselineConf) {
+                    recommendation = `✓ Active model performs better than Baseline (+${(difference * 100).toFixed(1)}% confidence)`;
                 } else {
-                    recommendation = `✗ Baseline performs better (+${(difference * 100).toFixed(1)}% confidence)`;
+                    recommendation = `✗ Baseline performs better than Active model (+${(difference * 100).toFixed(1)}% confidence)`;
                 }
                 html += `<div class="recommendation-row"><strong>Recommendation:</strong> ${recommendation}</div>`;
             }
@@ -1758,46 +1817,28 @@
             return html;
         }
 
-        function buildExtractionComparison(baselineResult, candidateResult) {
-            const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
-            const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
+        function buildExtractionColumn(title, subLabel, extraction, data, result, show, type) {
+            if (!show) return '';
 
-            // Extract rules - properly handle both nested and flat structures
-            const baselineExtraction = baselineResult.data?.extraction || {};
-            const candidateExtraction = candidateResult.data?.extraction || {};
+            const rules = (extraction && (extraction.extracted_rules || extraction.rules)) ||
+                          (data && data.extracted_rules) || [];
 
-            // Baseline: look for extracted_rules first (from /v1/feedback/analyze)
-            const baselineRules = baselineExtraction.extracted_rules ||
-                                 baselineExtraction.rules ||
-                                 baselineResult.data?.extracted_rules || [];
+            let html = `<div class="model-column ${type}">
+                <div class="model-column-header">
+                    <span class="model-name">${title}</span>
+                    ${subLabel ? `<span style="font-size: 9px; color: var(--text-secondary);">${subLabel}</span>` : ''}
+                </div>`;
 
-            // Candidate: look in extraction.extracted_rules (from /v1/feedback/extract-distilbert)
-            const candidateRules = candidateExtraction.extracted_rules ||
-                                  candidateExtraction.rules ||
-                                  candidateResult.data?.extracted_rules || [];
-
-            let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">RULE EXTRACTION COMPARISON</div>';
-
-            if (!showBaseline && !showCandidate) {
-                html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
-                return html + '</div>';
-            }
-
-            html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
-
-            if (showBaseline) {
-                html += `<div class="model-column baseline">
-                    <div class="model-column-header">
-                        <span class="model-name">Baseline (Template)</span>
-                        <span style="font-size: 9px; color: var(--text-secondary);">regex-based</span>
-                    </div>
-                    <div class="field">
+            if (result?.error) {
+                html += `<div class="error-display">Error: ${result.error}</div>`;
+            } else {
+                html += `<div class="field">
                         <div class="field-label">Rules Extracted</div>
-                        <div class="field-value">${baselineRules.length}</div>
+                        <div class="field-value">${rules.length}</div>
                     </div>`;
 
-                if (baselineRules.length > 0) {
-                    baselineRules.forEach((rule, idx) => {
+                if (rules.length > 0) {
+                    rules.forEach((rule, idx) => {
                         html += `<div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
                             <div class="field-label">Rule ${idx + 1}: ${rule.business_term} - ${rule.operation}</div>
                             <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--border); overflow-y: auto; max-height: 100px;">
@@ -1812,59 +1853,29 @@
                     html += '<div class="field"><div class="field-value" style="color: var(--text-secondary);">No rules extracted</div></div>';
                 }
 
-                html += '</div>';
-            }
-
-            if (showCandidate) {
-                html += `<div class="model-column candidate">
-                    <div class="model-column-header">
-                        <span class="model-name">ML Candidate (Neural)</span>
-                        <span style="font-size: 9px; color: var(--text-secondary);">DistilBERT (95.6%)</span>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Rules Extracted</div>
-                        <div class="field-value">${candidateRules.length}</div>
-                    </div>`;
-
-                if (candidateRules.length > 0) {
-                    candidateRules.forEach((rule, idx) => {
-                        html += `<div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-                            <div class="field-label">Rule ${idx + 1}: ${rule.business_term} - ${rule.operation}</div>
-                            <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--border); overflow-y: auto; max-height: 100px;">
-                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);">${JSON.stringify({rule_index: idx + 1, business_term: rule.business_term, operation: rule.operation, confidence: rule.confidence || 0.956, conditions_count: (rule.conditions || []).length}, null, 2)}</pre>
-                            </div>
-                            ${rule.conditions && rule.conditions.length > 0 ? `<div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--success); overflow-y: auto; max-height: 100px;">
-                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--success);">${JSON.stringify(rule.conditions, null, 2)}</pre>
-                            </div>` : ''}
-                        </div>`;
-                    });
-                } else {
-                    html += '<div class="field"><div class="field-value" style="color: var(--text-secondary);">No rules extracted</div></div>';
-                }
-
-                // Show component mapping
-                if (candidateExtraction.component_mapping && Object.keys(candidateExtraction.component_mapping).length > 0) {
+                // Component mapping
+                if (extraction && extraction.component_mapping && Object.keys(extraction.component_mapping).length > 0) {
                     html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div class="field-label">Component Mapping</div>
                         <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--accent); overflow-y: auto; max-height: 120px;">
-                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--accent);">${JSON.stringify(candidateExtraction.component_mapping, null, 2)}</pre>
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--accent);">${JSON.stringify(extraction.component_mapping, null, 2)}</pre>
                         </div>
                     </div>`;
                 }
 
-                // Show detailed components (BIO token breakdown)
-                if (candidateExtraction.detailed_components && Object.keys(candidateExtraction.detailed_components).length > 0) {
+                // Detailed components (BIO token breakdown)
+                if (extraction && extraction.detailed_components && Object.keys(extraction.detailed_components).length > 0) {
                     html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div class="field-label">Token Classification (BIO Tags)</div>
                         <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--warning); overflow-y: auto; max-height: 150px;">
-                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify(candidateExtraction.detailed_components, null, 2)}</pre>
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify(extraction.detailed_components, null, 2)}</pre>
                         </div>
                     </div>`;
                 }
 
-                // Show domain pack matching if available
-                if (comparisonResults.candidate.data && comparisonResults.candidate.data.domain_pack_matching) {
-                    const matching = comparisonResults.candidate.data.domain_pack_matching;
+                // Domain pack matching
+                if (data && data.domain_pack_matching) {
+                    const matching = data.domain_pack_matching;
                     html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div class="field-label">Domain Pack Matching</div>
                         <div style="font-size: 9px; margin-top: 6px;">
@@ -1887,41 +1898,77 @@
                     </div>`;
                 }
 
-                // Show taxonomy validation if available
-                if (comparisonResults.candidate.data && comparisonResults.candidate.data.taxonomy_validation) {
-                    const validation = comparisonResults.candidate.data.taxonomy_validation;
+                // Taxonomy validation
+                if (data && data.taxonomy_validation) {
+                    const validation = data.taxonomy_validation;
                     html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div class="field-label">Taxonomy Validation</div>
                         <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--warning); overflow-y: auto; max-height: 150px;">
-                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify({overall_validity: validation.overall_validity, valid_terms: validation.valid_terms.length, invalid_terms: validation.invalid_terms.length, valid_operations: validation.valid_operations.length, invalid_operations: validation.invalid_operations.length}, null, 2)}</pre>
+                            <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify({overall_validity: validation.overall_validity, valid_terms: (validation.valid_terms || []).length, invalid_terms: (validation.invalid_terms || []).length, valid_operations: (validation.valid_operations || []).length, invalid_operations: (validation.invalid_operations || []).length}, null, 2)}</pre>
                         </div>
                     </div>`;
                 }
-
-                html += '</div>';
             }
+
+            html += '</div>';
+            return html;
+        }
+
+        function buildExtractionComparison(productionResult, candidateResult, baselineResult) {
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
+
+            // Extract rules - properly handle both nested and flat structures
+            const productionExtraction = productionResult?.data?.extraction || {};
+            const candidateExtraction = candidateResult?.data?.extraction || {};
+            const baselineExtraction = baselineResult?.data?.extraction || {};
+
+            let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">RULE EXTRACTION COMPARISON</div>';
+
+            if (!showProduction && !showCandidate && !showBaseline) {
+                html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
+                return html + '</div>';
+            }
+
+            html += '<div class="comparison-grid' + (modelDisplay !== 'all' ? ' full' : '') + '">';
+
+            html += buildExtractionColumn('⚡ Production (Active Models)', 'DistilBERT extractor', productionExtraction, productionResult?.data, productionResult, showProduction, 'baseline');
+            html += buildExtractionColumn('🤖 ML Candidate (Neural)', 'DistilBERT (95.6%)', candidateExtraction, candidateResult?.data, candidateResult, showCandidate, 'candidate');
+            html += buildExtractionColumn('📊 Baseline (Template)', 'regex-based', baselineExtraction, baselineResult?.data, baselineResult, showBaseline, 'baseline');
 
             html += '</div></div>';
             return html;
         }
 
-        function buildValidationComparison(baselineResult, candidateResult) {
-            const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
-            const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
+        function buildValidationComparison(productionResult, candidateResult, baselineResult) {
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
 
-            const baselineVal = baselineResult.data?.schema_validation || {};
-            const candidateVal = candidateResult.data?.schema_validation || {};
+            const productionVal = productionResult?.data?.schema_validation || {};
+            const candidateVal = candidateResult?.data?.schema_validation || {};
+            const baselineVal = baselineResult?.data?.schema_validation || {};
 
             let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">SCHEMA VALIDATION COMPARISON</div>';
 
-            html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
+            if (!showProduction && !showCandidate && !showBaseline) {
+                html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
+                return html + '</div>';
+            }
 
-            if (showBaseline) {
-                html += buildValidationColumn(baselineVal, 'Baseline', 'baseline');
+            html += '<div class="comparison-grid' + (modelDisplay !== 'all' ? ' full' : '') + '">';
+
+            if (showProduction) {
+                html += buildValidationColumn(productionVal, '⚡ Production (Active Models)', 'baseline');
             }
 
             if (showCandidate) {
-                html += buildValidationColumn(candidateVal, 'ML Candidate', 'candidate');
+                html += buildValidationColumn(candidateVal, '🤖 ML Candidate (Deterministic)', 'candidate');
+            }
+
+            if (showBaseline) {
+                html += buildValidationColumn(baselineVal, '📊 Baseline (Template)', 'baseline');
             }
 
             html += '</div></div>';
@@ -2023,111 +2070,94 @@
             return html;
         }
 
-        function buildDuplicateComparison(baselineResult, candidateResult) {
-            const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
-            const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
+        function buildDuplicateColumn(name, dup, result, show) {
+            if (!show) return '';
+            const isDup = dup && dup.is_duplicate;
+            const conf = dup && dup.confidence ? (dup.confidence * 100).toFixed(1) : '0';
+            let html = `<div class="model-column baseline">
+                <div class="model-column-header"><span class="model-name">${name}</span></div>`;
+            if (result?.error) {
+                html += `<div class="error-display">Error: ${result.error}</div>`;
+            } else {
+                html += `<div class="field">
+                        <div class="field-label">Is Duplicate</div>
+                        <div class="field-value"><span class="status-badge ${isDup ? 'status-warning' : 'status-success'}">${isDup ? '⚠ YES' : '✅ NO'}</span></div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Confidence</div>
+                        <div class="field-value">${conf}%</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Relationship</div>
+                        <div class="field-value">${(dup && dup.relationship) || 'unrelated'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Matching Rule</div>
+                        <div class="field-value">${(dup && dup.matching_rule_id) || 'None'}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Candidates Retrieved</div>
+                        <div class="field-value">${(dup && dup.retrieval_stage) || 0}</div>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Detection Response:</div>
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(dup || {}, null, 2)}</pre>
+                    </div>`;
+            }
+            html += '</div>';
+            return html;
+        }
 
-            const baselineDup = baselineResult.data?.duplicate_detection || {};
-            const candidateDup = candidateResult.data?.duplicate_detection || {};
+        function buildDuplicateComparison(productionResult, candidateResult, baselineResult) {
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
+
+            const productionDup = productionResult?.data?.duplicate_detection || {};
+            const candidateDup = candidateResult?.data?.duplicate_detection || {};
+            const baselineDup = baselineResult?.data?.duplicate_detection || {};
 
             let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">DUPLICATE DETECTION COMPARISON</div>';
 
-            html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
-
-            if (showBaseline) {
-                html += `<div class="model-column baseline">
-                    <div class="model-column-header"><span class="model-name">Baseline</span></div>
-                    <div class="field">
-                        <div class="field-label">Is Duplicate</div>
-                        <div class="field-value"><span class="status-badge ${baselineDup.is_duplicate ? 'status-warning' : 'status-success'}">${baselineDup.is_duplicate ? '⚠ YES' : '✅ NO'}</span></div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Confidence</div>
-                        <div class="field-value">${baselineDup.confidence ? (baselineDup.confidence * 100).toFixed(1) : '0'}%</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Relationship</div>
-                        <div class="field-value">${baselineDup.relationship || 'unrelated'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Matching Rule</div>
-                        <div class="field-value">${baselineDup.matching_rule_id || 'None'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Candidates Retrieved</div>
-                        <div class="field-value">${baselineDup.retrieval_stage || 0}</div>
-                    </div>
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Detection Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineDup, null, 2)}</pre>
-                    </div>
-                </div>`;
+            if (!showProduction && !showCandidate && !showBaseline) {
+                html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
+                return html + '</div>';
             }
 
-            if (showCandidate) {
-                html += `<div class="model-column candidate">
-                    <div class="model-column-header"><span class="model-name">ML Candidate (Semantic)</span></div>
-                    <div class="field">
-                        <div class="field-label">Is Duplicate</div>
-                        <div class="field-value"><span class="status-badge ${candidateDup.is_duplicate ? 'status-warning' : 'status-success'}">${candidateDup.is_duplicate ? '⚠ YES' : '✅ NO'}</span></div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Confidence</div>
-                        <div class="field-value">${candidateDup.confidence ? (candidateDup.confidence * 100).toFixed(1) : '0'}%</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Relationship</div>
-                        <div class="field-value">${candidateDup.relationship || 'unrelated'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Matching Rule</div>
-                        <div class="field-value">${candidateDup.matching_rule_id || 'None'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Candidates Retrieved</div>
-                        <div class="field-value">${candidateDup.retrieval_stage || 0}</div>
-                    </div>
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Detection Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 9px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateDup, null, 2)}</pre>
-                    </div>
-                </div>`;
-            }
+            html += '<div class="comparison-grid' + (modelDisplay !== 'all' ? ' full' : '') + '">';
+
+            html += buildDuplicateColumn('⚡ Production (Semantic)', productionDup, productionResult, showProduction);
+            html += buildDuplicateColumn('🤖 ML Candidate (Semantic)', candidateDup, candidateResult, showCandidate);
+            html += buildDuplicateColumn('📊 Baseline (Template)', baselineDup, baselineResult, showBaseline);
 
             html += '</div></div>';
             return html;
         }
 
-        function buildConflictComparison(baselineResult, candidateResult) {
-            const showBaseline = modelDisplay === 'both' || modelDisplay === 'baseline';
-            const showCandidate = modelDisplay === 'both' || modelDisplay === 'candidate';
+        function buildConflictColumn(name, conf, result, show) {
+            if (!show) return '';
+            const conflictIds = (conf && conf.conflicting_rule_ids) || [];
+            const conflictSummary = conf && conf.has_conflict ?
+                `${conflictIds.length} conflict(s) found` :
+                'No conflicts detected';
+            const hasConflict = conf && conf.has_conflict;
 
-            const baselineConf = baselineResult.data?.conflict_detection || {};
-            const candidateConf = candidateResult.data?.conflict_detection || {};
-
-            let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">CONFLICT DETECTION COMPARISON</div>';
-
-            html += '<div class="comparison-grid' + (modelDisplay === 'baseline' || modelDisplay === 'candidate' ? ' full' : '') + '">';
-
-            if (showBaseline) {
-                const conflictIds = baselineConf.conflicting_rule_ids || [];
-                const conflictSummary = baselineConf.has_conflict ?
-                    `${conflictIds.length} conflict(s) found` :
-                    'No conflicts detected';
-
-                html += `<div class="model-column baseline">
-                    <div class="model-column-header"><span class="model-name">Baseline</span></div>
-                    <div class="field">
+            let html = `<div class="model-column baseline">
+                <div class="model-column-header"><span class="model-name">${name}</span></div>`;
+            if (result?.error) {
+                html += `<div class="error-display">Error: ${result.error}</div>`;
+            } else {
+                html += `<div class="field">
                         <div class="field-label">Has Conflict</div>
-                        <div class="field-value"><span class="status-badge ${baselineConf.has_conflict ? 'status-warning' : 'status-success'}">${baselineConf.has_conflict ? '⚠ YES' : '✅ NO'}</span></div>
+                        <div class="field-value"><span class="status-badge ${hasConflict ? 'status-warning' : 'status-success'}">${hasConflict ? '⚠ YES' : '✅ NO'}</span></div>
                     </div>
                     <div class="field">
                         <div class="field-label">Confidence</div>
-                        <div class="field-value">${baselineConf.confidence ? (baselineConf.confidence * 100).toFixed(1) : '0'}%</div>
+                        <div class="field-value">${conf && conf.confidence ? (conf.confidence * 100).toFixed(1) : '0'}%</div>
                     </div>
                     <div class="field">
                         <div class="field-label">Conflict Type</div>
-                        <div class="field-value">${baselineConf.conflict_type || 'no_conflict'}</div>
+                        <div class="field-value">${(conf && conf.conflict_type) || 'no_conflict'}</div>
                     </div>
                     <div class="field">
                         <div class="field-label">Conflicting Rule IDs</div>
@@ -2135,81 +2165,56 @@
                     </div>
                     <div class="field">
                         <div class="field-label">Candidates Retrieved (Stage 1)</div>
-                        <div class="field-value">${baselineConf.retrieval_stage || 0}</div>
-                    </div>
-                    ${conflictIds.length > 0 ? `
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
-                        <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
-                            ${(baselineConf.details?.all_conflicts || baselineConf.conflict_details || []).map((c, i) => `
-                                <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
-                                    <strong>Rule:</strong> ${c.rule_id}<br/>
-                                    <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
-                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    ` : ''}
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 8px; overflow-x: auto; max-height: 200px;">${JSON.stringify(baselineConf, null, 2)}</pre>
-                    </div>
-                </div>`;
-            }
-
-            if (showCandidate) {
-                const conflictIds = candidateConf.conflicting_rule_ids || [];
-                const conflictSummary = candidateConf.has_conflict ?
-                    `${conflictIds.length} conflict(s) found` :
-                    'No conflicts detected';
-
-                html += `<div class="model-column candidate">
-                    <div class="model-column-header"><span class="model-name">ML Candidate (Semantic)</span></div>
-                    <div class="field">
-                        <div class="field-label">Has Conflict</div>
-                        <div class="field-value"><span class="status-badge ${candidateConf.has_conflict ? 'status-warning' : 'status-success'}">${candidateConf.has_conflict ? '⚠ YES' : '✅ NO'}</span></div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Confidence</div>
-                        <div class="field-value">${candidateConf.confidence ? (candidateConf.confidence * 100).toFixed(1) : '0'}%</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Conflict Type</div>
-                        <div class="field-value">${candidateConf.conflict_type || 'no_conflict'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Conflicting Rule IDs</div>
-                        <div class="field-value">${conflictIds.length > 0 ? conflictIds.join(', ') : 'None'}</div>
-                    </div>
-                    <div class="field">
-                        <div class="field-label">Candidates Retrieved (Stage 1)</div>
-                        <div class="field-value">${candidateConf.retrieval_stage || 0}</div>
+                        <div class="field-value">${(conf && conf.retrieval_stage) || 0}</div>
                     </div>
                     <div class="field">
                         <div class="field-label">Model Used</div>
-                        <div class="field-value">${candidateConf.model || candidateConf.details?.model || 'distilbert_conflict_detector'}</div>
-                    </div>
-                    ${conflictIds.length > 0 ? `
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="field-value">${(conf && (conf.model || conf.details?.model)) || 'semantic_engine'}</div>
+                    </div>`;
+                if (conflictIds.length > 0) {
+                    html += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div style="font-size: 10px; color: var(--success); margin-bottom: 8px;">✓ Conflict Details (${conflictSummary}):</div>
                         <div style="font-size: 9px; color: var(--text-secondary); max-height: 150px; overflow-y: auto;">
-                            ${(candidateConf.details?.all_conflicts || candidateConf.conflict_details || []).map((c, i) => `
+                            ${(conf.details?.all_conflicts || conf.conflict_details || []).map((c, i) => `
                                 <div style="margin-bottom: 8px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-left: 2px solid var(--success);">
                                     <strong>Rule:</strong> ${c.rule_id}<br/>
                                     <strong>Type:</strong> ${c.conflict_type || 'direct_conflict'}<br/>
-                                    <small>Confidence: ${(c.confidence * 100).toFixed(1)}%</small>
+                                    <small>Confidence: ${((c.confidence || 0) * 100).toFixed(1)}%</small>
                                 </div>
                             `).join('')}
                         </div>
-                    </div>
-                    ` : ''}
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                    </div>`;
+                }
+                html += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                         <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">Full Response:</div>
-                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 8px; overflow-x: auto; max-height: 200px;">${JSON.stringify(candidateConf, null, 2)}</pre>
-                    </div>
-                </div>`;
+                        <pre style="background: var(--primary); padding: 8px; border-radius: 4px; font-size: 8px; overflow-x: auto; max-height: 200px;">${JSON.stringify(conf || {}, null, 2)}</pre>
+                    </div>`;
             }
+            html += '</div>';
+            return html;
+        }
+
+        function buildConflictComparison(productionResult, candidateResult, baselineResult) {
+            const showProduction = modelDisplay === 'all' || modelDisplay === 'production';
+            const showCandidate = modelDisplay === 'all' || modelDisplay === 'candidate';
+            const showBaseline = modelDisplay === 'all' || modelDisplay === 'baseline';
+
+            const productionConf = productionResult?.data?.conflict_detection || {};
+            const candidateConf = candidateResult?.data?.conflict_detection || {};
+            const baselineConf = baselineResult?.data?.conflict_detection || {};
+
+            let html = '<div style="margin-bottom: 20px;"><div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">CONFLICT DETECTION COMPARISON</div>';
+
+            if (!showProduction && !showCandidate && !showBaseline) {
+                html += '<div class="step"><div class="step-content">Select a model to display</div></div>';
+                return html + '</div>';
+            }
+
+            html += '<div class="comparison-grid' + (modelDisplay !== 'all' ? ' full' : '') + '">';
+
+            html += buildConflictColumn('⚡ Production (Semantic)', productionConf, productionResult, showProduction);
+            html += buildConflictColumn('🤖 ML Candidate (Semantic)', candidateConf, candidateResult, showCandidate);
+            html += buildConflictColumn('📊 Baseline (Template)', baselineConf, baselineResult, showBaseline);
 
             html += '</div></div>';
             return html;
@@ -2219,8 +2224,8 @@
         const FLOW_DEF = [
             { group: 'Domain Detection' },
             { id: 'domain', method: 'POST', path: '/api/detect-domain-pack', label: 'Auto-detect domain pack' },
-            { group: 'Baseline  ·  POST /v1/feedback/analyze' },
-            { id: 'baseline', method: 'POST', path: '/v1/feedback/analyze', label: 'End-to-end baseline pipeline', children: [
+            { group: 'Production  ·  POST /v1/feedback/analyze (active models)' },
+            { id: 'baseline', method: 'POST', path: '/v1/feedback/analyze', label: 'End-to-end production pipeline (model=active)', children: [
                 { id: 'bs0', step: '0', name: 'Feedback Preprocessing', spec: '8.2' },
                 { id: 'bs1', step: '1', name: 'Classification', spec: '8.3' },
                 { id: 'bs2', step: '2', name: 'Rule Extraction', spec: '8.5' },
@@ -2230,10 +2235,10 @@
                 { id: 'bs6', step: '6', name: 'Clarification', spec: '8.8' },
                 { id: 'bs7', step: '7', name: 'Review Routing', spec: '8.9' },
             ]},
-            { group: 'ML Candidate  ·  DistilBERT (5 endpoints)' },
+            { group: 'ML Candidate  ·  DistilBERT (4 endpoints + deterministic validation)' },
             { id: 'cclass', method: 'POST', path: '/v1/feedback/classify-distilbert', label: 'Classification (DistilBERT)' },
             { id: 'cext', method: 'POST', path: '/v1/feedback/extract-distilbert', label: 'Rule Extraction (DistilBERT)' },
-            { id: 'cval', method: 'POST', path: '/v1/feedback/validate-schema-distilbert', label: 'Schema Validation' },
+            { id: 'cval', method: 'POST', path: '/v1/feedback/analyze', label: 'Schema Validation (deterministic)' },
             { id: 'cdup', method: 'POST', path: '/v1/rules/check-duplicate', q: 'model=semantic', label: 'Duplicate Detection' },
             { id: 'ccon', method: 'POST', path: '/v1/rules/check-conflict', q: 'model=semantic', label: 'Conflict Detection' },
         ];
@@ -2428,6 +2433,20 @@
         }
 
         function markBaselineChildren(ok) {
+            var ids = ['bs0', 'bs1', 'bs2', 'bs3', 'bs4', 'bs5', 'bs6', 'bs7'];
+            ids.forEach((id, i) => {
+                setTimeout(() => {
+                    flowSetStatus(id, ok ? 'ok' : 'err', { ms: ok ? 0 : 0, code: ok ? 200 : 0 });
+                }, ok ? i * 130 : 0);
+            });
+            if (ok) {
+                flowLog('   ↳ S0 preprocessing → S7 routing (8 internal steps completed)', 'log-ok');
+            } else {
+                flowLog('   ↳ internal steps aborted — analyze call failed', 'log-err');
+            }
+        }
+
+        function markProductionChildren(ok) {
             var ids = ['bs0', 'bs1', 'bs2', 'bs3', 'bs4', 'bs5', 'bs6', 'bs7'];
             ids.forEach((id, i) => {
                 setTimeout(() => {

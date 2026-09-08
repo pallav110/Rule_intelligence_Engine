@@ -808,18 +808,26 @@ def extract_workspace_from_context(payload_workspace: str, request_headers: dict
 def analyze_feedback(
     payload: FeedbackAnalysisRequest,
     request: Request,
+    model: str = "active",
     db=Depends(get_db),
 ):
     """
-    Analyze feedback through complete 8-step Phase 2 pipeline:
-    1. Classify feedback
-    2. Extract rules with enhanced evidence & confidence
-    3. Schema validation (PASS/PARTIAL/FAIL + coverage)
-    4. Duplicate detection
-    5. Conflict detection
-    6. Clarification generation
-    7. Review routing
-    8. Persist suggestion
+    Analyze feedback through complete 8-step Phase 2 pipeline.
+
+    Query params:
+        model: "active" (default) — uses best active models from registry (DistilBERT,
+               pgvector semantic retrieval). "baseline" — forces old baseline methods
+               (TF-IDF classifier, regex extractor, domain-pack JSON retrieval).
+
+    Steps:
+    1. Feedback Preprocessing
+    2. Classification (active: DistilBERT | baseline: TF-IDF)
+    3. Rule Extraction (active: DistilBERT token classifier | baseline: regex)
+    4. Schema Validation (deterministic, same for both paths)
+    5. Duplicate Detection (active: pgvector semantic | baseline: domain-pack JSON)
+    6. Conflict Detection (active: pgvector semantic | baseline: domain-pack JSON)
+    7. Clarification Generation (deterministic completeness/ambiguity check)
+    8. Review Routing (deterministic policy engine)
     """
     # === INPUT VALIDATION LOGGING (8.1) ===
     input_validation_logger.info("=== INPUT VALIDATION START ===")
@@ -964,11 +972,24 @@ def analyze_feedback(
     # Record preprocessing timestamp
     analysis_run.execution_timestamps["preprocessing_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 2: Classification (best available model: DistilBERT if ACTIVE, else baseline)
-    from app.services.ml_model_service import MLModelService
-    mls = MLModelService(db=db)
+    # STEP 2: Classification
     domain_pack_id = full_schema_context.get("domain_pack_id")
-    classification_result = mls.classify(processed_feedback, domain=domain_pack_id)
+
+    if model == "baseline":
+        # Baseline path: TF-IDF + LogisticRegression classifier (old method)
+        from app.services.classifier import RealClassifier
+        classifier = RealClassifier(domain=domain_pack_id or "ecommerce")
+        classification_result = classifier.classify(processed_feedback)
+        classification_result["model"] = "baseline"
+        classification_result["registry_status"] = "baseline_forced"
+        classification_result["model_version_id"] = None
+        classification_result["model_version"] = None
+    else:
+        # Active path: DistilBERT if ACTIVE in registry, else TF-IDF fallback
+        from app.services.ml_model_service import MLModelService
+        mls = MLModelService(db=db)
+        classification_result = mls.classify(processed_feedback, domain=domain_pack_id)
+
     classification_result_dict = {
         "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
         "rule_category": classification_result.get("rule_category", "unknown"),
@@ -984,8 +1005,17 @@ def analyze_feedback(
     # Record classification timestamp
     analysis_run.execution_timestamps["classification_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 2: Rule Extraction (best available model: DistilBERT if ACTIVE, else baseline)
-    extraction_result = mls.extract(processed_feedback, full_schema_context)
+    # STEP 3: Rule Extraction
+    if model == "baseline":
+        # Baseline path: Enhanced regex extractor (old method)
+        from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
+        extractor = EnhancedRuleExtractor()
+        extraction_result = extractor.extract(processed_feedback, full_schema_context)
+        extraction_result["model"] = "baseline"
+    else:
+        # Active path: DistilBERT token classifier if ACTIVE in registry, else regex fallback
+        extraction_result = mls.extract(processed_feedback, full_schema_context)
+
     extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
     # Record which model was used for extraction
     extraction_result["model"] = extraction_result.get("model", "baseline")
@@ -1049,16 +1079,23 @@ def analyze_feedback(
     # Record schema validation timestamp
     analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 5: Duplicate Detection (best available model: Real/pgvector semantic retrieval, else baseline fallback path)
+    # STEP 5: Duplicate Detection
     if domain_pack_id:
-        duplicate_service = RealDuplicateDetectionService()
-        duplicate_check = duplicate_service.check_duplicate(
+        if model == "baseline":
+            # Baseline path: domain-pack JSON retrieval (deterministic)
+            dup_svc = BaselineDuplicateDetectionService()
+            dup_engine = "baseline"
+        else:
+            # Active path: pgvector semantic retrieval
+            dup_svc = RealDuplicateDetectionService()
+            dup_engine = "semantic"
+        duplicate_check = dup_svc.check_duplicate(
             suggested_rule=primary_rule,
             workspace_id=payload.workspace_id,
             domain_id=domain_pack_id,
             db=db,
         )
-        duplicate_check.setdefault("details", {})["model_used"] = "semantic"
+        duplicate_check.setdefault("details", {})["model_used"] = dup_engine
     else:
         duplicate_check = {
             "is_duplicate": False,
@@ -1070,16 +1107,23 @@ def analyze_feedback(
             "details": {"reason": "No domain detected - skipping duplicate detection", "model_used": "none"}
         }
 
-    # STEP 6: Conflict Detection (best available model: Real/pgvector semantic retrieval, else baseline fallback path)
+    # STEP 6: Conflict Detection
     if domain_pack_id:
-        conflict_service = RealConflictDetectionService()
-        conflict_check = conflict_service.check_conflict(
+        if model == "baseline":
+            # Baseline path: domain-pack JSON retrieval (deterministic)
+            cfl_svc = BaselineConflictDetectionService()
+            cfl_engine = "baseline"
+        else:
+            # Active path: pgvector semantic retrieval
+            cfl_svc = RealConflictDetectionService()
+            cfl_engine = "semantic"
+        conflict_check = cfl_svc.check_conflict(
             suggested_rule=primary_rule,
             workspace_id=payload.workspace_id,
             domain_id=domain_pack_id,
             db=db,
         )
-        conflict_check.setdefault("details", {})["model_used"] = "semantic"
+        conflict_check.setdefault("details", {})["model_used"] = cfl_engine
     else:
         conflict_check = {
             "has_conflict": False,
@@ -1144,7 +1188,7 @@ def analyze_feedback(
     try:
         from app.services.calibration import calibrate_probability
         from app.services.sensitivity_service import assess_sensitivity
-        temp = float(schema_context.get("calibration_temperature", 1.0)) if isinstance(schema_context, dict) else 1.0
+        temp = float(full_schema_context.get("calibration_temperature", 1.0)) if isinstance(full_schema_context, dict) else 1.0
         raw_conf = float(classification_result_dict.get("confidence", 0.0) or 0.0)
         classification_result_dict["calibrated_confidence"] = calibrate_probability(raw_conf, temp)
         sensitivity = assess_sensitivity(primary_rule, classification_result_dict)
@@ -2055,99 +2099,6 @@ def extract_with_distilbert(payload: FeedbackAnalysisRequest):
             "model": "distilbert_token_classifier",
             "error": str(e),
             "validation_ready": False
-        }
-
-
-@app.post("/v1/feedback/validate-schema-distilbert")
-def validate_schema_with_distilbert(payload: FeedbackAnalysisRequest):
-    """
-    Validate extracted ML candidate rules against schema (for testing UI comparison).
-    Accepts optional 'extracted_rules' in payload to avoid re-extracting.
-    """
-    try:
-        from app.services.schema_validation_service import SchemaValidationService
-        from pathlib import Path
-        import json
-
-        # Get extracted rules from payload if provided, otherwise extract fresh
-        extracted_rules = payload.schema_context.get("extracted_rules", [])
-
-        # If not provided, extract using DistilBERT (skip if re-extracting would be too slow)
-        if not extracted_rules:
-            # For now, return empty rules - extraction happens separately in HTML
-            extracted_rules = []
-
-        # Get schema from domain pack (same as baseline)
-        domain_pack_id = payload.schema_context.get("domain_pack_id", "ecommerce")
-        domain_schema = {}
-        try:
-            schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
-            if schema_path.exists():
-                with open(schema_path, 'r') as f:
-                    domain_schema = json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load schema for {domain_pack_id}: {e}")
-
-        # Validate each extracted rule
-        validator = SchemaValidationService(domain_schema)
-        validation_results = []
-
-        for rule in extracted_rules:
-            validation = validator.validate_rule(rule, domain_schema)
-            validation_results.append(validation)
-
-        # Aggregate results
-        all_validated_fields = []
-        all_invalid_fields = []
-        all_validation_checks = {}
-
-        for result in validation_results:
-            all_validated_fields.extend(result.get("validated_fields", []))
-            all_invalid_fields.extend(result.get("invalid_fields", []))
-            if result.get("check_results"):
-                all_validation_checks.update(result.get("check_results", {}))
-
-        # Determine overall status
-        if not validation_results:
-            status = "PASS"  # No rules = pass (nothing to validate)
-            coverage = 1.0
-        elif all(v["status"] == "PASS" for v in validation_results):
-            status = "PASS"
-            coverage = 1.0
-        elif any(v["status"] in ["PASS", "PARTIAL"] for v in validation_results):
-            status = "PARTIAL"
-            total_checkable = len(all_validated_fields) + len(all_invalid_fields)
-            coverage = len(all_validated_fields) / total_checkable if total_checkable > 0 else 0.5
-        else:
-            status = "FAIL"
-            total_checkable = len(all_validated_fields) + len(all_invalid_fields)
-            coverage = len(all_validated_fields) / total_checkable if total_checkable > 0 else 0.0
-
-        return {
-            "status": status,
-            "coverage": round(coverage, 3),
-            "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in validation_results) if validation_results else True,
-            "validation_errors": [e for v in validation_results for e in v.get("validation_errors", [])],
-            "schema_loaded": bool(domain_schema),
-            "validated_fields": list(set(all_validated_fields)),
-            "invalid_fields": list(set(all_invalid_fields)),
-            "validation_checks": all_validation_checks,
-            "model": "distilbert_token_classifier"
-        }
-
-    except Exception as e:
-        logger.error(f"Error in DistilBERT schema validation: {e}")
-        return {
-            "status": "FAIL",
-            "coverage": 0.0,
-            "mandatory_fields_valid": False,
-            "validation_errors": [str(e)],
-            "schema_loaded": False,
-            "validated_fields": [],
-            "invalid_fields": [],
-            "validation_checks": {},
-            "model": "distilbert_token_classifier",
-            "error": str(e)
         }
 
 
