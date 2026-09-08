@@ -5,6 +5,7 @@ import json
 from typing import Dict, Any, List
 from pathlib import Path
 from app.services.glossary_service import get_glossary_service
+from app.services.rule_construction import compute_rule_family_id
 
 
 class EnhancedRuleExtractor:
@@ -209,6 +210,7 @@ class EnhancedRuleExtractor:
                 "scope": scope or "global",
                 "time_window": self._extract_time_window(feedback),
                 "affected_entities": affected_entities,
+                "rule_family_id": compute_rule_family_id(term["term"], operation, rule_conditions),
                 "extraction_evidence": evidence_text,
                 "per_field_confidence": field_confidence,
                 "glossary_definitions": term.get("glossary", {}),
@@ -228,6 +230,7 @@ class EnhancedRuleExtractor:
                     "scope": scope or "global",
                     "time_window": self._extract_time_window(feedback),
                     "affected_entities": affected_entities,
+                    "rule_family_id": compute_rule_family_id(candidate, operation, rule_conditions),
                     "extraction_evidence": evidence_text,
                     "per_field_confidence": field_confidence,
                     "glossary_definitions": term.get("glossary", {}),

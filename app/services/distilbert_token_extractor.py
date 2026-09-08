@@ -602,6 +602,12 @@ class DistilBERTTokenExtractor:
         constructed["affected_tables"] = sorted(set(t.rstrip(".") for t in constructed["affected_tables"] if t))
         constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
 
+        # ---- Spec 8.4 required fields ----
+        from app.services.rule_construction import compute_rule_family_id
+        constructed["rule_family_id"] = compute_rule_family_id(
+            business_term, canonical_op, constructed["conditions"]
+        )
+
         # Merge from construction: if we inferred fields, update conditions count
         constructed["confidence"] = mean_conf
         return constructed

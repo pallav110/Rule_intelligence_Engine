@@ -39,3 +39,6 @@ Thumbs.db
 # logs
 *.log
 logs/
+
+
+issues.md

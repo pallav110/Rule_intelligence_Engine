@@ -8,11 +8,38 @@ Converts extracted BIO entities into complete structured rules using:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def compute_rule_family_id(business_term: str, operation: str, conditions: list[dict]) -> str:
+    """Deterministic rule-family hash (Spec 8.4).
+
+    Two feedback strings that map to the same canonical business_term +
+    operation + conditions (regardless of wording) receive the same family
+    ID.  Used to prevent data leakage in train/test splits (Spec 4.8).
+    """
+    canonical_conditions = []
+    for c in conditions or []:
+        canonical_conditions.append({
+            "field":     (c.get("field") or "").lower(),
+            "operator":  (c.get("operator") or "").upper(),
+            "value":     (c.get("value") or "").lower(),
+        })
+    canonical_conditions.sort(key=lambda c: (c["field"], c["operator"], c["value"]))
+
+    family_key = {
+        "business_term": (business_term or "").lower().strip(),
+        "operation":     (operation or "").upper().strip(),
+        "conditions":    canonical_conditions,
+    }
+    blob = json.dumps(family_key, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
 # Canonical operation mapping (Spec 8.4 Table)
