@@ -73,10 +73,10 @@ from app.services.feedback_service import FeedbackService
 from app.services.suggestion_service import SuggestionService
 from app.services.clarification_service import ClarificationService
 from app.services.review_routing_service import ReviewRoutingService
-from app.services.conflict_detection_service import RealConflictDetectionService
-from app.services.duplicate_detection_service import RealDuplicateDetectionService
-from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
+from app.services.conflict_detection_service import ConflictDetectionService, to_spec_conflict_type, RealConflictDetectionService
 from app.services.baseline_conflict_detection_service import BaselineConflictDetectionService
+from app.services.duplicate_detection_service import DuplicateDetectionService, to_spec_relationship_type, RealDuplicateDetectionService
+from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
 from app.services.completeness_checker import CompletenessChecker, AmbiguityDetector
 from app.services.domain_pack_detector import detect_domain_pack
 
@@ -233,6 +233,8 @@ def check_conflict_endpoint(
 
         return {
             **result,
+            "conflict_type": to_spec_conflict_type(result.get("conflict_type") or "no_conflict"),
+            "conflict_type_internal": result.get("conflict_type"),
             "model_used": model,
         }
     except Exception as e:
@@ -326,8 +328,6 @@ def re_analyze_feedback(
     try:
         from app.db.models.feedback import Feedback
         from app.services.clarification_service import RealClarificationService
-        from app.services.classifier import RealClassifier
-        from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
         from app.services.schema_validation_service import SchemaValidationService
         from app.services.duplicate_detection_service import RealDuplicateDetectionService
         from app.services.conflict_detection_service import RealConflictDetectionService
@@ -348,9 +348,10 @@ def re_analyze_feedback(
         # Re-run full pipeline with augmented feedback
         schema_context = {"domain_pack_id": domain_id}
 
-        # Classification
-        classifier = RealClassifier(domain=domain_id)
-        classification_result = classifier.classify(augmented_feedback, schema_context)
+        # Classification (best available model: DistilBERT if ACTIVE, else baseline)
+        from app.services.ml_model_service import MLModelService
+        mls = MLModelService(db=db)
+        classification_result = mls.classify(augmented_feedback, domain=domain_id)
         classification_result_dict = {
             "feedback_type": classification_result.get("feedback_type", "unclear_feedback"),
             "rule_category": classification_result.get("rule_category", "unknown"),
@@ -358,29 +359,30 @@ def re_analyze_feedback(
             "confidence": classification_result.get("confidence", 0.5),
         }
 
-        # Extraction
-        extractor = EnhancedRuleExtractor()
-        extraction_result = extractor.extract(augmented_feedback, schema_context)
+        # Extraction (best available model)
+        extraction_result = mls.extract(augmented_feedback, schema_context)
         extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
         primary_rule = extracted_rules[0] if extracted_rules else {}
 
-        # Duplicate Detection
-        duplicate_service = BaselineDuplicateDetectionService()
+        # Duplicate Detection (Real/pgvector semantic retrieval)
+        duplicate_service = RealDuplicateDetectionService()
         duplicate_check = duplicate_service.check_duplicate(
             suggested_rule=primary_rule,
             workspace_id=workspace_id,
             domain_id=domain_id,
             db=db,
         )
+        duplicate_check.setdefault("details", {})["model_used"] = "semantic"
 
-        # Conflict Detection
-        conflict_service = BaselineConflictDetectionService()
+        # Conflict Detection (Real/pgvector semantic retrieval)
+        conflict_service = RealConflictDetectionService()
         conflict_check = conflict_service.check_conflict(
             suggested_rule=primary_rule,
             workspace_id=workspace_id,
             domain_id=domain_id,
             db=db,
         )
+        conflict_check.setdefault("details", {})["model_used"] = "semantic"
 
         # Review Routing
         routing_service = RealReviewRoutingService()
@@ -894,10 +896,9 @@ def analyze_feedback(
     # Proceed with processing if validation passes
     from uuid import uuid4
     from datetime import datetime
-    from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
     from app.services.schema_validation_service import SchemaValidationService
-    from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
-    from app.services.baseline_conflict_detection_service import BaselineConflictDetectionService
+    from app.services.duplicate_detection_service import RealDuplicateDetectionService
+    from app.services.conflict_detection_service import RealConflictDetectionService
     from app.services.clarification_service import RealClarificationService
     from app.services.review_routing_service import RealReviewRoutingService
     from app.db.models.workspace import Workspace
@@ -1048,15 +1049,16 @@ def analyze_feedback(
     # Record schema validation timestamp
     analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 5: Duplicate Detection (V4 Baseline) - only if we have a domain
+    # STEP 5: Duplicate Detection (best available model: Real/pgvector semantic retrieval, else baseline fallback path)
     if domain_pack_id:
-        duplicate_service = BaselineDuplicateDetectionService()
+        duplicate_service = RealDuplicateDetectionService()
         duplicate_check = duplicate_service.check_duplicate(
             suggested_rule=primary_rule,
             workspace_id=payload.workspace_id,
             domain_id=domain_pack_id,
             db=db,
         )
+        duplicate_check.setdefault("details", {})["model_used"] = "semantic"
     else:
         duplicate_check = {
             "is_duplicate": False,
@@ -1065,18 +1067,19 @@ def analyze_feedback(
             "confidence": 0.0,
             "retrieval_stage": 0,
             "similar_rules": [],
-            "details": {"reason": "No domain detected - skipping duplicate detection"}
+            "details": {"reason": "No domain detected - skipping duplicate detection", "model_used": "none"}
         }
 
-    # STEP 6: Conflict Detection - only if we have a domain
+    # STEP 6: Conflict Detection (best available model: Real/pgvector semantic retrieval, else baseline fallback path)
     if domain_pack_id:
-        conflict_service = BaselineConflictDetectionService()
+        conflict_service = RealConflictDetectionService()
         conflict_check = conflict_service.check_conflict(
             suggested_rule=primary_rule,
             workspace_id=payload.workspace_id,
             domain_id=domain_pack_id,
             db=db,
         )
+        conflict_check.setdefault("details", {})["model_used"] = "semantic"
     else:
         conflict_check = {
             "has_conflict": False,
@@ -1085,7 +1088,7 @@ def analyze_feedback(
             "confidence": 0.0,
             "deterministic_comparison": True,
             "retrieval_stage": 0,
-            "details": {"reason": "No domain detected - skipping conflict detection"}
+            "details": {"reason": "No domain detected - skipping conflict detection", "model_used": "none"}
         }
 
     # Record duplicate and conflict detection timestamps
@@ -1270,8 +1273,9 @@ def analyze_feedback(
         extraction=extraction_response,
         schema_validation=schema_validation_obj,
         duplicate_detection=DuplicateDetectionResponse(
-            status=duplicate_check.get("status", "none"),
-            relationship=duplicate_check.get("relationship", "unrelated"),
+            status=to_spec_relationship_type(duplicate_check.get("status") or duplicate_check.get("relationship", "unrelated")),
+            relationship=to_spec_relationship_type(duplicate_check.get("relationship", "unrelated")),
+            relationship_internal=duplicate_check.get("relationship"),
             is_duplicate=duplicate_check.get("is_duplicate", False),
             matching_rule_id=duplicate_check.get("matching_rule_id"),
             confidence=duplicate_check.get("confidence", 0.0),
@@ -1280,15 +1284,17 @@ def analyze_feedback(
             details=duplicate_check.get("details", {}),
         ),
         conflict_detection=ConflictDetectionResponse(
-            status=conflict_check.get("conflict_type", "no_conflict"),
-            relationship=conflict_check.get("relationship", "compatible"),
+            status=to_spec_conflict_type(conflict_check.get("conflict_type", "no_conflict")),
+            relationship=conflict_check.get("relationship")
+            or to_spec_conflict_type(conflict_check.get("conflict_type") or "no_conflict"),
             has_conflict=conflict_check.get("has_conflict", False),
-            conflict_type=conflict_check.get("conflict_type"),
+            conflict_type=to_spec_conflict_type(conflict_check.get("conflict_type") or "no_conflict"),
+            conflict_type_internal=conflict_check.get("conflict_type"),
             confidence=conflict_check.get("confidence", 0.0),
             retrieval_stage=conflict_check.get("retrieval_stage", 0),
             conflicting_rule_ids=conflict_check.get("conflicting_rule_ids", []),
             related_compatible_rule_ids=conflict_check.get("related_compatible_rule_ids", []),
-            conflict_details=conflict_check.get("all_conflicts", []),
+            conflict_details=conflict_check.get("details", {}).get("all_conflicts", []),
             details=conflict_check.get("details", {}),
         ),
         clarification_required=clarification_required,
@@ -1419,15 +1425,24 @@ def list_suggestions_route(
     status: Optional[str] = None,
 ):
     from app.db.models.rule_suggestion import RuleSuggestion
-    
+    from app.db.models.review import Review
+
     query = db.query(RuleSuggestion)
     if workspace_id:
         query = query.filter(RuleSuggestion.workspace_id == workspace_id)
     if status:
         query = query.filter(RuleSuggestion.review_status == status)
-        
+
     results = query.all()
-    
+
+    # Review fields live on the Review model (reviewer_id/completed_at),
+    # not on RuleSuggestion — batch-load them to avoid an N+1 query.
+    suggestion_ids = [s.suggestion_id for s in results]
+    review_by_suggestion: dict = {}
+    if suggestion_ids:
+        for r in db.query(Review).filter(Review.suggestion_id.in_(suggestion_ids)).all():
+            review_by_suggestion[r.suggestion_id] = r
+
     return [
         SuggestionResponse(
             suggestion_id=s.suggestion_id,
@@ -1437,8 +1452,10 @@ def list_suggestions_route(
             status=s.review_status,
             confidence_score=0.0,
             created_at=s.created_at,
-            reviewed_by=s.reviewed_by,
-            reviewed_at=s.reviewed_at,
+            reviewed_by=(review_by_suggestion.get(s.suggestion_id).reviewer_id
+                         if s.suggestion_id in review_by_suggestion else None),
+            reviewed_at=(review_by_suggestion.get(s.suggestion_id).completed_at
+                         if s.suggestion_id in review_by_suggestion else None),
         ) for s in results
     ]
 
@@ -1809,7 +1826,7 @@ def create_dataset_version(payload: dataset_schemas.DatasetVersionCreateRequest,
 @app.get("/v1/dataset-versions", response_model=list[dataset_schemas.DatasetVersionResponse])
 def list_dataset_versions(db=Depends(get_db)):
     service = DatasetVersionService()
-    return service.list_versions(db)
+    return service.list_datasets(db)
 
 @app.get("/v1/dataset-versions/{dataset_id}", response_model=dataset_schemas.DatasetVersionResponse)
 def get_dataset_version(dataset_id: str, db=Depends(get_db)):
@@ -2166,6 +2183,9 @@ async def check_duplicate_endpoint(
 
         return {
             **result,
+            "relationship": to_spec_relationship_type(result.get("relationship") or "unrelated"),
+            "status": to_spec_relationship_type(result.get("status") or result.get("relationship", "unrelated")),
+            "relationship_internal": result.get("relationship"),
             "model_used": model
         }
     except Exception as e:

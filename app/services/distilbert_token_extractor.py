@@ -310,24 +310,45 @@ class DistilBERTTokenExtractor:
                 component_mapping["business_term"] = word
                 break
 
-        # Extract operation
+        # Extract operation — the NER model often tags modal verbs ("should",
+        # "must", "can"...) as B_OPERATION ahead of the real verb. Skip modals so
+        # "should include" resolves to "include", not "should" (which would fall
+        # back to EXCLUDE in canonicalization). Handle "not include" → "not include".
+        operation_words = []
         for i, tag in enumerate(tags):
-            if tag.startswith('B_OPERATION'):
-                word = words[i] if i < len(words) else None
-                # Defensive: normalize operation to lowercase string
+            if tag.startswith('B_OPERATION') and i < len(words):
+                word = words[i]
                 if word is not None:
                     try:
                         word = word.lower()
                     except Exception:
                         word = str(word)
-                rule["operation"] = word
-                detailed_components["operations"].append({
-                    "word": word,
-                    "position": i,
-                    "tag": tag
-                })
-                component_mapping["operation"] = word
+                    operation_words.append((i, word))
+
+        MODAL_VERBS = {
+            "should", "must", "will", "would", "can", "could", "may", "might",
+            "shall", "ought", "need", "do", "does", "did", "wants", "want", "to",
+        }
+
+        op_idx, op_word = None, None
+        for i, w in operation_words:
+            if w.strip() not in MODAL_VERBS:
+                op_idx, op_word = i, w
                 break
+        if op_word is None and operation_words:
+            op_idx, op_word = operation_words[0]
+
+        if op_word is not None:
+            # Negation: "should not include" → "not include" → canonicalized EXCLUDE
+            if op_idx is not None and op_idx > 0 and words[op_idx - 1].lower() in ("not", "never"):
+                op_word = f"not {op_word}"
+            rule["operation"] = op_word
+            detailed_components["operations"].append({
+                "word": op_word,
+                "position": op_idx,
+                "tag": "B_OPERATION"
+            })
+            component_mapping["operation"] = op_word
 
         # Extract all entity types with position tracking
         fields = []
@@ -448,6 +469,11 @@ class DistilBERTTokenExtractor:
                 "include": "INCLUDE", "must include": "INCLUDE",
                 "should be part of": "INCLUDE", "accounts for": "INCLUDE",
                 "part of": "INCLUDE", "count toward": "INCLUDE",
+                "not include": "EXCLUDE", "not count": "EXCLUDE",
+                "doesn't count": "EXCLUDE", "does not count": "EXCLUDE",
+                "never include": "EXCLUDE", "should not": "EXCLUDE",
+                "not exclude": "INCLUDE", "not excluded": "INCLUDE",
+                "should be included": "INCLUDE", "should be excluded": "EXCLUDE",
                 "restricted to": "RESTRICT", "access should be limited to": "RESTRICT",
                 "limited to": "RESTRICT", "only show": "RESTRICT",
                 "restrict": "RESTRICT",

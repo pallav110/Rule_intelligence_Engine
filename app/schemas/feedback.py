@@ -56,8 +56,9 @@ class SchemaValidationResponse(BaseModel):
 
 
 class DuplicateDetectionResponse(BaseModel):
-    status: str  # none, exact_duplicate, semantic_duplicate, extension, modification
-    relationship: str
+    status: str  # Spec §8.6: Exact Duplicate, Semantic Duplicate, Modification, Unique Rule
+    relationship: str  # Spec §8.6 compliant relationship
+    relationship_internal: str | None = None  # Internal classifier value (backward compat)
     is_duplicate: bool = False
     matching_rule_id: str | None = None
     confidence: float = 0.0
@@ -67,10 +68,11 @@ class DuplicateDetectionResponse(BaseModel):
 
 
 class ConflictDetectionResponse(BaseModel):
-    status: str  # no_conflict, potential_conflict, direct_conflict
+    status: str  # Spec §8.7: Conflict, Compatible, Extension, Modification, No Conflict
     relationship: str
     has_conflict: bool = False
-    conflict_type: str | None = None
+    conflict_type: str | None = None  # Spec §8.7 compliant conflict type
+    conflict_type_internal: str | None = None  # Internal classifier value (backward compat)
     confidence: float = 0.0
     retrieval_stage: int = 0
     conflicting_rule_ids: list[str] = Field(default_factory=list)
@@ -92,7 +94,7 @@ class RoutingDecisionResponse(BaseModel):
     review_status: str  # pending_review, clarification_required, auto_approved, etc.
     priority: str = "normal"  # normal, high, urgent, auto_approve
     reason: str = ""
-    suggested_reviewer_type: str | None = None  # automated, domain_expert, manager, qa
+    suggested_reviewer_type: str | None = None  # automated, domain_expert, manager, senior_reviewer, qa
     suggested_reviewer_id: str | None = None
     auto_approval_eligible: bool = False
     reasoning: dict[str, Any] = Field(default_factory=dict)  # confidence/impact/complexity/risk scores + factors

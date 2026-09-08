@@ -22,6 +22,7 @@ class ReviewerType(str, Enum):
     AUTOMATED = "automated"
     DOMAIN_EXPERT = "domain_expert"
     MANAGER = "manager"
+    SENIOR_REVIEWER = "senior_reviewer"
     QA = "qa"
 
 
@@ -72,7 +73,7 @@ class ReviewRouter:
         elif sensitivity and sensitivity.get("sensitive"):
             review_status = "senior_review_required"
             priority = ReviewPriority.URGENT
-            suggested_reviewer_type = ReviewerType.MANAGER
+            suggested_reviewer_type = ReviewerType.SENIOR_REVIEWER
             suggested_reviewer_id = self._select_reviewer(suggested_reviewer_type, domain_id)
             reasoning_factors = [f"Sensitive business rule detected (score={sensitivity.get('score')})"]
         elif clarification_required:
@@ -215,7 +216,7 @@ class ReviewRouter:
         is_duplicate: bool,
     ) -> Tuple[ReviewPriority, ReviewerType]:
         if (impact > 0.7 and risk > 0.5) or has_conflict:
-            return ReviewPriority.URGENT, ReviewerType.MANAGER
+            return ReviewPriority.URGENT, ReviewerType.SENIOR_REVIEWER
         if impact > 0.7 or (confidence > 0.8 and complexity > 0.5):
             return ReviewPriority.HIGH, ReviewerType.DOMAIN_EXPERT
         if impact > 0.4 and risk > 0.2:
@@ -229,6 +230,8 @@ class ReviewRouter:
             return "system:auto_approve"
         if reviewer_type == ReviewerType.MANAGER:
             return f"reviewer:manager:{domain_id}"
+        if reviewer_type == ReviewerType.SENIOR_REVIEWER:
+            return f"reviewer:senior:{domain_id}"
         if reviewer_type == ReviewerType.DOMAIN_EXPERT:
             return f"reviewer:expert:{domain_id}"
         return f"reviewer:qa:{domain_id}"
@@ -368,8 +371,8 @@ class RealReviewRoutingService:
                     routing_decision = {
                         "review_status": "senior_review_required",
                         "priority": ReviewPriority.URGENT.value,
-                        "suggested_reviewer_type": ReviewerType.MANAGER.value,
-                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.MANAGER, domain_id),
+                        "suggested_reviewer_type": ReviewerType.SENIOR_REVIEWER.value,
+                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.SENIOR_REVIEWER, domain_id),
                         "reason": reason,
                     }
                 else:

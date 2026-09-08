@@ -1,28 +1,89 @@
-"""Real duplicate detection service using semantic and structural matching."""
+"""Unified duplicate detection service.
+
+Consolidates baseline (deterministic, all-rules retrieval) and ML/semantic
+(pgvector Top-K retrieval) engines into a single file with a shared detector
+class and a parametrised service facade.
+
+Usage:
+    # Semantic engine (pgvector + domain pack) — default for production
+    svc = DuplicateDetectionService(engine="semantic")
+
+    # Baseline engine (domain pack + raw SQL) — deterministic fallback
+    svc = DuplicateDetectionService(engine="baseline")
+
+    result = svc.check_duplicate(suggested_rule, workspace_id, domain_id, db=db)
+
+Backward-compatible aliases:
+    RealDuplicateDetectionService     = DuplicateDetectionService  (engine="semantic")
+    BaselineDuplicateDetectionService = DuplicateDetectionService  (engine="baseline")
+"""
 
 from typing import Dict, Any, List, Optional, Tuple
 from difflib import SequenceMatcher
 from pathlib import Path
 import json
 import re
+import hashlib
+import logging
 
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Spec §8.6 relationship_type mapping: internal value -> spec-compliant value
+# ---------------------------------------------------------------------------
+
+RELATIONSHIP_TYPE_SPEC_MAP = {
+    "exact_duplicate": "Exact Duplicate",
+    "semantic_duplicate": "Semantic Duplicate",
+    "modification": "Modification",
+    "subset": "Modification",
+    "superset": "Modification",
+    "extension": "Semantic Duplicate",
+    "related_compatible": "Semantic Duplicate",
+    "unrelated": "Unique Rule",
+    "no_duplicate": "Unique Rule",
+}
+
+
+def to_spec_relationship_type(internal_value: str) -> str:
+    """Map an internal relationship_type value to the spec §8.6 enum."""
+    return RELATIONSHIP_TYPE_SPEC_MAP.get(internal_value, internal_value)
+
+
+# ---------------------------------------------------------------------------
+# Unified duplicate detector (deterministic structural comparison)
+# ---------------------------------------------------------------------------
 
 class DuplicateDetector:
-    """Detect duplicate and related rules using semantic and structural matching."""
+    """Detect duplicate and related rules using structural comparison.
 
-    # Relationship types
+    This is the single comparison engine shared by both the semantic
+    (pgvector-retrieved candidates) and baseline (all-rules) pipelines.
+    It handles:
+      - Business-term fuzzy matching
+      - Operation / scope equality
+      - Condition list comparison with candidate-condition awareness
+      - Affected-entity (tables/columns) comparison with leaf-based matching
+      - Relationship classification per spec §8.6
+    """
+
+    # Relationship types (spec §8.6 internal names)
     EXACT_DUPLICATE = "exact_duplicate"
     SEMANTIC_DUPLICATE = "semantic_duplicate"
     EXTENSION = "extension"
     MODIFICATION = "modification"
     SUBSET = "subset"
     SUPERSET = "superset"
+    RELATED_COMPATIBLE = "related_compatible"
     UNRELATED = "unrelated"
 
     def __init__(self):
-        """Initialize duplicate detector."""
         self.similarity_threshold = 0.75
         self.structural_threshold = 0.6
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def detect(
         self,
@@ -30,52 +91,58 @@ class DuplicateDetector:
         existing_rules: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
-        Detect if new_rule duplicates or relates to existing rules.
+        Detect if *new_rule* duplicates or relates to any of *existing_rules*.
 
-        Returns:
-            {
-                "relationship": str,  # One of the relationship types above
-                "matching_rule_id": str or None,
-                "confidence": float,
-                "details": {
-                    "business_term_match": bool,
-                    "condition_similarity": float,
-                    "operation_match": bool,
-                    "scope_match": bool,
-                    "affected_entities_match": float,
-                }
-            }
+        Returns the best (highest confidence) match across all candidates.
         """
         if not existing_rules:
             return {
                 "relationship": self.UNRELATED,
                 "matching_rule_id": None,
                 "confidence": 0.0,
+                "is_duplicate": False,
+                "deterministic_match": True,
+                "normalized_rule_hash": self._generate_rule_hash(new_rule),
                 "details": {},
             }
 
         best_match = None
         best_relationship = self.UNRELATED
         best_confidence = 0.0
+        best_details: Dict[str, Any] = {}
 
         for existing_rule in existing_rules:
             relationship, confidence, details = self._compare_rules(new_rule, existing_rule)
-
             if confidence > best_confidence:
                 best_confidence = confidence
                 best_relationship = relationship
                 best_match = existing_rule
+                best_details = details
+
+        is_duplicate = (
+            best_relationship != self.UNRELATED and best_confidence > 0.7
+            and best_relationship in (
+                self.EXACT_DUPLICATE, self.SEMANTIC_DUPLICATE,
+                self.EXTENSION, self.MODIFICATION,
+            )
+        )
 
         return {
             "relationship": best_relationship,
             "matching_rule_id": best_match.get("rule_id") if best_match else None,
             "confidence": round(best_confidence, 3),
-            "details": self._extract_match_details(new_rule, best_match) if best_match else {},
+            "is_duplicate": is_duplicate,
+            "deterministic_match": True,
+            "normalized_rule_hash": self._generate_rule_hash(new_rule),
+            "details": self._extract_match_details(new_rule, best_match) if best_match else best_details,
         }
 
+    # ------------------------------------------------------------------
+    # Core comparison
+    # ------------------------------------------------------------------
+
     def _compare_rules(self, new_rule: Dict[str, Any], existing_rule: Dict[str, Any]) -> Tuple[str, float, Dict]:
-        """Compare two rules and return relationship type, confidence, and details."""
-        details = {
+        details: Dict[str, Any] = {
             "business_term_match": False,
             "condition_similarity": 0.0,
             "operation_match": False,
@@ -84,139 +151,133 @@ class DuplicateDetector:
             "threshold_match": False,
         }
 
-        # 1. Check business term match
-        new_term = new_rule.get("business_term", "").lower()
-        existing_term = existing_rule.get("business_term", "").lower()
-        term_similarity = self._string_similarity(new_term, existing_term)
-        details["business_term_match"] = term_similarity > 0.85
+        # 1. Business term
+        new_term = (new_rule.get("business_term") or "").lower()
+        existing_term = (existing_rule.get("business_term") or "").lower()
+        details["business_term_match"] = self._string_similarity(new_term, existing_term) > 0.85
 
-        # 2. Check operation match
+        # 2. Operation
         new_op = (new_rule.get("operation") or "").lower()
         existing_op = (existing_rule.get("operation") or "").lower()
         details["operation_match"] = new_op == existing_op
 
-        # 3. Check scope match
-        new_scope = new_rule.get("scope", "").lower()
-        existing_scope = existing_rule.get("scope", "").lower()
+        # 3. Scope
+        new_scope = (new_rule.get("scope") or "").lower()
+        existing_scope = (existing_rule.get("scope") or "").lower()
         details["scope_match"] = new_scope == existing_scope
 
-        # 4. Compare conditions (including candidate conditions for semantic matching)
+        # 4. Conditions (including candidate conditions for semantic matching)
         new_conditions = new_rule.get("conditions", [])
         existing_conditions = existing_rule.get("conditions", [])
         new_candidate_conditions = new_rule.get("candidate_conditions", [])
-        condition_similarity = self._compare_conditions(
-            new_conditions, existing_conditions, new_rule, existing_rule,
-            candidate_conditions=new_candidate_conditions,
+        details["condition_similarity"] = round(
+            self._compare_conditions(
+                new_conditions, existing_conditions,
+                new_rule, existing_rule,
+                candidate_conditions=new_candidate_conditions,
+            ),
+            3,
         )
-        details["condition_similarity"] = round(condition_similarity, 3)
 
-        # 5. Compare affected entities (tables and columns) — merge both key styles
+        # 5. Affected entities (leaf-based column matching)
         new_entities = self._get_effective_entities(new_rule)
         existing_entities = self._get_effective_entities(existing_rule)
-        entities_similarity = self._compare_entities(new_entities, existing_entities)
-        details["affected_entities_match"] = round(entities_similarity, 3)
+        details["affected_entities_match"] = round(
+            self._compare_entities(new_entities, existing_entities), 3,
+        )
 
-        # 6. Check threshold match
-        new_threshold = new_rule.get("threshold")
-        existing_threshold = existing_rule.get("threshold")
-        details["threshold_match"] = new_threshold == existing_threshold
+        # 6. Threshold
+        details["threshold_match"] = new_rule.get("threshold") == existing_rule.get("threshold")
 
-        # Determine relationship based on comparison
         relationship, confidence = self._determine_relationship(new_rule, existing_rule, details)
-
         return relationship, confidence, details
 
-    def _string_similarity(self, s1: str, s2: str) -> float:
-        """Calculate string similarity using SequenceMatcher."""
-        return SequenceMatcher(None, s1, s2).ratio()
+    # ------------------------------------------------------------------
+    # Condition comparison
+    # ------------------------------------------------------------------
 
     def _compare_conditions(
-        self, new_conditions: List[Dict], existing_conditions: List[Dict],
-        new_rule: Dict = None, existing_rule: Dict = None,
+        self,
+        new_conditions: List[Dict],
+        existing_conditions: List[Dict],
+        new_rule: Dict = None,
+        existing_rule: Dict = None,
         candidate_conditions: List[Dict] = None,
     ) -> float:
-        """
-        Compare condition lists.
-        Returns similarity score 0.0-1.0.
-
-        Strategy:
-        - If BOTH are empty: perfect match (1.0)
-        - If ONE is empty, check if entities/fuzzy match gives partial credit (0.5)
-        - If candidate conditions present, boost similarity via fuzzy token overlap
-        - If BOTH have conditions: compare field-by-field with fuzzy matching
-        """
+        """Compare two condition lists.  Returns similarity 0.0–1.0."""
         if not new_conditions and not existing_conditions:
             return 1.0
 
-        # If new rule has no conditions but HAS candidate conditions, boost similarity
+        # Candidate conditions boost: new rule has candidates, existing has real conditions
         if not new_conditions and candidate_conditions and existing_conditions:
-            candidate_texts = [c.get("text", "").lower() for c in candidate_conditions]
-            candidate_text = " ".join(candidate_texts)
-            for cond in existing_conditions if existing_conditions else []:
+            candidate_text = " ".join(c.get("text", "").lower() for c in candidate_conditions)
+            for cond in existing_conditions:
                 field = (cond.get("field") or "").lower()
                 for token in self._field_tokens(field):
                     if token in candidate_text or self._singularize(token) in candidate_text:
-                        return 0.65  # Good semantic match via candidate conditions
+                        return 0.65
 
         if not new_conditions or not existing_conditions:
+            # One side has conditions, the other doesn't — check entity overlap
             if new_conditions and not existing_conditions:
-                # New rule has conditions, existing doesn't — check effective entities
-                existing_ent = self._get_effective_entities(existing_rule) if existing_rule else {}
-                existing_fields = set(f.lower() for f in existing_ent.get("columns", []))
-                new_fields = set((cond.get("field") or "").lower() for cond in new_conditions if cond)
+                existing_fields = set(
+                    f.lower() for f in (self._get_effective_entities(existing_rule or {}).get("columns", []))
+                )
+                new_fields = {(cond.get("field") or "").lower() for cond in new_conditions if cond}
                 for nf in new_fields:
-                    nf_tokens = {self._singularize(t) for t in self._field_tokens(nf)}
+                    nf_tok = {self._singularize(t) for t in self._field_tokens(nf)}
                     for ef in existing_fields:
-                        ef_tokens = {self._singularize(t) for t in self._field_tokens(ef)}
-                        if nf_tokens & ef_tokens:
+                        ef_tok = {self._singularize(t) for t in self._field_tokens(ef)}
+                        if nf_tok & ef_tok:
                             return 0.5
             elif existing_conditions and not new_conditions:
-                new_ent = self._get_effective_entities(new_rule) if new_rule else {}
-                new_fields = set(f.lower() for f in new_ent.get("columns", []))
-                existing_fields = set((cond.get("field") or "").lower() for cond in existing_conditions if cond)
+                new_fields = set(
+                    f.lower() for f in (self._get_effective_entities(new_rule or {}).get("columns", []))
+                )
+                existing_fields = {(cond.get("field") or "").lower() for cond in existing_conditions if cond}
                 for nf in new_fields:
-                    nf_tokens = {self._singularize(t) for t in self._field_tokens(nf)}
+                    nf_tok = {self._singularize(t) for t in self._field_tokens(nf)}
                     for ef in existing_fields:
-                        ef_tokens = {self._singularize(t) for t in self._field_tokens(ef)}
-                        if nf_tokens & ef_tokens:
+                        ef_tok = {self._singularize(t) for t in self._field_tokens(ef)}
+                        if nf_tok & ef_tok:
                             return 0.5
             return 0.5
 
-        # Normalize conditions for comparison
         new_normalized = self._normalize_conditions(new_conditions)
         existing_normalized = self._normalize_conditions(existing_conditions)
 
-        # Count matching conditions using fuzzy field comparison
         matching = 0
-        for new_cond in new_normalized:
-            for existing_cond in existing_normalized:
-                if self._conditions_equal(new_cond, existing_cond):
+        for nc in new_normalized:
+            for ec in existing_normalized:
+                if self._conditions_equal(nc, ec):
                     matching += 1
                     break
 
         total = max(len(new_normalized), len(existing_normalized))
         return matching / total if total > 0 else 0.0
 
-    def _normalize_conditions(self, conditions) -> List[Dict]:
-        """Normalize condition representation for comparison."""
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_conditions(conditions) -> List[Dict]:
         if not conditions:
             return []
         normalized = []
         for cond in conditions:
             if not cond or not isinstance(cond, dict):
                 continue
-            normalized.append(
-                {
-                    "field": (cond.get("field") or "").lower(),
-                    "operator": (cond.get("operator") or "").lower(),
-                    "value": str(cond.get("value", "")).lower() if cond.get("value") is not None else None,
-                }
-            )
+            normalized.append({
+                "field": (cond.get("field") or "").lower(),
+                "operator": (cond.get("operator") or "").lower(),
+                "value": str(cond.get("value", "")).lower() if cond.get("value") is not None else None,
+            })
         return normalized
 
     @staticmethod
     def _get_effective_entities(rule: Dict[str, Any]) -> Dict[str, Any]:
-        """Build effective entities dict from affected_entities or affected_tables/affected_columns."""
+        """Build effective entities dict from *affected_entities* or top-level keys."""
         entities = rule.get("affected_entities") or {}
         tables = entities.get("tables") or rule.get("affected_tables") or []
         columns = entities.get("columns") or rule.get("affected_columns") or []
@@ -224,17 +285,18 @@ class DuplicateDetector:
 
     @staticmethod
     def _field_tokens(field_name: str) -> set:
-        """Split a field name into lowercase tokens (e.g. 'orders.status' -> {'orders','status'})."""
         return set(f.strip().lower() for f in field_name.split(".") if f.strip())
 
     @staticmethod
     def _singularize(token: str) -> str:
-        """Very simple singularization: remove trailing 's' for plural forms."""
         t = token.lower().strip()
-        return t[:-1] if t.endswith("s") and len(t) > 3 else t
+        if len(t) <= 4 or not t.endswith("s"):
+            return t
+        if t.endswith("ss") or t.endswith("us") or t.endswith("is") or t.endswith("ness"):
+            return t
+        return t[:-1]
 
     def _fields_related(self, f1: str, f2: str) -> bool:
-        """Check if two field names are related via fuzzy comparison."""
         if not f1 or not f2:
             return False
         f1l, f2l = f1.lower(), f2.lower()
@@ -251,149 +313,114 @@ class DuplicateDetector:
         return leaf1 == leaf2
 
     def _conditions_equal(self, cond1: Dict, cond2: Dict) -> bool:
-        """Check if two conditions are equivalent (fuzzy field matching)."""
         field_match = self._fields_related(cond1.get("field") or "", cond2.get("field") or "")
         operator_match = (cond1.get("operator") or "").lower() == (cond2.get("operator") or "").lower()
-
-        # Special handling for value comparison
-        val1 = cond1.get("value")
-        val2 = cond2.get("value")
-
-        # For null checks, treat None and "None" as equivalent
-        if (cond1.get("operator") or "").lower() in ["is_not_null", "is_null"]:
+        val1, val2 = cond1.get("value"), cond2.get("value")
+        if (cond1.get("operator") or "").lower() in ("is_not_null", "is_null"):
             value_match = True
         else:
-            value_match = str(val1).lower() == str(val2).lower() if val1 is not None and val2 is not None else val1 == val2
-
+            value_match = (
+                str(val1).lower() == str(val2).lower()
+                if val1 is not None and val2 is not None
+                else val1 == val2
+            )
         return field_match and operator_match and value_match
 
+    @staticmethod
+    def _leaf_set(columns) -> set:
+        cols = columns if isinstance(columns, (set, list)) else []
+        return {c.split(".")[-1].lower() for c in cols if c}
+
     def _compare_entities(self, new_entities: Dict, existing_entities: Dict) -> float:
-        """
-        Compare affected entities (tables and columns).
-        Returns similarity score 0.0-1.0 (fuzzy matching for tables/columns).
-        """
+        """Leaf-based Jaccard similarity for tables + columns."""
         new_tables = set(new_entities.get("tables", []))
         existing_tables = set(existing_entities.get("tables", []))
-        new_columns = list(new_entities.get("columns", []))
-        existing_columns = list(existing_entities.get("columns", []))
 
-        # Fuzzy Jaccard for tables (singularized tokens)
         if new_tables or existing_tables:
             new_tok = {self._singularize(t) for t in new_tables}
             exist_tok = {self._singularize(t) for t in existing_tables}
-            table_similarity = len(new_tok & exist_tok) / len(new_tok | exist_tok) if (new_tok | exist_tok) else 0.0
+            table_sim = len(new_tok & exist_tok) / len(new_tok | exist_tok) if (new_tok | exist_tok) else 0.0
         else:
-            table_similarity = 1.0
+            table_sim = 1.0
 
-        # Fuzzy Jaccard for columns (singularized tokens)
-        if new_columns or existing_columns:
-            new_tok2 = {self._singularize(t) for t in new_columns}
-            exist_tok2 = {self._singularize(t) for t in existing_columns}
-            col_similarity = len(new_tok2 & exist_tok2) / len(new_tok2 | exist_tok2) if (new_tok2 | exist_tok2) else 0.0
+        new_leaves = self._leaf_set(list(new_entities.get("columns", [])))
+        exist_leaves = self._leaf_set(list(existing_entities.get("columns", [])))
+        if new_leaves or exist_leaves:
+            col_sim = len(new_leaves & exist_leaves) / len(new_leaves | exist_leaves) if (new_leaves | exist_leaves) else 0.0
         else:
-            col_similarity = 1.0
+            col_sim = 1.0
 
-        # Average the two
-        return (table_similarity + col_similarity) / 2
+        return (table_sim + col_sim) / 2
+
+    def _string_similarity(self, s1: str, s2: str) -> float:
+        return SequenceMatcher(None, s1, s2).ratio()
+
+    # ------------------------------------------------------------------
+    # Relationship classification (spec §8.6)
+    # ------------------------------------------------------------------
 
     def _determine_relationship(self, new_rule: Dict, existing_rule: Dict, details: Dict) -> Tuple[str, float]:
-        """Determine relationship type and confidence based on comparison details."""
-        business_term_match = details["business_term_match"]
-        condition_sim = details["condition_similarity"]
-        operation_match = details["operation_match"]
-        scope_match = details["scope_match"]
-        entities_sim = details["affected_entities_match"]
+        bt = details["business_term_match"]
+        cs = details["condition_similarity"]
+        op = details["operation_match"]
+        sc = details["scope_match"]
+        en = details["affected_entities_match"]
 
-        new_has_conditions = len(new_rule.get("conditions", [])) > 0
-        existing_has_conditions = len(existing_rule.get("conditions", [])) > 0
-        new_has_candidates = len(new_rule.get("candidate_conditions", [])) > 0
+        new_has_conds = len(new_rule.get("conditions", [])) > 0
+        exist_has_conds = len(existing_rule.get("conditions", [])) > 0
+        new_has_cands = len(new_rule.get("candidate_conditions", [])) > 0
 
-        # Check if entities are "unknown" (not extracted)
-        new_entities = self._get_effective_entities(new_rule)
-        existing_entities = self._get_effective_entities(existing_rule)
-        both_entities_unknown = (
-            (new_entities.get("columns", []) == ["unknown.unknown"] or not new_entities.get("columns")) and
-            (existing_entities.get("columns", []) == ["unknown.unknown"] or not existing_entities.get("columns"))
+        new_ent = self._get_effective_entities(new_rule)
+        exist_ent = self._get_effective_entities(existing_rule)
+        both_unknown = (
+            (new_ent.get("columns", []) == ["unknown.unknown"] or not new_ent.get("columns"))
+            and (exist_ent.get("columns", []) == ["unknown.unknown"] or not exist_ent.get("columns"))
         )
 
-        # EXACT DUPLICATE: everything matches perfectly
-        if (
-            business_term_match
-            and condition_sim > 0.95
-            and operation_match
-            and scope_match
-            and entities_sim > 0.9
+        # EXACT DUPLICATE
+        if bt and cs > 0.95 and op and sc and en > 0.9:
+            return self.EXACT_DUPLICATE, 0.99
+
+        # SEMANTIC DUPLICATE
+        if bt and op and sc and (
+            (cs > 0.85 and en > 0.8)
+            or (new_has_conds != exist_has_conds and en > 0.6)
         ):
-            confidence = 0.99
-            return self.EXACT_DUPLICATE, confidence
+            return self.SEMANTIC_DUPLICATE, min(0.95, (cs + en) / 2 + 0.1)
 
-        # SEMANTIC DUPLICATE: business term + high condition/entity match
-        if (
-            business_term_match
-            and operation_match
-            and scope_match
-            and (
-                (condition_sim > 0.85 and entities_sim > 0.8) or
-                # One rule has conditions, other doesn't, but same intent
-                (new_has_conditions != existing_has_conditions and entities_sim > 0.6)
-            )
-        ):
-            confidence = min(0.95, (condition_sim + entities_sim) / 2 + 0.1)
-            return self.SEMANTIC_DUPLICATE, confidence
+        # MODIFICATION
+        if bt and op and 0.5 < cs < 0.9:
+            return self.MODIFICATION, min(0.85, (cs + 0.7) / 2)
 
-        # MODIFICATION: same business term, same operation, different conditions
-        if (
-            business_term_match
-            and operation_match
-            and (condition_sim > 0.5 and condition_sim < 0.9)
-        ):
-            confidence = min(0.85, (condition_sim + 0.7) / 2)
-            return self.MODIFICATION, confidence
+        # EXTENSION — candidate conditions
+        if new_has_cands and not new_has_conds and exist_has_conds and bt and op:
+            if both_unknown or en > 0.3:
+                return self.EXTENSION, 0.70
 
-        # EXTENSION: candidate conditions matching existing rule's intent
-        if (
-            new_has_candidates
-            and not new_has_conditions
-            and existing_has_conditions
-            and business_term_match
-            and operation_match
-        ):
-            if both_entities_unknown or entities_sim > 0.3:
-                confidence = 0.70
-                return self.EXTENSION, confidence
+        # EXTENSION — new rule narrower than existing
+        if bt and op and sc and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])) and 0.4 < cs < 0.95:
+            return self.EXTENSION, min(0.8, cs + 0.3)
 
-        # EXTENSION: same operation/scope but more conditions or entities
-        if (
-            business_term_match
-            and operation_match
-            and scope_match
-            and len(new_rule.get("conditions", [])) >= len(existing_rule.get("conditions", []))
-            and condition_sim > 0.4
-        ):
-            confidence = min(0.8, condition_sim + 0.3)
-            return self.EXTENSION, confidence
+        # SUBSET
+        if bt and cs > 0.3 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
+            return self.SUBSET, cs * 0.8
 
-        # SUBSET: existing rule is superset of new rule (same business term)
-        if business_term_match and condition_sim > 0.3 and len(new_rule.get("conditions", [])) < len(existing_rule.get("conditions", [])):
-            confidence = condition_sim * 0.8
-            return self.SUBSET, confidence
+        # SUPERSET
+        if bt and cs > 0.3 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
+            return self.SUPERSET, cs * 0.75
 
-        # SUPERSET: new rule is superset of existing (same business term)
-        if business_term_match and condition_sim > 0.3 and len(new_rule.get("conditions", [])) > len(existing_rule.get("conditions", [])):
-            confidence = condition_sim * 0.75
-            return self.SUPERSET, confidence
+        # RELATED COMPATIBLE
+        if bt and op and not sc:
+            return self.RELATED_COMPATIBLE, min(0.65, cs * 0.7 + 0.2)
 
-        # RELATED COMPATIBLE: same business term and operation but different scope
-        if business_term_match and operation_match and not scope_match:
-            confidence = min(0.65, condition_sim * 0.7 + 0.2)
-            return "related_compatible", confidence
+        return self.UNRELATED, 0.0
 
-        # UNRELATED: low similarity across all dimensions
-        confidence = 0.0
-        return self.UNRELATED, confidence
+    # ------------------------------------------------------------------
+    # Details / hash
+    # ------------------------------------------------------------------
 
-    def _extract_match_details(self, new_rule: Dict, existing_rule: Dict) -> Dict[str, Any]:
-        """Extract human-readable match details."""
+    @staticmethod
+    def _extract_match_details(new_rule: Dict, existing_rule: Dict) -> Dict[str, Any]:
         return {
             "new_rule_business_term": new_rule.get("business_term"),
             "existing_rule_business_term": existing_rule.get("business_term"),
@@ -403,63 +430,74 @@ class DuplicateDetector:
             "existing_rule_operation": existing_rule.get("operation"),
         }
 
+    def _generate_rule_hash(self, rule: Dict[str, Any]) -> str:
+        canonical = {
+            "business_term": (rule.get("business_term") or "").lower(),
+            "operation": (rule.get("operation") or "").lower(),
+            "scope": (rule.get("scope") or "").lower(),
+            "conditions": self._normalize_conditions(rule.get("conditions", [])),
+            "affected_entities": {
+                "tables": sorted(rule.get("affected_entities", {}).get("tables", [])),
+                "columns": sorted(rule.get("affected_entities", {}).get("columns", [])),
+            },
+        }
+        return hashlib.md5(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
-class RealDuplicateDetectionService:
-    """Production duplicate detection service with pgvector semantic retrieval."""
 
-    # Top-K candidates to retrieve for detailed comparison
+# ---------------------------------------------------------------------------
+# Unified service facade — parametrised by engine
+# ---------------------------------------------------------------------------
+
+_DOMAIN_PACK_RULE_KEYS = (
+    "rule_id", "business_term", "operation", "conditions", "scope",
+    "affected_entities", "threshold", "time_window",
+)
+
+
+class DuplicateDetectionService:
+    """Unified duplicate detection service with engine selection.
+
+    Args:
+        engine: ``"semantic"`` (default) — pgvector Top-K retrieval
+                (with domain-pack + DB fallback).  ``"baseline"`` —
+                deterministic domain-pack + raw-SQL retrieval only.
+    """
+
     CANDIDATE_K = 10
-
-    # Similarity threshold for pgvector retrieval
     SEMANTIC_SIMILARITY_THRESHOLD = 0.40
 
-    def __init__(self):
-        """Initialize service."""
+    def __init__(self, engine: str = "semantic"):
+        if engine not in ("semantic", "baseline"):
+            raise ValueError(f"engine must be 'semantic' or 'baseline', got {engine!r}")
+        self.engine = engine
         self.detector = DuplicateDetector()
-        self.embedding_service = None
-        self.pgvector_service = None
-        self._init_services()
 
-    def _init_services(self):
-        """Initialize embedding and pgvector services."""
+        # Lazy-init semantic-only services
+        self._embedding_service = None
+        self._pgvector_service = None
+        if engine == "semantic":
+            self._init_semantic_services()
+
+    def _init_semantic_services(self):
         try:
             from app.services.embedding_service import get_embedding_service
             from app.services.pgvector_service import get_pgvector_service
+            self._embedding_service = get_embedding_service()
+            self._pgvector_service = get_pgvector_service()
+        except Exception as exc:
+            logger.warning("Could not initialize semantic retrieval services: %s", exc)
 
-            self.embedding_service = get_embedding_service()
-            self.pgvector_service = get_pgvector_service()
-        except Exception as e:
-            print(f"Warning: Could not initialize embedding services: {e}")
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
 
     def check_duplicate(
         self,
         suggested_rule: Dict[str, Any],
         workspace_id: str,
-        domain_id: str,
+        domain_id: str = None,
         db=None,
     ) -> Dict[str, Any]:
-        """
-        Check if suggested rule duplicates existing rules using two-stage pipeline.
-
-        Stage 1 (NEW): Semantic retrieval via pgvector
-        - Generate embedding for suggested rule
-        - Query pgvector for Top-K semantically similar rules
-        - Filters from 100+ rules to ~10 candidates
-
-        Stage 2 (EXISTING): Structural comparison
-        - Detailed comparison of candidate rules only
-        - Determines exact duplicate vs semantic duplicate vs modification
-
-        Returns:
-            {
-                "relationship": "exact_duplicate|semantic_duplicate|modification|extension|unrelated",
-                "is_duplicate": bool,
-                "matching_rule_id": str or None,
-                "confidence": float (0.0-1.0),
-                "retrieval_stage": int (number of candidates retrieved),
-                "details": {...}
-            }
-        """
         if not db:
             return {
                 "is_duplicate": False,
@@ -470,16 +508,22 @@ class RealDuplicateDetectionService:
                 "details": {"reason": "No database connection"},
             }
 
-        try:
-            # STAGE 1: Semantic Retrieval via pgvector
-            candidates = self._retrieve_candidates(
-                suggested_rule,
-                workspace_id,
-                domain_id,
-                db,
-            )
+        if not domain_id:
+            return {
+                "is_duplicate": False,
+                "relationship": "unrelated",
+                "matching_rule_id": None,
+                "confidence": 0.0,
+                "retrieval_stage": 0,
+                "details": {"reason": "No domain detected — skipping duplicate detection"},
+            }
 
-            # If no candidates found, not a duplicate
+        try:
+            if self.engine == "semantic":
+                candidates = self._retrieve_candidates_semantic(suggested_rule, workspace_id, domain_id, db)
+            else:
+                candidates = self._retrieve_candidates_baseline(workspace_id, domain_id, db)
+
             if not candidates:
                 return {
                     "is_duplicate": False,
@@ -490,23 +534,16 @@ class RealDuplicateDetectionService:
                     "details": {"reason": "No semantically similar rules found"},
                 }
 
-            # STAGE 2: Structural Comparison on Candidates
             result = self.detector.detect(suggested_rule, candidates)
-
-            # Enhance result with pgvector data
-            result["is_duplicate"] = result["confidence"] > 0.7 and result["relationship"] in [
-                "exact_duplicate",
-                "semantic_duplicate",
-                "extension",
-                "modification",
-            ]
-            # semantic_similarity removed in V4 - using deterministic baseline
             result["retrieval_stage"] = len(candidates)
+
+            # Include retrieved rules for debugging / downstream use
+            result["similar_rules"] = candidates
 
             return result
 
-        except Exception as e:
-            print(f"Error in duplicate detection: {e}")
+        except Exception as exc:
+            logger.error("Error in duplicate detection (%s): %s", self.engine, exc)
             import traceback
             traceback.print_exc()
             return {
@@ -515,154 +552,63 @@ class RealDuplicateDetectionService:
                 "matching_rule_id": None,
                 "confidence": 0.0,
                 "retrieval_stage": 0,
-                "details": {"error": str(e)},
+                "details": {"error": str(exc)},
             }
 
-    def _retrieve_candidates(
-        self,
-        suggested_rule: Dict[str, Any],
-        workspace_id: str,
-        domain_id: str,
-        db,
-    ) -> List[Dict[str, Any]]:
-        """
-        STAGE 1: Retrieve Top-K semantically similar candidates.
+    # ------------------------------------------------------------------
+    # Retrieval — shared domain-pack loader
+    # ------------------------------------------------------------------
 
-        Strategy:
-        1. ALWAYS load active_rules.json from domain pack (canonical rules)
-        2. Query pgvector for semantically similar rules from database
-        3. Merge and deduplicate, prioritizing domain pack rules
-
-        Returns:
-            List of candidate rules (domain_pack rules + pgvector results)
-        """
-        candidates = []
-
-        # FIRST: Load active domain pack rules (PRIMARY - canonical source)
+    @staticmethod
+    def _load_domain_pack_rules(domain_id: str) -> List[Dict[str, Any]]:
+        rules: List[Dict[str, Any]] = []
         try:
             active_rules_path = (
-                Path(__file__).parent.parent.parent /
-                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
+                Path(__file__).parent.parent.parent
+                / "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
             )
             if active_rules_path.exists():
-                with open(active_rules_path, 'r') as f:
-                    json_rules = json.load(f)
+                with open(active_rules_path, "r") as fh:
+                    json_rules = json.load(fh)
                     if isinstance(json_rules, list):
-                        for json_rule in json_rules:
-                            rule = {
-                                "rule_id": json_rule.get("rule_id"),
-                                "business_term": json_rule.get("business_term"),
-                                "operation": json_rule.get("operation"),
-                                "conditions": json_rule.get("conditions", []),
-                                "scope": json_rule.get("scope", "global"),
-                                "affected_entities": json_rule.get("affected_entities", {}),
-                                "threshold": json_rule.get("threshold"),
-                                "time_window": json_rule.get("time_window"),
+                        for jr in json_rules:
+                            rules.append({
+                                "rule_id": jr.get("rule_id"),
+                                "business_term": jr.get("business_term"),
+                                "operation": jr.get("operation"),
+                                "conditions": jr.get("conditions", []),
+                                "scope": jr.get("scope", "global"),
+                                "affected_entities": jr.get("affected_entities", {}),
+                                "threshold": jr.get("threshold"),
+                                "time_window": jr.get("time_window"),
                                 "source": "domain_pack",
-                                "similarity_score": 1.0  # Domain rules are always relevant
-                            }
-                            candidates.append(rule)
-        except Exception as pack_e:
-            print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
+                                "similarity_score": 1.0,
+                            })
+        except Exception as exc:
+            logger.warning("Could not load active rules from %s: %s", domain_id, exc)
+        return rules
 
-        # SECOND: Supplement with pgvector-retrieved database rules (if available)
-        if self.embedding_service and self.pgvector_service:
-            try:
-                rule_text = self.embedding_service.generate_rule_embedding_text(suggested_rule)
-                if rule_text:
-                    embedding = self.embedding_service.generate_embedding(rule_text)
-                    if embedding:
-                        # Query pgvector for user workspace rules
-                        user_candidates = self.pgvector_service.retrieve_similar_rules(
-                            embedding=embedding,
-                            workspace_id=workspace_id,
-                            domain_id=domain_id,
-                            top_k=self.CANDIDATE_K,
-                            similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
-                            db=db,
-                        )
-
-                        # Merge: avoid duplicates by rule_id
-                        candidates_dict = {c.get("rule_id"): c for c in candidates}
-                        for c in user_candidates:
-                            rule_id = c.get("rule_id")
-                            # Only add if not already present (domain pack takes precedence)
-                            if rule_id not in candidates_dict:
-                                c["source"] = "database"
-                                candidates_dict[rule_id] = c
-
-                        candidates = list(candidates_dict.values())
-            except Exception as pg_e:
-                print(f"Warning: pgvector retrieval failed: {pg_e}")
-
-        # Sort by similarity descending and limit to top-K
-        candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
-        candidates = candidates[:self.CANDIDATE_K]
-
-        return candidates
-
-    def _fallback_retrieve_all_rules(
-        self,
-        workspace_id: str,
-        domain_id: str,
-        db,
-    ) -> List[Dict[str, Any]]:
-        """
-        Fallback: Retrieve all rules when pgvector is not available.
-
-        Strategy:
-        1. Load active_rules.json from domain pack (canonical rules)
-        2. Supplement with database rules if they exist
-        """
-        existing_rules = []
-
-        # FIRST: Load active domain pack rules (PRIMARY)
-        try:
-            active_rules_path = (
-                Path(__file__).parent.parent.parent /
-                "rie_ml" / "domain-packs" / domain_id / "rules" / "active_rules.json"
-            )
-            if active_rules_path.exists():
-                with open(active_rules_path, 'r') as f:
-                    json_rules = json.load(f)
-                    if isinstance(json_rules, list):
-                        for json_rule in json_rules:
-                            rule = {
-                                "rule_id": json_rule.get("rule_id"),
-                                "business_term": json_rule.get("business_term"),
-                                "operation": json_rule.get("operation"),
-                                "conditions": json_rule.get("conditions", []),
-                                "scope": json_rule.get("scope", "global"),
-                                "affected_entities": json_rule.get("affected_entities", {}),
-                                "threshold": json_rule.get("threshold"),
-                                "time_window": json_rule.get("time_window"),
-                                "source": "domain_pack"
-                            }
-                            existing_rules.append(rule)
-        except Exception as pack_e:
-            print(f"Warning: Could not load active rules from {domain_id}/rules/active_rules.json: {pack_e}")
-
-        # SECOND: Supplement with database rules
+    @staticmethod
+    def _load_db_rules_sql(workspace_id: str, domain_id: str, db) -> List[Dict[str, Any]]:
+        rules: List[Dict[str, Any]] = []
         try:
             from sqlalchemy import text
-
-            query = text(
-                """
-                SELECT rule_id, business_term, operation, conditions, scope,
-                       affected_entities, threshold, time_window
-                FROM rules
-                WHERE workspace_id = :workspace_id
-                  AND domain_id = :domain_id
-                  AND status IN ('active', 'draft')
-                ORDER BY created_at DESC
-                LIMIT 100
-            """
+            result = db.execute(
+                text(
+                    """
+                    SELECT rule_id, business_term, operation, conditions, scope,
+                           affected_entities, threshold, time_window
+                    FROM rules
+                    WHERE workspace_id = :ws AND domain_id = :dom
+                      AND status IN ('active', 'draft')
+                    ORDER BY created_at DESC
+                    LIMIT 100
+                    """
+                ),
+                {"ws": workspace_id, "dom": domain_id},
             )
-
-            result = db.execute(query, {"workspace_id": workspace_id, "domain_id": domain_id})
-
             for row in result:
-                db_rule = {
+                rules.append({
                     "rule_id": row[0],
                     "business_term": row[1],
                     "operation": row[2],
@@ -671,14 +617,80 @@ class RealDuplicateDetectionService:
                     "affected_entities": json.loads(row[5]) if isinstance(row[5], str) else row[5] or {},
                     "threshold": row[6],
                     "time_window": row[7],
-                    "source": "database"
-                }
-                # Avoid duplicates - don't add if rule_id already exists
-                if not any(er.get("rule_id") == db_rule.get("rule_id") for er in existing_rules):
-                    existing_rules.append(db_rule)
+                    "source": "database",
+                })
+        except Exception as exc:
+            logger.warning("Could not load DB rules for %s/%s: %s", workspace_id, domain_id, exc)
+        return rules
 
-            return existing_rules
+    # ------------------------------------------------------------------
+    # Retrieval — baseline engine
+    # ------------------------------------------------------------------
 
-        except Exception as e:
-            print(f"Error in fallback retrieval: {e}")
-            return existing_rules
+    def _retrieve_candidates_baseline(
+        self, workspace_id: str, domain_id: str, db,
+    ) -> List[Dict[str, Any]]:
+        """Load ALL rules from domain pack + DB (no semantic retrieval)."""
+        candidates = self._load_domain_pack_rules(domain_id)
+        db_rules = self._load_db_rules_sql(workspace_id, domain_id, db)
+        existing_ids = {c.get("rule_id") for c in candidates}
+        for r in db_rules:
+            if r.get("rule_id") not in existing_ids:
+                candidates.append(r)
+        return candidates
+
+    # ------------------------------------------------------------------
+    # Retrieval — semantic engine (pgvector + domain pack)
+    # ------------------------------------------------------------------
+
+    def _retrieve_candidates_semantic(
+        self,
+        suggested_rule: Dict[str, Any],
+        workspace_id: str,
+        domain_id: str,
+        db,
+    ) -> List[Dict[str, Any]]:
+        """Top-K semantic retrieval via pgvector, merged with domain-pack rules."""
+        candidates = self._load_domain_pack_rules(domain_id)
+
+        if self._embedding_service and self._pgvector_service:
+            try:
+                rule_text = self._embedding_service.generate_rule_embedding_text(suggested_rule)
+                if rule_text:
+                    embedding = self._embedding_service.generate_embedding(rule_text)
+                    if embedding:
+                        user_candidates = self._pgvector_service.retrieve_similar_rules(
+                            embedding=embedding,
+                            workspace_id=workspace_id,
+                            domain_id=domain_id,
+                            top_k=self.CANDIDATE_K,
+                            similarity_threshold=self.SEMANTIC_SIMILARITY_THRESHOLD,
+                            db=db,
+                        )
+                        existing_ids = {c.get("rule_id") for c in candidates}
+                        for c in user_candidates:
+                            rid = c.get("rule_id")
+                            if rid not in existing_ids:
+                                c["source"] = "database"
+                                candidates.append(c)
+                                existing_ids.add(rid)
+            except Exception as exc:
+                logger.warning("pgvector retrieval failed: %s", exc)
+
+        candidates.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+        return candidates[: self.CANDIDATE_K]
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible aliases
+# ---------------------------------------------------------------------------
+
+# Old code: `from app.services.duplicate_detection_service import RealDuplicateDetectionService`
+RealDuplicateDetectionService = DuplicateDetectionService  # engine="semantic" default
+
+
+class BaselineDuplicateDetectionService(DuplicateDetectionService):
+    """Convenience alias that forces engine='baseline'."""
+
+    def __init__(self):
+        super().__init__(engine="baseline")
