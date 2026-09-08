@@ -628,6 +628,15 @@ class DistilBERTTokenExtractor:
         constructed["affected_tables"] = sorted(set(t.rstrip(".") for t in constructed["affected_tables"] if t))
         constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
 
+        # Also extract columns from resolved conditions fields (e.g., "orders.status" -> "status")
+        for cond in constructed.get("conditions", []):
+            field = cond.get("field")
+            if field and "." in str(field):
+                col = str(field).split(".")[-1]
+                if col and col not in constructed["affected_columns"]:
+                    constructed["affected_columns"].append(col)
+        constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
+
         # ---- Spec 8.4 required fields ----
         from app.services.rule_construction import compute_rule_family_id
         constructed["rule_family_id"] = compute_rule_family_id(
