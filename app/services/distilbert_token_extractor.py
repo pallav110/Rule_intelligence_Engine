@@ -357,14 +357,24 @@ class DistilBERTTokenExtractor:
         tables = []
         columns = []
 
+        # Known non-value words that model incorrectly tags as B_VALUE
+        FALSE_POSITIVE_VALUES = {
+            "with", "and", "or", "for", "all", "globally", "each", "every",
+            "the", "a", "an", "to", "from", "by", "on", "in", "at", "of",
+            "use", "using", "should", "must", "can", "will", "would", "could"
+        }
+
         for i, tag in enumerate(tags):
             word = words[i] if i < len(words) else None
             if tag.startswith('B_FIELD'):
                 fields.append({"word": word, "position": i})
                 detailed_components["fields"].append({"word": word, "position": i, "tag": tag})
             elif tag.startswith('B_VALUE'):
-                values.append({"word": word, "position": i})
-                detailed_components["values"].append({"word": word, "position": i, "tag": tag})
+                # Filter out false positive values
+                word_lower = word.lower() if word else ""
+                if word_lower not in FALSE_POSITIVE_VALUES:
+                    values.append({"word": word, "position": i})
+                    detailed_components["values"].append({"word": word, "position": i, "tag": tag})
             elif tag.startswith('B_OPERATION'):
                 # B_OPERATION covers BOTH rule-level ops and condition operators
                 # Rule-level op is already captured above (first non-modal B_OPERATION)
@@ -380,44 +390,70 @@ class DistilBERTTokenExtractor:
                 columns.append({"word": word, "position": i})
                 detailed_components["columns"].append({"word": word, "position": i, "tag": tag})
 
-        # Build conditions - multiple strategies
+        # Build conditions - multiple strategies with deduplication
+        seen_conditions = set()
+
+        def add_condition(field, operator, value, extraction_method, **kwargs):
+            """Add condition with deduplication."""
+            key = (field, operator.lower() if operator else "equals", value)
+            if key in seen_conditions:
+                return
+            seen_conditions.add(key)
+            cond = {"field": field, "operator": operator.upper() if operator else "EQUALS", "value": value, "extraction_method": extraction_method}
+            cond.update(kwargs)
+            rule["conditions"].append(cond)
+
         if fields and values:
-            # Standard: explicit fields with values
-            rule["conditions"] = [
-                {
-                    "field": field["word"],
-                    "operator": operators[idx]["word"] if idx < len(operators) else "equals",
-                    "value": value["word"],
-                    "extraction_method": "explicit_field_value"
-                }
-                for idx, (field, value) in enumerate(zip(fields, values))
-            ]
+            # Standard: explicit fields with values - pair by position proximity
+            # Handle "field1 op1 value1 with field2 op2 value2" pattern
+            for idx, field in enumerate(fields):
+                field_word = field["word"]
+                field_pos = field["position"]
+
+                # Find ALL values and operators that come after this field
+                # and before the next field (if any)
+                next_field_pos = fields[idx + 1]["position"] if idx + 1 < len(fields) else float('inf')
+
+                # Collect values and operators in range
+                field_values = [v for v in values if field_pos < v["position"] < next_field_pos]
+                field_operators = [o for o in operators if field_pos < o["position"] < next_field_pos]
+
+                # Pair each value with closest operator
+                # Skip values that look like field references (contain '.')
+                for val in field_values:
+                    val_word = val["word"]
+                    # Skip if value looks like a field reference (table.column)
+                    if "." in val_word:
+                        continue
+                    best_op = None
+                    best_dist = float('inf')
+                    for op in field_operators:
+                        dist = abs(op["position"] - val["position"])
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_op = op
+                    add_condition(field_word, best_op["word"] if best_op else "equals", val["word"], "explicit_field_value")
             component_mapping["extraction_method"] = "explicit_field_value"
         elif tables and values:
             # Inferred: TABLE + VALUE → infer field from table context
+            # Pair each table with closest value (not Cartesian product)
             for table in tables:
-                for value in values:
-                    inferred_field = f"{table['word']}.status"
-                    rule["conditions"].append({
-                        "field": inferred_field,
-                        "operator": "equals",
-                        "value": value["word"],
-                        "inferred": True,
-                        "extraction_method": "inferred_table_value",
-                        "source_table": table["word"],
-                        "source_value": value["word"]
-                    })
+                best_value = None
+                best_dist = float('inf')
+                for val in values:
+                    dist = abs(val["position"] - table["position"])
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_value = val
+                if best_value:
+                    inferred_field = f"{table['word'].rstrip('.')}.status"
+                    add_condition(inferred_field, "equals", best_value["word"], "inferred_table_value",
+                                 inferred=True, source_table=table["word"], source_value=best_value["word"])
             component_mapping["extraction_method"] = "inferred_table_value"
         elif values:
             # Fallback: just values without table/field
             for value in values:
-                rule["conditions"].append({
-                    "field": None,
-                    "operator": "equals",
-                    "value": value["word"],
-                    "needs_clarification": True,
-                    "extraction_method": "value_only"
-                })
+                add_condition(None, "equals", value["word"], "value_only", needs_clarification=True)
             component_mapping["extraction_method"] = "value_only"
 
         # Store tables and columns
