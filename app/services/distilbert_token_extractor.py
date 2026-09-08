@@ -353,7 +353,7 @@ class DistilBERTTokenExtractor:
         # Extract all entity types with position tracking
         fields = []
         values = []
-        operators = []
+        operators = []  # condition operators
         tables = []
         columns = []
 
@@ -365,9 +365,14 @@ class DistilBERTTokenExtractor:
             elif tag.startswith('B_VALUE'):
                 values.append({"word": word, "position": i})
                 detailed_components["values"].append({"word": word, "position": i, "tag": tag})
-            elif tag.startswith('B_OPERATOR'):
-                operators.append({"word": word, "position": i})
-                detailed_components["operators"].append({"word": word, "position": i, "tag": tag})
+            elif tag.startswith('B_OPERATION'):
+                # B_OPERATION covers BOTH rule-level ops and condition operators
+                # Rule-level op is already captured above (first non-modal B_OPERATION)
+                # Additional B_OPERATION tags after fields are condition operators
+                is_rule_level = (op_idx is not None and i == op_idx)
+                if not is_rule_level:
+                    operators.append({"word": word, "position": i})
+                    detailed_components["operators"].append({"word": word, "position": i, "tag": tag})
             elif tag.startswith('B_TABLE'):
                 tables.append({"word": word, "position": i})
                 detailed_components["tables"].append({"word": word, "position": i, "tag": tag})
