@@ -494,6 +494,9 @@ class DistilBERTTokenExtractor:
 
         # Build domain context
         business_term = raw_rule.get("business_term")
+        # Normalize: strip trailing punctuation and whitespace (fixes "revenue.", "revenue," etc.)
+        if business_term:
+            business_term = str(business_term).strip().rstrip(".,;:!?()\"'")
 
         # ---- 1. Canonicalize operation ----
         raw_op = raw_rule.get("operation")
@@ -534,6 +537,28 @@ class DistilBERTTokenExtractor:
                         break
                 if not canonical_op:
                     canonical_op = "EXCLUDE"
+
+        # ---- 1b. Operation null fallback via text heuristics ----
+        # When the ML model fails to tag B_OPERATION (operation stays None),
+        # infer from explicit rule-verb patterns in the feedback text.
+        # Non-actionable/vague feedback stays None (correct behavior).
+        if canonical_op is None and feedback_text:
+            fb_lower = feedback_text.lower()
+            _exclude_re = (
+                r"\b(?:do not consider|ignore|exclude|leave out|not include|"
+                r"shouldn'?t|should not|must not|can'?t|won'?t|do not count|"
+                r"don'?t count|not count|remove|removed from|drop|drops|strip|"
+                r"leave out|leave behind)\b"
+            )
+            _include_re = (
+                r"\b(?:only .+ should(?:\s+\w+){0,3} (?:contribute|count|be included)|"
+                r"must include|should be part of|include|count toward|contribute to|"
+                r"account for|should include)\b"
+            )
+            if re.search(_exclude_re, fb_lower):
+                canonical_op = "EXCLUDE"
+            elif re.search(_include_re, fb_lower):
+                canonical_op = "INCLUDE"
 
         # ---- 2. Resolve TABLE+VALUE → FIELD via schema ----
         # Build per-table status column map
@@ -641,6 +666,29 @@ class DistilBERTTokenExtractor:
                     field = inferred_field
 
             if field is not None:
+                # Qualify bare leaf fields when a single table is known
+                # (e.g. field="status" + table="orders" → "orders.status")
+                _EQUAL_PUNCT = ",;:!?\"'"
+                _SYNS = {"purchases": "orders", "transactions": "payments",
+                         "completed_order": "orders"}
+                field_clean = str(field).strip().rstrip(_EQUAL_PUNCT)
+                if field_clean and "." not in field_clean:
+                    tables_now = constructed.get("affected_tables", [])
+                    if not tables_now:
+                        tables_now = [t.get("word", "") for t in detailed_components.get("tables", [])]
+                        tables_now = [str(t).lower().strip().rstrip(".,;:!?()\"'") for t in tables_now if t]
+                    # Normalize whatever source: lowercase + strip punct + synonym map
+                    tables_now = [_SYNS.get(tt, tt) for tt in tables_now if tt]
+                    if len(tables_now) == 1 and field_clean:
+                        # Avoid qualifying when the bare field itself equals the table name (e.g. field="orders")
+                        if field_clean.lower() != tables_now[0].lower():
+                            field = f"{tables_now[0]}.{field_clean}"
+                        else:
+                            field = field_clean
+                    else:
+                        field = field_clean
+                else:
+                    field = field_clean
                 constructed["conditions"].append({
                     "field": field,
                     "operator": canonical_cond_op,
@@ -648,13 +696,15 @@ class DistilBERTTokenExtractor:
                     "extraction_method": extraction_method,
                     "confidence": mean_conf,
                 })
-                # Update affected entities from resolved field
+                # Update affected entities from resolved field (qualified table.column)
                 if "." in str(field):
                     parts = str(field).split(".")
                     if parts[0] and parts[0] not in constructed["affected_tables"]:
                         constructed["affected_tables"].append(parts[0])
-                    if parts[1] and parts[1] not in constructed["affected_columns"]:
-                        constructed["affected_columns"].append(parts[1])
+                    if parts[1]:
+                        qualified_col = f"{parts[0]}.{parts[1]}"
+                        if qualified_col not in constructed["affected_columns"]:
+                            constructed["affected_columns"].append(qualified_col)
             elif value is not None:
                 constructed["conditions"].append({
                     "field": None,
@@ -665,18 +715,69 @@ class DistilBERTTokenExtractor:
                     "needs_clarification": True,
                 })
 
-        # Deduplicate affected entities
-        constructed["affected_tables"] = sorted(set(t.rstrip(".") for t in constructed["affected_tables"] if t))
-        constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
+        # Deduplicate affected entities — normalize case, strip punctuation,
+        # and map common synonyms to actual schema tables.
+        _TABLE_SYNONYMS = {
+            "purchases": "orders",
+            "transactions": "payments",
+            "completed_order": "orders",
+            "completed_order_items": "order_items",
+        }
+        _clean_tbl = lambda raw: str(raw).lower().strip().rstrip(".,;:!?()\"'")
+        _map_tbl = lambda raw: _TABLE_SYNONYMS.get(_clean_tbl(raw), _clean_tbl(raw))
 
-        # Also extract columns from resolved conditions fields (e.g., "orders.status" -> "status")
+        def _remap_ref(ref: str) -> str:
+            """Normalize a 'table.column' ref: lowercase both parts, map the
+            table part through synonyms, strip trailing punctuation.
+            Bare leaves are lowercased here and (re)qualified below."""
+            ref = str(ref).strip().rstrip(".,;:!?()\"'")
+            if not ref:
+                return ref
+            if "." in ref:
+                tpart, cpart = ref.split(".", 1)
+                tpart_clean = _clean_tbl(tpart)
+                tpart_mapped = _TABLE_SYNONYMS.get(tpart_clean, tpart_clean)
+                cpart_clean = str(cpart).strip().rstrip(".,;:!?()\"'").lower()
+                return f"{tpart_mapped}.{cpart_clean}" if cpart_clean else tpart_mapped
+            return _clean_tbl(ref)
+
+        # Remap synonym-prefixed references in conditions + columns
+        for cond in constructed.get("conditions", []):
+            f = cond.get("field")
+            if f:
+                cond["field"] = _remap_ref(str(f))
+        constructed["affected_columns"] = [
+            _remap_ref(c) for c in constructed["affected_columns"] if c
+        ]
+
+        normalized_tables = set()
+        for t in constructed["affected_tables"]:
+            if not t:
+                continue
+            t_norm = _map_tbl(t)
+            if t_norm:
+                normalized_tables.add(t_norm)
+        constructed["affected_tables"] = sorted(normalized_tables)
+
+        # Schema validation (§8.5 check 3) requires columns qualified as
+        # "table.column". Keep qualified references as-is; qualify a lone leaf
+        # when exactly one table is known; drop orphans (surfaced as
+        # needs_clarification via conditions instead of failing validation).
+        qualified_columns = []
+        for col in constructed["affected_columns"]:
+            col = col.rstrip(".")
+            if not col:
+                continue
+            if "." in col:
+                qualified_columns.append(col)
+            elif len(constructed["affected_tables"]) == 1:
+                qualified_columns.append(f"{constructed['affected_tables'][0]}.{col}")
+        # Always mirror qualified fields from resolved conditions
         for cond in constructed.get("conditions", []):
             field = cond.get("field")
             if field and "." in str(field):
-                col = str(field).split(".")[-1]
-                if col and col not in constructed["affected_columns"]:
-                    constructed["affected_columns"].append(col)
-        constructed["affected_columns"] = sorted(set(c.rstrip(".") for c in constructed["affected_columns"] if c))
+                qualified_columns.append(str(field).rstrip("."))
+        constructed["affected_columns"] = sorted(set(qualified_columns))
 
         # ---- Spec 8.4 required fields ----
         from app.services.rule_construction import compute_rule_family_id

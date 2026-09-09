@@ -1042,18 +1042,34 @@ def analyze_feedback(
 
     schema_validator = SchemaValidationService(schema_context=full_schema_context)
     schema_validation_results = []
-    for rule in extracted_rules:
-        validation = schema_validator.validate_rule(rule, domain_schema)
-        schema_validation_results.append(validation)
 
-    # Aggregate schema validation
-    schema_validation = {
-        "status": "PASS" if all(v["status"] == "PASS" for v in schema_validation_results) else
-                  "PARTIAL" if any(v["status"] in ["PASS", "PARTIAL"] for v in schema_validation_results) else "FAIL",
-        "coverage": sum(v["coverage"] for v in schema_validation_results) / len(schema_validation_results) if schema_validation_results else 0.0,
-        "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in schema_validation_results),
-        "validation_errors": [e for v in schema_validation_results for e in v["validation_errors"]],
-    }
+    # Gate schema validation on actionability (§8.5).
+    # When the classifier says the feedback is NOT actionable (vague / spam /
+    # gibberish / off-topic / narrative), there is no rule to validate against
+    # a schema.  Reporting FAIL here makes a correctly-rejected input look like
+    # a broken pipeline.  N/A is the honest status (distinct from PASS — we
+    # are NOT claiming a rule was successfully validated).
+    is_actionable = classification_result_dict.get("is_actionable", True)
+    if not is_actionable or not extracted_rules:
+        schema_validation = {
+            "status": "N/A",
+            "coverage": 0.0,
+            "mandatory_fields_valid": False,
+            "validation_errors": [],
+        }
+    else:
+        for rule in extracted_rules:
+            validation = schema_validator.validate_rule(rule, domain_schema)
+            schema_validation_results.append(validation)
+
+        # Aggregate schema validation
+        schema_validation = {
+            "status": "PASS" if all(v["status"] == "PASS" for v in schema_validation_results) else
+                      "PARTIAL" if any(v["status"] in ["PASS", "PARTIAL"] for v in schema_validation_results) else "FAIL",
+            "coverage": sum(v["coverage"] for v in schema_validation_results) / len(schema_validation_results) if schema_validation_results else 0.0,
+            "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in schema_validation_results),
+            "validation_errors": [e for v in schema_validation_results for e in v["validation_errors"]],
+        }
 
     # STEP 4: Persist Suggestion (BEFORE clarification/routing to satisfy FK constraints)
     primary_rule = extracted_rules[0] if extracted_rules else {}

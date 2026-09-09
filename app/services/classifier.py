@@ -228,7 +228,9 @@ class RealClassifier:
                 break
 
         # Check for non-actionable patterns (questions, unclear feedback)
-        question_words = ["what", "how", "why", "explain", "describe", "who", "when", "where"]
+        question_words = ["what", "how", "why", "explain", "describe", "who", "when"]
+        # "where" is often used as a condition indicator in SQL-like feedback ("where status = cancelled")
+        # so we exclude it from question detection
         if any(word in feedback_lower.split() for word in question_words):
             # Check if it's a question about rules (should still be actionable)
             if "should" not in feedback_lower and "must" not in feedback_lower:

@@ -180,6 +180,19 @@ class EnhancedRuleExtractor:
                                 inferred_field = f"{term['term']}.status"
                             inferred_value = text.replace("status ", "").strip()
 
+                            # Strip trailing entity/table nouns so the value matches the
+                            # canonical rule (e.g. "cancelled orders" -> "cancelled").
+                            # Single-token values like "refunds" are left untouched.
+                            value_words = inferred_value.split()
+                            if len(value_words) > 1:
+                                table_nouns = {
+                                    "orders", "customers", "products", "payments",
+                                    "invoices", "refunds", "transactions", "subscriptions",
+                                    "tickets", "organizations", "sessions", "records",
+                                }
+                                if value_words[-1].lower() in table_nouns:
+                                    inferred_value = " ".join(value_words[:-1])
+
                         rule_conditions.append({
                             "field": inferred_field or f"{inferred_table or term['term']}",
                             "operator": "equals",
@@ -188,10 +201,13 @@ class EnhancedRuleExtractor:
                             "source": "promoted_candidate"
                         })
 
-            # Extract affected entities using business term glossary definitions
-            affected_entities = self._extract_affected_entities(
-                feedback, schema_context, schema, relationships, domain_config, [term]
-            )
+            # Extract affected entities from conditions first (explicit fields), then fall back to glossary
+            affected_entities = self._extract_affected_entities_from_conditions(rule_conditions)
+            if not affected_entities.get("tables") or affected_entities.get("tables") == ["unknown"]:
+                # Fallback to glossary-based extraction
+                affected_entities = self._extract_affected_entities(
+                    feedback, schema_context, schema, relationships, domain_config, [term]
+                )
 
             # Build extraction evidence
             evidence_text = self._build_evidence(feedback, term, operation, conditions)
@@ -202,6 +218,10 @@ class EnhancedRuleExtractor:
                 term, operation, rule_conditions, scope, feedback
             )
 
+            # Also expose tables/columns at top level for duplicate detection compatibility
+            tables = affected_entities.get("tables", []) if isinstance(affected_entities, dict) else []
+            columns = affected_entities.get("columns", []) if isinstance(affected_entities, dict) else []
+
             rule = {
                 "business_term": term["term"],
                 "operation": operation,
@@ -210,6 +230,8 @@ class EnhancedRuleExtractor:
                 "scope": scope or "global",
                 "time_window": self._extract_time_window(feedback),
                 "affected_entities": affected_entities,
+                "affected_tables": tables,
+                "affected_columns": columns,
                 "rule_family_id": compute_rule_family_id(term["term"], operation, rule_conditions),
                 "extraction_evidence": evidence_text,
                 "per_field_confidence": field_confidence,
@@ -230,6 +252,8 @@ class EnhancedRuleExtractor:
                     "scope": scope or "global",
                     "time_window": self._extract_time_window(feedback),
                     "affected_entities": affected_entities,
+                    "affected_tables": tables,
+                    "affected_columns": columns,
                     "rule_family_id": compute_rule_family_id(candidate, operation, rule_conditions),
                     "extraction_evidence": evidence_text,
                     "per_field_confidence": field_confidence,
@@ -384,7 +408,7 @@ class EnhancedRuleExtractor:
         conditions = []
         candidate_conditions = []
 
-        # Pattern 1: Explicit "field is/equals/contains value"
+        # Pattern 1: Explicit "field is/equals/contains/matches value"
         condition_pattern = r"(\w+(?:\.\w+)?)\s+(is|equals|contains|matches)\s+['\"]?(\w+)['\"]?"
         matches = re.finditer(condition_pattern, feedback, re.IGNORECASE)
 
@@ -402,6 +426,45 @@ class EnhancedRuleExtractor:
                 "value": value,
                 "type": "structured",
                 "confidence": 0.95
+            })
+
+        # Pattern 1b: "X should be greater than 1000" / "X is less than 500"
+        # We intentionally *skip* common copulas/modal/determiner words when
+        # scanning backward from the comparison operator so that "be", "should"
+        # etc. are not treated as the field.
+        _COPULA_WORDS = {
+            "is", "be", "are", "was", "were", "should", "must", "will",
+            "can", "would", "could", "shall", "the", "a", "an", "of",
+            "to", "by", "that", "this", "for", "in", "at", "with", "than",
+        }
+        comparison_re = re.compile(
+            r'\b(greater than|less than|more than|exceeds|above|over|below|under)\s+'
+            r"(['\"]?[\d.]+['\"]?)\b",
+            re.IGNORECASE,
+        )
+        operator_map = {
+            "greater than": "greater_than", "more than": "greater_than",
+            "exceeds": "greater_than", "above": "greater_than", "over": "greater_than",
+            "less than": "less_than", "below": "less_than", "under": "less_than",
+        }
+        for match in comparison_re.finditer(feedback):
+            operator_text, value = match.groups()
+            value = value.strip("'\"")
+            # Walk backward from operator to find the nearest non-copula word as field
+            preceding = feedback[:match.start()].rstrip()
+            words = preceding.split()
+            field = None
+            for w in reversed(words):
+                wl = w.lower().strip(",;:()")
+                if wl and wl not in _COPULA_WORDS:
+                    field = wl
+                    break
+            conditions.append({
+                "field": f"unknown.{field}" if field and "." not in field else (field or "unknown.metric"),
+                "operator": operator_map.get(operator_text.lower(), "equals"),
+                "value": value,
+                "type": "structured",
+                "confidence": 0.95,
             })
 
         # Pattern 2: Extract meaningful phrases after operations like "exclude", "include", "filter"
@@ -547,7 +610,9 @@ class EnhancedRuleExtractor:
             if re.search(pattern, feedback, re.IGNORECASE):
                 return {"period": period}
 
-        return {}
+        # Schema validation (§8.5 check 9) accepts null or a string pattern; an
+        # empty dict is neither and would fail validation. Return None instead.
+        return None
 
     def _extract_affected_entities(
         self,
@@ -603,6 +668,27 @@ class EnhancedRuleExtractor:
         return {
             "tables": list(set(tables)) if tables else ["unknown"],
             "columns": list(set(columns)) if columns else ["unknown.unknown"],
+        }
+
+    def _extract_affected_entities_from_conditions(self, conditions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract affected tables and columns from explicit conditions fields."""
+        tables = []
+        columns = []
+
+        for cond in conditions:
+            if not isinstance(cond, dict):
+                continue
+            field = cond.get("field", "")
+            if field and "." in field:
+                table, col = field.split(".", 1)
+                if table not in tables:
+                    tables.append(table)
+                if field not in columns:
+                    columns.append(field)
+
+        return {
+            "tables": tables,
+            "columns": columns,
         }
 
     def _build_evidence(

@@ -146,8 +146,13 @@ class SchemaValidationService:
             check_results["business_term_exists"] = False
 
         # Check 3: Operation validation
-        operation = (rule.get("operation") or "").lower()
-        if operation in self.VALID_OPERATIONS:
+        # Only validate an operation VALUE when one is present — a missing
+        # operation is already reported by Check 1 (required_components);
+        # flagging it again as "Invalid operation: " is redundant noise.
+        operation = (rule.get("operation") or "").strip()
+        if not operation:
+            check_results["valid_operation"] = False
+        elif operation.lower() in self.VALID_OPERATIONS:
             validated_fields.append("operation")
             check_results["valid_operation"] = True
             checks_passed += 1
@@ -286,6 +291,14 @@ class SchemaValidationService:
             field = (condition.get("field") or "").strip()
             operator = (condition.get("operator") or "").lower().strip()
             value = condition.get("value")
+
+            # Conditions the pipeline itself flagged for clarification are
+            # intentionally incomplete (field/value unresolved). Defer them
+            # instead of double-faulting them as schema-invalid — the
+            # clarification subsystem owns their resolution (§8.7).
+            if condition.get("needs_clarification"):
+                validated.append(f"condition.deferred:{field or 'unresolved'}")
+                continue
 
             # Validate field format
             if not field or "." not in field:

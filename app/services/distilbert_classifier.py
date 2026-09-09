@@ -254,8 +254,10 @@ class DistilBERTClassifier:
                     result = {
                         "feedback_type": ft_pred,
                         "rule_category": rc_pred,
-                        "is_actionable": bool(ia_prob) if ia_prob is not None else False,
-                        "requires_clarification": bool(rq_prob) if rq_prob is not None else False,
+                        # BUG-FIX: bool(<nonzero float>) was always True, discarding
+                        # the model's actual probability. Use threshold comparison.
+                        "is_actionable": bool(ia_prob > 0.5) if ia_prob is not None else False,
+                        "requires_clarification": bool(rq_prob > 0.5) if rq_prob is not None else False,
                         "confidence": float(_np.max(ft_probs)) if ft_probs is not None else None,
                         "model": "distilbert",
                         "accuracy_on_validation": getattr(self, 'accuracy', 0.0),

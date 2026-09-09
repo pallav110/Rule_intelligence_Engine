@@ -60,41 +60,68 @@ class GlossaryService:
         self.glossaries[domain_pack_id] = glossary
         return glossary
 
+    @staticmethod
+    def _part_present(part: str, text: str) -> bool:
+        """Check if *part* appears in *text* at word boundaries, tolerating simple plurals.
+
+        Returns True for ``order`` inside ``"orders"`` or ``"order"`` but not inside
+        ``"border"`` or ``"ordered"``.
+        """
+        if len(part) <= 2:
+            return False
+        pattern = rf'(?<![a-z0-9]){re.escape(part)}s?(?![a-z0-9])'
+        return bool(re.search(pattern, text))
+
     def extract_glossary_terms(
         self, feedback_text: str, domain_pack_id: str
     ) -> List[Dict[str, Any]]:
-        """Extract glossary terms found in feedback text with flexible matching."""
+        """Extract glossary terms found in feedback text with strict matching.
+
+        A term matches only when **all** meaningful snake_case parts appear
+        (with simple-plural tolerance).  Single-part terms require an exact
+        word-boundary match.  This prevents incidental word overlaps from
+        pulling in unrelated glossary concepts (e.g. ``"order"`` alone should
+        **not** match ``cancelled_order``).
+        """
+        import re as _re
+
         glossary = self.load_glossary_for_domain(domain_pack_id)
         if not glossary:
             return []
 
         feedback_lower = feedback_text.lower()
-        found_terms = {}  # Use dict to track best match per term
+        found_terms = {}  # term_key -> (count, pos, raw_key, data)
 
         for term_key, term_data in glossary.items():
             best_match_count = 0
             first_pos = len(feedback_lower)
 
-            # Exact match
+            # --- Exact substring match (e.g. "cancelled_order" in text) ---
             if term_key in feedback_lower:
-                best_match_count = len(term_key.split('_'))  # All parts matched
+                best_match_count = len(term_key.split('_'))
                 first_pos = feedback_lower.find(term_key)
             else:
-                # Try matching individual words from snake_case terms
-                # e.g., "ticket_backlog" → search for "ticket" and "backlog"
-                term_parts = term_key.split('_')
-                matched_parts = 0
+                # --- Multi-part (snake_case) phrase match ---
+                term_parts = [p for p in term_key.split('_') if len(p) > 2]
+                if len(term_parts) < 2:
+                    # Single short part (≤2 chars) — not meaningful alone
+                    continue
 
-                for part in term_parts:
-                    if len(part) > 2 and f" {part} " in f" {feedback_lower} ":
-                        matched_parts += 1
-                        pos = feedback_lower.find(part)
-                        if pos >= 0:
-                            first_pos = min(first_pos, pos)
+                # Require ALL meaningful parts to be present.
+                # The head word must be present; remaining words are checked via
+                # word-boundary search with plural tolerance.
+                matched_parts = [
+                    p for p in term_parts if self._part_present(p, feedback_lower)
+                ]
 
-                best_match_count = matched_parts
+                # All parts present → strong match (contiguous phrase OR scattered)
+                if len(matched_parts) == len(term_parts):
+                    best_match_count = len(matched_parts)
+                    for p in term_parts:
+                        m = _re.search(rf'(?<![a-z0-9]){_re.escape(p)}s?(?![a-z0-9])', feedback_lower)
+                        if m:
+                            first_pos = min(first_pos, m.start())
 
-            # Store if this is a good match (matched at least one meaningful part)
             if best_match_count > 0:
                 term_key_lower = term_key.lower()
                 if term_key_lower not in found_terms or best_match_count > found_terms[term_key_lower][0]:
@@ -108,10 +135,10 @@ class GlossaryService:
                 "definition": term_data["definition"],
                 "key": term_key,
                 "position": pos,
-                "match_quality": match_count
+                "match_quality": match_count,
             })
 
-        # Sort by match quality (descending) then position (descending - later terms are more specific)
+        # Sort by match quality (descending) then position (descending — later terms are more specific)
         result.sort(key=lambda x: (-x["match_quality"], -x["position"]))
         return result
 
