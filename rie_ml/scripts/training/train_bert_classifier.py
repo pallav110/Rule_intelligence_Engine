@@ -21,7 +21,8 @@ from ml_models import (
     FEEDBACK_TYPE_LABELS,
     RULE_CATEGORY_LABELS,
     FEEDBACK_TYPE_LABEL2ID,
-    RULE_CATEGORY_LABEL2ID
+    RULE_CATEGORY_LABEL2ID,
+    get_label_mappings
 )
 
 
@@ -44,12 +45,31 @@ class MultiTaskBERTClassifier(torch.nn.Module):
             torch.nn.Linear(256, num_feedback_types)
         )
 
-        # BERT-base has a pooler_output, but for multi-task we use last_hidden_state CLS token
-# Fix: use[:,0,:] instead of pooler_output to avoid crash with roberta-style models
-# and to be consistent with DistilBERT/RoBERTa implementation pattern
-self._last_hidden = None
+        # Rule category head (multi-class)
+        self.rule_category_head = torch.nn.Sequential(
+            torch.nn.Linear(hidden_size, 256),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.1),
+            torch.nn.Linear(256, num_rule_categories)
+        )
 
-def forward(self, input_ids, attention_mask):
+        # Is actionable head (binary)
+        self.is_actionable_head = torch.nn.Sequential(
+            torch.nn.Linear(hidden_size, 128),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.1),
+            torch.nn.Linear(128, 1)
+        )
+
+        # Requires clarification head (binary)
+        self.requires_clarification_head = torch.nn.Sequential(
+            torch.nn.Linear(hidden_size, 128),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.1),
+            torch.nn.Linear(128, 1)
+        )
+
+    def forward(self, input_ids, attention_mask):
         """Forward pass - use last_hidden_state CLS token"""
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, return_dict=True)
         pooled_output = outputs.last_hidden_state[:, 0, :]  # CLS token
@@ -336,7 +356,14 @@ def train_bert_model():
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'epoch': epoch,
-                'loss': avg_val_loss
+                'loss': avg_val_loss,
+                'label_mappings': get_label_mappings(),
+                'config': {
+                    'num_feedback_types': len(FEEDBACK_TYPE_LABELS),
+                    'num_rule_categories': len(RULE_CATEGORY_LABELS),
+                    'model_name': 'bert-base-uncased',
+                    'batch_size': 8,
+                }
             }
 
             best_model_path = checkpoints_dir / "best_model.pt"

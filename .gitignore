@@ -1,11 +1,19 @@
 # training artifacts - regenerated on every train/eval run
 rie_ml/models/distilbert_candidate/train_combined.jsonl
 rie_ml/models/distilbert_candidate/val_combined.jsonl
+rie_ml/models/distilbert_candidate/training_history.json
+rie_ml/models/*/training_history.json
+rie_ml/models/*/token_evaluation_results.json
 rie_ml/models/distilbert_token_extractor/training_history.json
 rie_ml/models/distilbert_token_extractor/token_evaluation_results.json
 rie_ml/models/*/checkpoints/
 rie_ml/models/**/checkpoints/*.pt
 rie_ml/datasets/validation_report.json
+
+# Claude Code - local settings & session files (machine-specific, may contain keys/paths)
+.claude/
+.claude/settings.local.json
+*.claude-session.json
 
 # generated datasets - regenerated
 rie_ml/dataset_generation/output/

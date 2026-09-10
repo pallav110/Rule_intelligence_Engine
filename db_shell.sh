@@ -10,6 +10,6 @@ echo "Type SQL commands directly (e.g., SELECT * FROM rules;)"
 echo "Exit with: \\q or Ctrl+D"
 echo "================================================"
 echo ""
-
+ 
 # Connect to the PostgreSQL container
 docker exec -i rie_postgres psql -U rie_user -d rule_intelligence_engine
