@@ -5,6 +5,7 @@
     "customers": {
       "description": "Registered buyers and account holders.",
       "primary_key": "customer_id",
+      "synonyms": ["customer", "buyer", "clients"],
       "columns": {
         "customer_id": {
           "type": "integer",
@@ -53,6 +54,7 @@
     "orders": {
       "description": "Purchase transactions placed by customers.",
       "primary_key": "order_id",
+      "synonyms": ["purchases", "purchase", "sale", "sales"],
       "columns": {
         "order_id": {
           "type": "integer",
@@ -114,6 +116,7 @@
     "order_items": {
       "description": "Line items belonging to an order.",
       "primary_key": "order_item_id",
+      "synonyms": ["line_items", "line item", "order lines"],
       "columns": {
         "order_item_id": {
           "type": "integer",
@@ -156,6 +159,7 @@
     "products": {
       "description": "Sellable catalog items.",
       "primary_key": "product_id",
+      "synonyms": ["product", "item", "items", "catalog_items"],
       "columns": {
         "product_id": {
           "type": "integer",
@@ -192,6 +196,7 @@
     "payments": {
       "description": "Payment attempts and settlements for orders.",
       "primary_key": "payment_id",
+      "synonyms": ["payment", "transactions", "transaction"],
       "columns": {
         "payment_id": {
           "type": "integer",
@@ -241,6 +246,7 @@
     "refunds": {
       "description": "Refund records linked to orders and payments.",
       "primary_key": "refund_id",
+      "synonyms": ["refund", "returns", "return"],
       "columns": {
         "refund_id": {
           "type": "integer",
@@ -284,6 +290,7 @@
     "regions": {
       "description": "Geographic regions for scoping reports and access rules.",
       "primary_key": "region_id",
+      "synonyms": ["region", "territory", "territories", "countries"],
       "columns": {
         "region_id": {
           "type": "integer",

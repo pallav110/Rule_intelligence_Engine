@@ -3,13 +3,13 @@
     "total": 45,
     "version": "v4",
     "date": "2026-09-10",
-    "fixes": "business_term_validation + schema_in_extraction + hallucination_pruning + created_at_fix"
+    "fixes": "business_term_validation+schema_in_extraction+hallucination_pruning+created_at_fix+glossary_synonyms"
   },
   "cases": [
     {
       "id": 1,
       "feedback": "Revenue should exclude cancelled orders.",
-      "time_s": 0.305,
+      "time_s": 0.258,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -23,7 +23,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5126548409461975
+          "confidence": 0.513,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -41,7 +44,7 @@
     {
       "id": 2,
       "feedback": "Revenue must include completed payments only.",
-      "time_s": 0.247,
+      "time_s": 0.259,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -55,7 +58,10 @@
           "operator": "EQUALS",
           "value": "completed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.4789954721927643
+          "confidence": 0.479,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -73,7 +79,7 @@
     {
       "id": 3,
       "feedback": "Refunds should be excluded from the total revenue.",
-      "time_s": 0.242,
+      "time_s": 0.262,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -93,7 +99,7 @@
     {
       "id": 4,
       "feedback": "Orders with status pending should not be counted in revenue.",
-      "time_s": 0.253,
+      "time_s": 0.305,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -107,7 +113,10 @@
           "operator": "EQUALS",
           "value": "pending",
           "extraction_method": "explicit_field_value",
-          "confidence": 0.6250349283218384
+          "confidence": 0.625,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -125,7 +134,7 @@
     {
       "id": 5,
       "feedback": "Only successful payments should contribute to total revenue.",
-      "time_s": 0.293,
+      "time_s": 0.251,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -138,9 +147,11 @@
           "field": "payments.status",
           "operator": "EQUALS",
           "value": "successful",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'successful payments'"
+          "source": "status adjective pattern: 'successful payments'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -156,7 +167,7 @@
     {
       "id": 6,
       "feedback": "Customer lifetime value should include all completed purchases.",
-      "time_s": 0.363,
+      "time_s": 0.247,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -170,7 +181,10 @@
           "operator": "EQUALS",
           "value": "completed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5475602149963379
+          "confidence": 0.548,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -188,22 +202,24 @@
     {
       "id": 7,
       "feedback": "Returned products must be excluded from sales calculations.",
-      "time_s": 0.267,
+      "time_s": 0.34,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
         "confidence": 1.0
       },
-      "business_term": "Products",
+      "business_term": "return",
       "operation": "EXCLUDE",
       "conditions": [
         {
           "field": "products.is_active",
           "operator": "EQUALS",
           "value": "false",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'returned products'"
+          "source": "status adjective pattern: 'returned products'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -219,7 +235,7 @@
     {
       "id": 8,
       "feedback": "Revenue should include orders created in the current month.",
-      "time_s": 0.286,
+      "time_s": 0.294,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -232,9 +248,11 @@
           "field": "orders.order_date",
           "operator": "EQUALS",
           "value": "current_month",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.75,
-          "source": "time window pattern: 'current month'"
+          "source": "time window pattern: 'current month'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [],
@@ -248,7 +266,7 @@
     {
       "id": 9,
       "feedback": "Do not consider cancelled orders when calculating revenue.",
-      "time_s": 0.283,
+      "time_s": 0.279,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -262,7 +280,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5543448328971863
+          "confidence": 0.554,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -280,7 +301,7 @@
     {
       "id": 10,
       "feedback": "Cancelled purchases shouldn't contribute to revenue.",
-      "time_s": 0.26,
+      "time_s": 0.336,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -293,9 +314,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "cancelled",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'cancelled purchases'"
+          "source": "status adjective pattern: 'cancelled purchases'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -304,14 +327,14 @@
       "affected_columns": [],
       "hallucinated_tables": [],
       "n_conditions": 1,
-      "validation_status": "PARTIAL",
+      "validation_status": "PASS",
       "routing_status": "auto_approved",
       "duplicate_relationship": "Unique Rule"
     },
     {
       "id": 11,
       "feedback": "When computing revenue, ignore orders that were cancelled.",
-      "time_s": 0.29,
+      "time_s": 0.264,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -324,9 +347,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "cancelled",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "that+status pattern: 'orders that were cancelled'"
+          "source": "that+status pattern: 'orders that were cancelled'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -342,7 +367,7 @@
     {
       "id": 12,
       "feedback": "Revenue calculations need to leave out cancelled transactions.",
-      "time_s": 0.268,
+      "time_s": 0.505,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -356,7 +381,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5528503656387329
+          "confidence": 0.553,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -374,7 +402,7 @@
     {
       "id": 13,
       "feedback": "Only orders that successfully went through should be counted toward revenue.",
-      "time_s": 0.275,
+      "time_s": 0.355,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -388,7 +416,10 @@
           "operator": "EQUALS",
           "value": "successful",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5090303421020508
+          "confidence": 0.509,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -406,7 +437,7 @@
     {
       "id": 14,
       "feedback": "Revenue must not account for refunded purchases.",
-      "time_s": 0.292,
+      "time_s": 0.345,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -419,9 +450,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "refunded",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'refunded purchases'"
+          "source": "status adjective pattern: 'refunded purchases'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [],
@@ -435,7 +468,7 @@
     {
       "id": 15,
       "feedback": "Revenue should exclude cancelled orders from the US.",
-      "time_s": 0.314,
+      "time_s": 0.315,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -449,7 +482,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.43776315450668335
+          "confidence": 0.438,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -467,7 +503,7 @@
     {
       "id": 16,
       "feedback": "Revenue should exclude cancelled orders created in the current month.",
-      "time_s": 0.265,
+      "time_s": 0.314,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -481,7 +517,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5576850771903992
+          "confidence": 0.558,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -499,7 +538,7 @@
     {
       "id": 17,
       "feedback": "Only completed orders from premium customers should contribute to revenue.",
-      "time_s": 0.256,
+      "time_s": 0.268,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -512,9 +551,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "completed",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'completed orders'"
+          "source": "status adjective pattern: 'completed orders'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -522,7 +563,9 @@
         "orders"
       ],
       "affected_columns": [],
-      "hallucinated_tables": [],
+      "hallucinated_tables": [
+        "completed"
+      ],
       "n_conditions": 1,
       "validation_status": "PASS",
       "routing_status": "auto_approved",
@@ -531,7 +574,7 @@
     {
       "id": 18,
       "feedback": "Exclude refunded orders where the payment method is cash.",
-      "time_s": 0.268,
+      "time_s": 0.269,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -544,17 +587,21 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "refunded",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'refunded orders'"
+          "source": "status adjective pattern: 'refunded orders'",
+          "type": "inferred",
+          "needs_clarification": null
         },
         {
           "field": "payments.payment_method",
           "operator": "EQUALS",
           "value": "cash",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.9,
-          "source": "payment method pattern: 'payment method = cash'"
+          "source": "payment method pattern: 'payment method = cash'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -570,7 +617,7 @@
     {
       "id": 19,
       "feedback": "Revenue should include completed orders but exclude refunded orders.",
-      "time_s": 0.286,
+      "time_s": 0.434,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -584,7 +631,10 @@
           "operator": "EQUALS",
           "value": "completed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5184049606323242
+          "confidence": 0.518,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -602,7 +652,7 @@
     {
       "id": 20,
       "feedback": "Do not count cancelled orders or failed payments when calculating revenue.",
-      "time_s": 0.277,
+      "time_s": 0.284,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -616,14 +666,20 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.558597207069397
+          "confidence": 0.559,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         },
         {
           "field": "payments.status",
           "operator": "EQUALS",
           "value": "failed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.558597207069397
+          "confidence": 0.559,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -643,7 +699,7 @@
     {
       "id": 21,
       "feedback": "Order count should exclude cancelled orders.",
-      "time_s": 0.248,
+      "time_s": 0.238,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -657,7 +713,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.6171770095825195
+          "confidence": 0.617,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -675,7 +734,7 @@
     {
       "id": 22,
       "feedback": "Average order value should include completed purchases only.",
-      "time_s": 0.279,
+      "time_s": 0.266,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -690,6 +749,8 @@
           "value": "completed",
           "extraction_method": "value_only_needs_clarification",
           "confidence": 0.3,
+          "source": null,
+          "type": null,
           "needs_clarification": true
         }
       ],
@@ -697,14 +758,14 @@
       "affected_columns": [],
       "hallucinated_tables": [],
       "n_conditions": 1,
-      "validation_status": "PARTIAL",
+      "validation_status": "PASS",
       "routing_status": "clarification_required",
       "duplicate_relationship": "Unique Rule"
     },
     {
       "id": 23,
       "feedback": "Refund amount should include all successfully processed refunds.",
-      "time_s": 0.283,
+      "time_s": 0.302,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -717,9 +778,11 @@
           "field": "refunds.status",
           "operator": "EQUALS",
           "value": "successful",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.75,
-          "source": "successfully processed pattern: 'successfully processed refunds'"
+          "source": "successfully processed pattern: 'successfully processed refunds'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [],
@@ -733,7 +796,7 @@
     {
       "id": 24,
       "feedback": "Customer revenue should exclude refunded transactions.",
-      "time_s": 0.265,
+      "time_s": 0.255,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -748,6 +811,8 @@
           "value": "refund",
           "extraction_method": "value_only_needs_clarification",
           "confidence": 0.3,
+          "source": null,
+          "type": null,
           "needs_clarification": true
         }
       ],
@@ -762,7 +827,7 @@
     {
       "id": 25,
       "feedback": "Revenue should exclude cancelled orders.",
-      "time_s": 0.244,
+      "time_s": 0.263,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -776,7 +841,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5126548409461975
+          "confidence": 0.513,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -794,7 +862,7 @@
     {
       "id": 26,
       "feedback": "Cancelled orders should not be included in revenue.",
-      "time_s": 0.317,
+      "time_s": 0.284,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -807,9 +875,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "cancelled",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'cancelled orders'"
+          "source": "status adjective pattern: 'cancelled orders'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -825,7 +895,7 @@
     {
       "id": 27,
       "feedback": "When calculating revenue, ignore cancelled orders.",
-      "time_s": 0.412,
+      "time_s": 0.338,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -839,7 +909,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5318378806114197
+          "confidence": 0.532,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -857,7 +930,7 @@
     {
       "id": 28,
       "feedback": "Revenue should exclude cancelled purchases.",
-      "time_s": 0.415,
+      "time_s": 0.28,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -871,7 +944,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5343402028083801
+          "confidence": 0.534,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -889,7 +965,7 @@
     {
       "id": 29,
       "feedback": "Revenue should include cancelled orders.",
-      "time_s": 0.397,
+      "time_s": 0.332,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -903,7 +979,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5079247951507568
+          "confidence": 0.508,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -921,7 +1000,7 @@
     {
       "id": 30,
       "feedback": "Cancelled orders must contribute to revenue.",
-      "time_s": 0.401,
+      "time_s": 0.399,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -934,9 +1013,11 @@
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "cancelled",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'cancelled orders'"
+          "source": "status adjective pattern: 'cancelled orders'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -952,7 +1033,7 @@
     {
       "id": 31,
       "feedback": "Revenue should exclude completed orders.",
-      "time_s": 0.411,
+      "time_s": 0.405,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -966,7 +1047,10 @@
           "operator": "EQUALS",
           "value": "completed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5062019228935242
+          "confidence": 0.506,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -984,7 +1068,7 @@
     {
       "id": 32,
       "feedback": "Revenue should exclude returned orders.",
-      "time_s": 0.414,
+      "time_s": 0.432,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -996,9 +1080,12 @@
         {
           "field": "orders.status",
           "operator": "EQUALS",
-          "value": "returned",
+          "value": "return",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5231814384460449
+          "confidence": 0.533,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -1016,7 +1103,7 @@
     {
       "id": 33,
       "feedback": "Exclude cancelled orders from revenue globally.",
-      "time_s": 0.424,
+      "time_s": 0.451,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -1030,7 +1117,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5186561346054077
+          "confidence": 0.519,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -1048,7 +1138,7 @@
     {
       "id": 34,
       "feedback": "For this month, revenue should exclude refunded orders.",
-      "time_s": 0.459,
+      "time_s": 0.412,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -1063,6 +1153,8 @@
           "value": "refund",
           "extraction_method": "value_only_needs_clarification",
           "confidence": 0.3,
+          "source": null,
+          "type": null,
           "needs_clarification": true
         }
       ],
@@ -1077,7 +1169,7 @@
     {
       "id": 35,
       "feedback": "For the last 30 days, only completed payments should contribute to revenue.",
-      "time_s": 0.563,
+      "time_s": 0.458,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -1091,7 +1183,10 @@
           "operator": "EQUALS",
           "value": "completed",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.4583648443222046
+          "confidence": 0.458,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -1109,14 +1204,14 @@
     {
       "id": 36,
       "feedback": "Revenue needs fixing.",
-      "time_s": 0.388,
+      "time_s": 0.347,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
         "confidence": 1.0
       },
       "business_term": "Revenue",
-      "operation": "",
+      "operation": null,
       "conditions": [],
       "affected_tables": [],
       "affected_columns": [],
@@ -1129,11 +1224,11 @@
     {
       "id": 37,
       "feedback": "Revenue shouldn't count some orders.",
-      "time_s": 0.475,
+      "time_s": 0.433,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
-        "confidence": 0.9999999905336042
+        "confidence": 1.0
       },
       "business_term": "Revenue",
       "operation": "EXCLUDE",
@@ -1151,14 +1246,14 @@
     {
       "id": 38,
       "feedback": "The cafeteria food is terrible today.",
-      "time_s": 0.411,
+      "time_s": 0.381,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
-        "confidence": 0.999963369467866
+        "confidence": 1.0
       },
       "business_term": "cafeteria",
-      "operation": "",
+      "operation": null,
       "conditions": [],
       "affected_tables": [],
       "affected_columns": [],
@@ -1171,14 +1266,14 @@
     {
       "id": 39,
       "feedback": "BUY NOW BUY NOW BUY NOW BUY NOW CLICK HERE!!! FREE FREE FREE!!!",
-      "time_s": 0.357,
+      "time_s": 0.381,
       "classification": {
         "feedback_type": "irrelevant_spam",
         "is_actionable": false,
-        "confidence": 0.9999999999999745
+        "confidence": 1.0
       },
       "business_term": "FREE",
-      "operation": "",
+      "operation": null,
       "conditions": [],
       "affected_tables": [],
       "affected_columns": [],
@@ -1191,14 +1286,14 @@
     {
       "id": 40,
       "feedback": "xj29 revenue zzz qqq cancelled blahhh 9281 asdfgh",
-      "time_s": 0.441,
+      "time_s": 0.442,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
         "confidence": 1.0
       },
       "business_term": "xj29",
-      "operation": "",
+      "operation": null,
       "conditions": [],
       "affected_tables": [],
       "affected_columns": [],
@@ -1211,20 +1306,20 @@
     {
       "id": 41,
       "feedback": "",
-      "time_s": 0.004,
-      "error": "HTTP 422"
+      "time_s": 0.001,
+      "error": "empty feedback"
     },
     {
       "id": 42,
       "feedback": "Revenue",
-      "time_s": 0.339,
+      "time_s": 0.39,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
-        "confidence": 0.6540432660456582
+        "confidence": 0.654
       },
       "business_term": "Revenue",
-      "operation": "",
+      "operation": null,
       "conditions": [],
       "affected_tables": [],
       "affected_columns": [],
@@ -1237,11 +1332,11 @@
     {
       "id": 43,
       "feedback": "Why is revenue excluding cancelled orders?",
-      "time_s": 0.404,
+      "time_s": 0.423,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
-        "confidence": 0.9999999998556379
+        "confidence": 1.0
       },
       "business_term": "revenue",
       "operation": "EXCLUDE",
@@ -1251,7 +1346,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.482271671295166
+          "confidence": 0.482,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -1269,7 +1367,7 @@
     {
       "id": 44,
       "feedback": "Revenue should include cancelled orders and exclude cancelled orders.",
-      "time_s": 0.424,
+      "time_s": 0.436,
       "classification": {
         "feedback_type": "business_rule_correction",
         "is_actionable": true,
@@ -1283,7 +1381,10 @@
           "operator": "EQUALS",
           "value": "cancelled",
           "extraction_method": "inferred_table_value",
-          "confidence": 0.5280652642250061
+          "confidence": 0.528,
+          "source": null,
+          "type": null,
+          "needs_clarification": null
         }
       ],
       "affected_tables": [
@@ -1301,22 +1402,24 @@
     {
       "id": 45,
       "feedback": "I read an article about revenue and cancelled orders yesterday.",
-      "time_s": 0.435,
+      "time_s": 0.44,
       "classification": {
         "feedback_type": "unclear_feedback",
         "is_actionable": false,
         "confidence": 1.0
       },
       "business_term": "revenue",
-      "operation": "",
+      "operation": null,
       "conditions": [
         {
           "field": "orders.status",
           "operator": "EQUALS",
           "value": "cancelled",
-          "type": "inferred",
+          "extraction_method": null,
           "confidence": 0.8,
-          "source": "status adjective pattern: 'cancelled orders'"
+          "source": "status adjective pattern: 'cancelled orders'",
+          "type": "inferred",
+          "needs_clarification": null
         }
       ],
       "affected_tables": [

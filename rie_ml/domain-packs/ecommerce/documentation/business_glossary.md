@@ -188,6 +188,11 @@ This glossary maps business terminology to schema entities for classification, r
 | cancelled_order | canceled order, void order |
 | active_customer | engaged customer, recent buyer |
 | free_shipping | zero shipping, shipping waiver |
+| orders / purchases | purchases, purchase, sale, sales |
+| payments / transactions | transactions, transaction |
+| refunds / returns | refund, return |
+| customers / buyers | customer, buyer, clients |
+| products / items | product, item, items, catalog_items |
 
 
 ### access_restriction

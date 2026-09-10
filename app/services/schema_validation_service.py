@@ -444,6 +444,14 @@ class SchemaValidationService:
             glossary.append(table_name)
             if "business_meaning" in table_info:
                 glossary.append(table_info["business_meaning"])
+            # Table description often names the business concept (e.g.
+            # "Purchase transactions placed by customers.") — include it so
+            # user-facing synonyms like "purchases" validate against it.
+            if "description" in table_info:
+                glossary.append(table_info["description"])
+            # Explicit per-table synonyms (e.g. orders → purchases/sale).
+            for synonym in table_info.get("synonyms", []) or []:
+                glossary.append(str(synonym))
 
             # Extract from column business meanings
             for col_name, col_info in table_info.get("columns", {}).items():
