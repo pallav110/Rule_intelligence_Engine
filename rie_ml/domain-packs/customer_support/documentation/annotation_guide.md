@@ -1,6 +1,6 @@
 # Customer Support Domain Pack — Annotation Guide
 
-**Version:** `ann_v0.1.0`  
+**Version:** `ann_v0.2.0`  
 **Domain:** `customer_support`  
 **Taxonomy:** [`taxonomy/labels.json`](../taxonomy/labels.json)
 
@@ -33,10 +33,10 @@ This guide defines how to annotate seed and evaluation feedback for the Customer
 | `requires_clarification` | Yes | `true` if mandatory info is missing |
 | `schema_context` | Recommended | Tables/columns available to the user |
 | `rules` | Yes | Array of structured rules (empty if not actionable) |
-| `annotation_version` | Yes | e.g. `ann_v0.1.0` |
+| `annotation_version` | Yes | e.g. `ann_v0.2.0` |
 | `source` | Yes | `manual`, `programmatic`, or `llm_assisted` |
 
-\*For `non_rule_feedback`, `unclear_feedback`, and `irrelevant_spam`, set `rule_category` to `null`.
+\*For `issue_report`, `feature_request`, `question`, `general_feedback`, and `irrelevant_spam`, set `rule_category` to `null`.
 
 ---
 
@@ -74,24 +74,21 @@ This guide defines how to annotate seed and evaluation feedback for the Customer
 
 | feedback_type | When to use | rule_category |
 |---------------|-------------|---------------|
-| `business_rule_correction` | User proposes or corrects a business rule | One of 11 rule categories |
-| `non_rule_feedback` | Product/UI complaint, no data rule | `null` |
-| `unclear_feedback` | Intent ambiguous, cannot extract rule | `null` |
-| `irrelevant_spam` | Unrelated content | `null` |
+| `business_rule` | User proposes or corrects a business rule | One of 6 rule categories |
+| `issue_report` | Something is broken/wrong (data issue, bug) | `null` |
+| `feature_request` | Request for new functionality | `null` |
+| `question` | Clarification needed, ambiguous intent | `null` |
+| `general_feedback` | General comment, no specific rule or issue | `null` |
+| `irrelevant_spam` | Unrelated/spam content (pre-filter class) | `null` |
 
-### Rule categories (customer support)
+### Rule categories (customer support) — per §8.3.2 authoritative taxonomy
 
-- `metric_definition` - how a support metric is calculated
-- `filter_rule` - include/exclude records
-- `status_mapping` - equivalence of ticket states
-- `time_rule` - response or resolution windows
-- `join_correction` - how support tables should be joined
-- `column_meaning` - clarify what a column represents
-- `entity_definition` - define a business entity or queue
-- `data_quality_issue` - data integrity problems
-- `calculation_correction` - fix aggregation logic
-- `expected_result_correction` - user states expected result or count
-- `access_scope_rule` - who can see what data
+- `metric_definition` — how a support metric is calculated (compositions over fields)
+- `filter_rule` — include/exclude records (include/exclude operations)
+- `mapping_rule` — map or replace raw values into canonical statuses (map/replace)
+- `access_rule` — define permissions or access scope for roles/users (restrict)
+- `join_rule` — define how tables relate or join conditions for derived metrics
+- `data_quality_rule` — flag or validate records; validation/exclusion/flagging
 
 ---
 
@@ -172,16 +169,17 @@ For the initial 20-30 seed examples, aim for approximate coverage:
 |--------|-------|
 | metric_definition | 4 |
 | filter_rule | 5 |
-| status_mapping | 2 |
-| time_rule | 2 |
-| join_correction | 2 |
-| access_scope_rule | 2 |
-| data_quality_issue | 2 |
-| clarification / ambiguous | 3 |
-| non_rule_feedback | 2 |
+| mapping_rule | 2 |
+| join_rule | 2 |
+| access_rule | 2 |
+| data_quality_rule | 2 |
+| clarification / ambiguous (question) | 3 |
+| issue_report | 2 |
+| feature_request | 2 |
 | multi_rule | 2 |
 | hinglish | 2 |
 | invalid_schema_ref | 1 |
+| irrelevant_spam (pre-filter) | 1 |
 
 ---
 
@@ -194,7 +192,7 @@ For the initial 20-30 seed examples, aim for approximate coverage:
   "domain_pack_version": "customer_support_v0.1.0",
   "rule_family_id": "RF001",
   "feedback_text": "Internal sandbox tickets should be excluded from backlog counts.",
-  "feedback_type": "business_rule_correction",
+  "feedback_type": "business_rule",
   "rule_category": "filter_rule",
   "is_actionable": true,
   "requires_clarification": false,
@@ -218,7 +216,7 @@ For the initial 20-30 seed examples, aim for approximate coverage:
       }
     }
   ],
-  "annotation_version": "ann_v0.1.0",
+  "annotation_version": "ann_v0.2.0",
   "source": "manual"
 }
 ```

@@ -23,7 +23,7 @@ from datetime import datetime
 import argparse
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from baseline.classifier import BaselineClassifier
@@ -57,13 +57,13 @@ class BaselineEvaluatorWithStorage:
     def load_test_dataset(self) -> List[Dict[str, Any]]:
         """Load test dataset."""
         dataset_path = (
-            Path(__file__).parent.parent / "datasets" / "evaluation" / f"{self.dataset_split}.jsonl"
+            Path(__file__).parent.parent.parent / "datasets" / "evaluation" / f"{self.dataset_split}.jsonl"
         )
 
         if not dataset_path.exists():
             # Try alternative path
             dataset_path = (
-                Path(__file__).parent.parent / "datasets" / "evaluation" / "baseline_test.json"
+                Path(__file__).parent.parent.parent / "datasets" / "evaluation" / "baseline_test.json"
             )
 
         if not dataset_path.exists():
@@ -348,7 +348,7 @@ class BaselineEvaluatorWithStorage:
         print("\n🔄 Loading baseline classifier model...")
         try:
             from baseline.classifier import BaselineClassifier
-            model_path = Path(__file__).parent.parent / "models" / "baseline_classifier_unified.pkl"
+            model_path = Path(__file__).parent.parent.parent / "models" / "baseline" / "baseline_classifier_unified.pkl"
             if model_path.exists():
                 classifier = BaselineClassifier(str(model_path))
                 print(f"✅ Loaded classifier from {model_path}")

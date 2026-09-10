@@ -2,43 +2,35 @@
 Label mappings for multi-task DistilBERT classifier
 
 These mappings define the label spaces for each classification task.
-Mappings are derived from the actual dataset validation results.
+Mappings are derived from the authoritative specification Section 8.3.2.
 
 IMPORTANT: These mappings must be saved with the model for inference.
 """
 
-# Feedback Type Labels (4 classes)
-# Based on specification Section 8.3.2 and dataset validation
+# Feedback Type Labels (5 classes) - per specification §8.3.2
+# Updated from 4-class legacy to 5-class authoritative taxonomy
 FEEDBACK_TYPE_LABELS = {
-    "business_rule_correction": 0,
-    "unclear_feedback": 1,
-    "irrelevant_spam": 2,
-    "non_rule_feedback": 3,
+    "business_rule": 0,
+    "issue_report": 1,
+    "feature_request": 2,
+    "question": 3,
+    "general_feedback": 4,
 }
 
 FEEDBACK_TYPE_ID2LABEL = {v: k for k, v in FEEDBACK_TYPE_LABELS.items()}
 FEEDBACK_TYPE_LABEL2ID = FEEDBACK_TYPE_LABELS  # Alias for compatibility
 
 
-# Rule Category Labels (13 classes + None)
-# Based on dataset validation results
+# Rule Category Labels (6 classes + None) - per specification §8.3.2
+# Updated from 16-class legacy to 6-class authoritative taxonomy
 RULE_CATEGORY_LABELS = {
-    "calculation_correction": 0,
+    "metric_definition": 0,
     "filter_rule": 1,
-    "metric_definition": 2,
-    "status_mapping": 3,
-    "join_correction": 4,
-    "column_meaning": 5,
-    "time_rule": 6,
-    "entity_definition": 7,
-    "data_quality_issue": 8,
-    "access_scope_rule": 9,
-    "expected_result_correction": 10,
-    "access_rule": 11,
-    "mapping_rule": 12,
-    "join_rule": 13,
-    "data_quality_rule": 14,
-    "none": 15,  # For cases where rule_category is None
+    "mapping_rule": 2,
+    "access_rule": 3,
+    "join_rule": 4,
+    "data_quality_rule": 5,
+    "none": 6,  # For cases where rule_category is None (non-rule feedback types)
 }
 
 RULE_CATEGORY_ID2LABEL = {v: k for k, v in RULE_CATEGORY_LABELS.items()}

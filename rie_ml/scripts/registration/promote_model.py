@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from model_registry import ModelRegistry, ModelStatus
 
@@ -51,7 +51,7 @@ def promote_to_production(model_id: str, reason: str = ""):
         print(f"   Status: {model.status.value}")
 
         # Save promotion report
-        registry_dir = Path(__file__).parent.parent / "models" / "registry"
+        registry_dir = Path(__file__).parent.parent.parent / "models") / "registry"
         promotion_report = registry_dir / "promotion_history.json"
 
         history = []

@@ -31,7 +31,7 @@ from datetime import datetime
 import numpy as np
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from ml_models.distilbert_classifier import MultiTaskDistilBERTClassifier
 from ml_models import FEEDBACK_TYPE_LABELS, RULE_CATEGORY_LABELS, MODEL_CONFIG, get_label_mappings
@@ -76,8 +76,9 @@ class FeedbackDataset(Dataset):
         requires_clarification = example.get("requires_clarification", False)
 
         # Convert to label IDs
+        # Note: irrelevant_spam should be filtered out before dataset creation (handled upstream)
         feedback_type_id = FEEDBACK_TYPE_LABELS.get(feedback_type, 0)
-        rule_category_id = RULE_CATEGORY_LABELS.get(rule_category if rule_category else "none", 15)
+        rule_category_id = RULE_CATEGORY_LABELS.get(rule_category if rule_category else "none", 6)  # "none" = 6
 
         return {
             'input_ids': encoding['input_ids'].squeeze(0),
@@ -127,24 +128,30 @@ class DistilBERTTrainer:
         }
 
     def load_data(self, train_path: Path, val_path: Path) -> tuple:
-        """Load training and validation data"""
+        """Load training and validation data, filtering out irrelevant_spam (handled upstream)"""
         print(f"\nLoading training data from {train_path}...")
         train_data = []
         with open(train_path, 'r') as f:
             for line in f:
                 if line.strip():
-                    train_data.append(json.loads(line))
+                    example = json.loads(line)
+                    # Filter out irrelevant_spam - handled by upstream spam pre-filter
+                    if example.get('feedback_type') != 'irrelevant_spam':
+                        train_data.append(example)
 
-        print(f"Loaded {len(train_data)} training examples")
+        print(f"Loaded {len(train_data)} training examples (excluded spam)")
 
         print(f"\nLoading validation data from {val_path}...")
         val_data = []
         with open(val_path, 'r') as f:
             for line in f:
                 if line.strip():
-                    val_data.append(json.loads(line))
+                    example = json.loads(line)
+                    # Filter out irrelevant_spam - handled by upstream spam pre-filter
+                    if example.get('feedback_type') != 'irrelevant_spam':
+                        val_data.append(example)
 
-        print(f"Loaded {len(val_data)} validation examples")
+        print(f"Loaded {len(val_data)} validation examples (excluded spam)")
 
         return train_data, val_data
 
@@ -421,8 +428,8 @@ def main():
     config = MODEL_CONFIG.copy()
 
     # Paths
-    base_dir = Path(__file__).parent.parent / "dataset_generation" / "output"
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_candidate"
+    base_dir = Path(__file__).parent.parent.parent / "dataset_generation" / "output"
+    output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Combine training data from all domains

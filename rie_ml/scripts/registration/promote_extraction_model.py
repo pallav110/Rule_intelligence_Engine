@@ -124,7 +124,7 @@ def print_promotion_decision(decision):
 
 def main():
     """Load evaluation results and make promotion decision."""
-    eval_results_file = Path(__file__).parent.parent / "models" / "distilbert_token_extractor" / "token_evaluation_results.json"
+    eval_results_file = Path(__file__).parent.parent.parent / "models") / "distilbert_token_extractor" / "token_evaluation_results.json"
 
     if not eval_results_file.exists():
         print(f"❌ Evaluation results not found: {eval_results_file}")
@@ -137,7 +137,7 @@ def main():
     decision = make_promotion_decision(evaluation_results)
     print_promotion_decision(decision)
 
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_token_extractor"
+    output_dir = Path(__file__).parent.parent.parent / "models") / "distilbert_token_extractor"
     save_promotion_decision(decision, output_dir)
 
     return decision

@@ -11,21 +11,21 @@ from typing import Any
 @dataclass
 class GenerationConfig:
     """Configuration for dataset generation."""
-    
-    # Domain pack configuration
-    domain_pack_id: str = "ecommerce"
-    domain_pack_version: str = "ecommerce_v0.1.0"
-    domain_pack_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "domain-packs" / "ecommerce")
-    
-    # Seed data
-    seed_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "domain-packs" / "ecommerce" / "feedback" / "seed.jsonl")
-    
-    # Output configuration
-    output_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "dataset_generation" / "output")
+
+    # Domain pack configuration (set via CLI or config file)
+    domain_pack_id: str = ""
+    domain_pack_version: str = ""
+    domain_pack_path: Path = Path(".")
+
+    # Seed data (set via CLI or config file)
+    seed_path: Path = Path(".")
+
+    # Output configuration (set via CLI or config file)
+    output_dir: Path = Path(".")
     
     # Dataset versioning
-    dataset_version: str = "dataset_v0.1.0"
-    annotation_version: str = "ann_v0.1.0"
+    dataset_version: str = "dataset_v0.2.0"
+    annotation_version: str = "ann_v0.2.0"
     
     # Reproducibility
     random_seed: int = 42

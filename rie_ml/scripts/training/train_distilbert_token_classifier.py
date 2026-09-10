@@ -16,10 +16,10 @@ from tqdm import tqdm
 from datetime import datetime
 from collections import defaultdict, Counter
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 # Load BIO labels
-BIO_LABELS_FILE = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "bio_labels.json"
+BIO_LABELS_FILE = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio" / "bio_labels.json"
 with open(BIO_LABELS_FILE, 'r') as f:
     label_mapping = json.load(f)
     BIO_LABELS = label_mapping['labels']
@@ -141,15 +141,15 @@ def train_token_classifier():
     print(f"Using device: {device}")
 
     # Paths
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_token_extractor"
+    output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_token_extractor"
     output_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir = output_dir / "checkpoints"
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
     # Load training data
     print("\n📦 Loading token classification training data...")
-    train_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "train_bio.jsonl"
-    val_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "val_bio.jsonl"
+    train_file = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio" / "train_bio.jsonl"
+    val_file = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio" / "val_bio.jsonl"
 
     # Create tokenizer and datasets
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')

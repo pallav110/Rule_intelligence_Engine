@@ -95,19 +95,21 @@ class BaselineClassifier:
         preds = self.model.predict(X)[0]  # shape (2,)
 
         # Map numeric predictions back to strings via our fixed vocabulary
+        # NEW TAXONOMY v0.2.0 (5-class feedback_type, 6-class rule_category)
         type_map = {
-            0: "business_rule_correction",
-            1: "data_quality_issue",
-            2: "access_rule",
-            3: "filter_rule",
-            4: "calculation_correction",
+            0: "business_rule",
+            1: "issue_report",
+            2: "feature_request",
+            3: "question",
+            4: "general_feedback",
         }
         category_map = {
             0: "metric_definition",
             1: "filter_rule",
-            2: "access_scope_rule",
-            3: "calculation_correction",
-            4: "column_meaning",
+            2: "mapping_rule",
+            3: "access_rule",
+            4: "join_rule",
+            5: "data_quality_rule",
         }
 
         # Handle both string and numeric predictions
@@ -125,14 +127,8 @@ class BaselineClassifier:
             # If prediction is already a string, use it directly
             rule_category = str(preds[1])
 
-        # Determine actionability - all extracted feedback types are actionable
-        is_actionable = feedback_type in {
-            "business_rule_correction",
-            "data_quality_issue",
-            "access_rule",
-            "filter_rule",
-            "calculation_correction",
-        }
+        # Determine actionability - only business_rule is actionable per new taxonomy
+        is_actionable = feedback_type == "business_rule"
 
         # Compute confidence - use predict_proba if available, otherwise use heuristic
         try:

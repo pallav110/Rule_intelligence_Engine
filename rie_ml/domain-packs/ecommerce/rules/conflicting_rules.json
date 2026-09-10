@@ -103,7 +103,7 @@
     "rule_id": "EC_CR006",
     "conflicts_with": "EC_R009",
     "rule_name": "Active customer 30-day window",
-    "rule_category": "entity_definition",
+    "rule_category": "metric_definition",
     "business_term": "active_customer",
     "operation": "include",
     "conditions": [

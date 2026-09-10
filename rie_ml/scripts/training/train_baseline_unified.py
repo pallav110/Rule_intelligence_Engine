@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from baseline.classifier import BaselineClassifier
 
@@ -28,7 +28,7 @@ def combine_all_domain_data(output_dir: Path) -> List[Dict[str, Any]]:
     domains = ["ecommerce", "customer_support", "saas_subscription"]
 
     for domain in domains:
-        dataset_dir = Path(__file__).parent.parent / "dataset_generation" / "output" / domain
+        dataset_dir = Path(__file__).parent.parent.parent / "dataset_generation" / "output" / domain
         train_file = dataset_dir / "train.jsonl"
 
         if not train_file.exists():
@@ -59,8 +59,8 @@ def combine_all_domain_data(output_dir: Path) -> List[Dict[str, Any]]:
 def create_combined_dataset_file(all_data: List[Dict[str, Any]], output_dir: Path) -> Path:
     """Create a combined training file."""
     # Use a temporary location for the combined file
-    temp_dir = Path(__file__).parent.parent / "datasets" / "evaluation"
-    temp_dir.mkdir(exist_ok=True)
+    temp_dir = Path(__file__).parent.parent.parent / "datasets" / "evaluation"
+    temp_dir.mkdir(parents=True, exist_ok=True)
     combined_file = temp_dir / "train_combined.jsonl"
 
     print(f"\n🔗 Creating combined training dataset: {combined_file}")
@@ -101,23 +101,23 @@ def train_unified_classifier(train_file: Path, output_dir: Path) -> bool:
         return False
 
     # Save model to a writable location
-    models_dir = Path(__file__).parent.parent / "datasets" / "evaluation"
-    models_dir.mkdir(exist_ok=True)
+    models_dir = Path(__file__).parent.parent.parent / "models" / "baseline"
+    models_dir.mkdir(parents=True, exist_ok=True)
     output_path = models_dir / "baseline_classifier_unified.pkl"
     print(f"   Saving model to: {output_path}")
 
     try:
         classifier.save(str(output_path))
         print(f"   ✅ Model saved: {output_path}")
-        return True
+        return True, str(output_path)
     except Exception as e:
         print(f"   ❌ Save failed: {e}")
-        return False
+        return False, None
 
 
 def main():
     """Train unified baseline classifier."""
-    output_dir = Path(__file__).parent.parent / "models"
+    output_dir = Path(__file__).parent.parent.parent / "models"
     output_dir.mkdir(exist_ok=True)
 
     print("=" * 70)
@@ -136,7 +136,7 @@ def main():
     combined_file = create_combined_dataset_file(all_data, output_dir)
 
     # Train unified model
-    success = train_unified_classifier(combined_file, output_dir)
+    success, model_path = train_unified_classifier(combined_file, output_dir)
 
     # Summary
     print("\n" + "=" * 70)
@@ -145,7 +145,7 @@ def main():
 
     if success:
         print("✅ Unified baseline classifier trained and saved!")
-        print(f"   Model: {models_dir / 'baseline_classifier_unified.pkl'}")
+        print(f"   Model: {model_path}")
         print(f"   Training data: {len(all_data)} records from all domains")
         print("\nNext steps:")
         print("1. Update evaluation script to use unified model")

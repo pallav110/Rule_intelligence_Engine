@@ -28,7 +28,7 @@ from collections import defaultdict, Counter
 from typing import List, Dict, Tuple
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 # BIO labels for token classification
 BIO_LABELS = [
@@ -419,7 +419,7 @@ def main():
 
     # Process each domain
     for domain in domains:
-        file_path = Path(__file__).parent.parent / "dataset_generation" / "output" / domain / "extraction.jsonl"
+        file_path = Path(__file__).parent.parent.parent / "dataset_generation" / "output" / domain / "extraction.jsonl"
 
         if file_path.exists():
             print(f"\n📦 Processing {domain}...")

@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from model_registry import ModelRegistry, ModelType, ModelStatus
 from evaluation.metrics_storage import MetricsStorage
@@ -40,8 +40,8 @@ def register_distilbert_candidate():
     print(f"✅ Found candidate evaluation: {candidate_result.evaluation_id}")
 
     # Paths
-    model_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"
-    calibration_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "calibration_params.json"
+    model_path = Path(__file__).parent.parent.parent / "models") / "distilbert_candidate" / "checkpoints" / "best_model.pt"
+    calibration_path = Path(__file__).parent.parent.parent / "models") / "distilbert_candidate" / "calibration_params.json"
 
     # Extract evaluation metrics
     evaluation_metrics = {
@@ -101,7 +101,7 @@ def register_distilbert_candidate():
     print(f"   Status: {metadata.status.value}")
 
     # Save registration summary
-    summary_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "registration_summary.json"
+    summary_path = Path(__file__).parent.parent.parent / "models") / "distilbert_candidate" / "registration_summary.json"
     summary = {
         "model_id": metadata.model_id,
         "model_name": metadata.model_name,
@@ -112,7 +112,7 @@ def register_distilbert_candidate():
         "acceptance_criteria_passed": metadata.acceptance_criteria_passed,
         "model_path": str(model_path),
         "calibration_path": str(calibration_path),
-        "registry_metadata_file": str(Path(__file__).parent.parent / "models" / "registry" / "metadata" / f"{metadata.model_id}.json")
+        "registry_metadata_file": str(Path(__file__).parent.parent.parent / "models") / "registry" / "metadata" / f"{metadata.model_id}.json")
     }
 
     with open(summary_path, 'w') as f:

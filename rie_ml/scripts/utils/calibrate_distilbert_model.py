@@ -26,7 +26,7 @@ from tqdm import tqdm
 from scipy.optimize import minimize
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from ml_models.distilbert_classifier import MultiTaskDistilBERTClassifier
 from ml_models import FEEDBACK_TYPE_LABELS, RULE_CATEGORY_LABELS
@@ -374,9 +374,9 @@ def main():
     from torch.utils.data import Dataset
 
     # Paths
-    model_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"
-    val_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "val_combined.jsonl"
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_candidate"
+    model_path = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"
+    val_path = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "val_combined.jsonl"
+    output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate"
 
     # Load validation data
     print("Loading validation data...")

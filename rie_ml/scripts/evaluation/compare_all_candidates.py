@@ -23,7 +23,7 @@ from sklearn.metrics import (
     classification_report
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from ml_models import (
     FEEDBACK_TYPE_LABELS,
@@ -208,7 +208,7 @@ def compare_all_models():
     domains = ["ecommerce", "customer_support", "saas_subscription"]
 
     for domain in domains:
-        domain_path = Path(__file__).parent.parent / "dataset_generation" / "output" / domain / "test.jsonl"
+        domain_path = Path(__file__).parent.parent.parent / "dataset_generation" / "output" / domain / "test.jsonl"
         if domain_path.exists():
             with open(domain_path, 'r') as f:
                 for line in f:
@@ -225,9 +225,9 @@ def compare_all_models():
     # Evaluate all models
     results = {}
     models_config = [
-        ('distilbert', Path(__file__).parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"),
-        ('bert', Path(__file__).parent.parent / "models" / "bert_candidate" / "checkpoints" / "best_model.pt"),
-        ('roberta', Path(__file__).parent.parent / "models" / "roberta_candidate" / "checkpoints" / "best_model.pt"),
+        ('distilbert', Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"),
+        ('bert', Path(__file__).parent.parent.parent / "models" / "bert_candidate" / "checkpoints" / "best_model.pt"),
+        ('roberta', Path(__file__).parent.parent.parent / "models" / "roberta_candidate" / "checkpoints" / "best_model.pt"),
     ]
 
     for model_type, model_path in models_config:
@@ -282,7 +282,7 @@ def compare_all_models():
                 print(f"  {model_type:15} | Acc: {acc:6.2%} | F1: {f1:6.4f}")
 
     # Save comparison report
-    report_path = Path(__file__).parent.parent / "models" / "model_comparison_report.json"
+    report_path = Path(__file__).parent.parent.parent / "models" / "model_comparison_report.json"
     with open(report_path, 'w') as f:
         json.dump(comparison_report, f, indent=2)
 

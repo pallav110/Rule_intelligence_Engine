@@ -75,16 +75,19 @@ def validate_feedback_record(record: dict, schema_fields: set[str], taxonomy: di
     ctx = record.get("feedback_id", "<unknown>")
     allow_invalid = record.get("schema_validation_expected") == "fail"
 
-    validate_taxonomy_value(record.get("feedback_type"), set(taxonomy["feedback_types"]), "feedback_type", ctx, errors)
+    # Allow "irrelevant_spam" as a special pre-filter class even though
+    # it's not in the 5-class classifier taxonomy (per §8.3.2)
+    allowed_feedback_types = set(taxonomy["feedback_types"]) | {"irrelevant_spam"}
+    validate_taxonomy_value(record.get("feedback_type"), allowed_feedback_types, "feedback_type", ctx, errors)
     if record.get("rule_category") is not None:
         validate_taxonomy_value(record.get("rule_category"), set(taxonomy["rule_categories"]), "rule_category", ctx, errors)
 
     if record.get("requires_clarification") and record.get("rules"):
         errors.append(f"{ctx}: clarification record should have empty rules[]")
 
-    if record.get("is_actionable") and not record.get("requires_clarification") and record.get("feedback_type") == "business_rule_correction":
+    if record.get("is_actionable") and not record.get("requires_clarification") and record.get("feedback_type") == "business_rule":
         if not record.get("rules"):
-            errors.append(f"{ctx}: actionable business_rule_correction must have rules[]")
+            errors.append(f"{ctx}: actionable business_rule must have rules[]")
 
     for j, rule in enumerate(record.get("rules", [])):
         rule_ctx = f"{ctx}.rules[{j}]"

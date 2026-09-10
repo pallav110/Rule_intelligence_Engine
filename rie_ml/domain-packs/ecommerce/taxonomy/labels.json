@@ -1,24 +1,20 @@
 {
-  "version": "taxonomy_v0.1.0",
-  "description": "Frozen snake_case taxonomy for RIE datasets and domain packs (authoritative: Docmentation/OVERVIEW.txt)",
+  "version": "taxonomy_v0.2.0",
+  "description": "Frozen snake_case taxonomy for RIE datasets and domain packs (authoritative: Docmentation/OVERVIEW.txt, updated per §8.3.2)",
   "feedback_types": [
-    "business_rule_correction",
-    "non_rule_feedback",
-    "unclear_feedback",
-    "irrelevant_spam"
+    "business_rule",
+    "issue_report",
+    "feature_request",
+    "question",
+    "general_feedback"
   ],
   "rule_categories": [
     "metric_definition",
     "filter_rule",
-    "status_mapping",
-    "time_rule",
-    "join_correction",
-    "column_meaning",
-    "entity_definition",
-    "data_quality_issue",
-    "calculation_correction",
-    "expected_result_correction",
-    "access_scope_rule"
+    "mapping_rule",
+    "access_rule",
+    "join_rule",
+    "data_quality_rule"
   ],
   "operations": [
     "exclude",
@@ -73,30 +69,25 @@
     "COLUMN"
   ],
   "feedback_type_to_rule_categories": {
-    "business_rule_correction": [
+    "business_rule": [
       "metric_definition",
       "filter_rule",
-      "status_mapping",
-      "time_rule",
-      "join_correction",
-      "column_meaning",
-      "entity_definition",
-      "data_quality_issue",
-      "calculation_correction",
-      "expected_result_correction",
-      "access_scope_rule"
+      "mapping_rule",
+      "access_rule",
+      "join_rule",
+      "data_quality_rule"
     ],
-    "non_rule_feedback": [],
-    "unclear_feedback": [],
-    "irrelevant_spam": []
-  }
-  ,
+    "issue_report": [],
+    "feature_request": [],
+    "question": [],
+    "general_feedback": []
+  },
   "category_intent_guidance": {
     "filter_rule": "Use include/exclude operations to explicitly state which records to keep or remove (include/exclude).",
-    "data_quality_issue": "Flag or validate records; actions usually include validation, exclusion, or flagging for manual review (validation/exclude/flag).",
+    "data_quality_rule": "Flag or validate records; actions usually include validation, exclusion, or flagging for manual review (validation/exclude/flag).",
     "metric_definition": "Define metrics as compositions over fields; operations typically include, exclude, or subtract values (include/exclude/subtract).",
-    "status_mapping": "Map or replace raw status values into canonical business statuses (map/replace)."
+    "mapping_rule": "Map or replace raw status values into canonical business statuses (map/replace).",
+    "access_rule": "Define permissions or access scope for roles/users (restrict).",
+    "join_rule": "Define how tables relate or join conditions for derived metrics (map/join)."
   }
 }
-
-

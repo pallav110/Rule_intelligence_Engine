@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-09-01T07:14:00Z",
+  "stats": {
+    "ecommerce_train": {
+      "total": 319,
+      "feedback_types": {
+        "question": 80,
+        "irrelevant_spam": 9,
+        "business_rule": 223,
+        "issue_report": 7
+      },
+      "rule_categories": {
+        "metric_definition": 115,
+        "filter_rule": 81,
+        "mapping_rule": 16,
+        "join_rule": 13,
+        "access_rule": 7
+      },
+      "actionable": {
+        "false": 96,
+        "true": 223
+      },
+      "clarification": {
+        "true": 80,
+        "false": 239
+      }
+    },
+    "ecommerce_val": {
+      "total": 68,
+      "feedback_types": {
+        "business_rule": 56,
+        "question": 7,
+        "irrelevant_spam": 2,
+        "issue_report": 3
+      },
+      "rule_categories": {
+        "filter_rule": 7,
+        "mapping_rule": 21,
+        "metric_definition": 28
+      },
+      "actionable": {
+        "true": 56,
+        "false": 12
+      },
+      "clarification": {
+        "false": 61,
+        "true": 7
+      }
+    },
+    "ecommerce_test": {
+      "total": 69,
+      "feedback_types": {
+        "question": 27,
+        "business_rule": 41,
+        "issue_report": 1
+      },
+      "rule_categories": {
+        "filter_rule": 9,
+        "metric_definition": 28,
+        "join_rule": 1,
+        "data_quality_rule": 6
+      },
+      "actionable": {
+        "false": 28,
+        "true": 41
+      },
+      "clarification": {
+        "true": 27,
+        "false": 42
+      }
+    },
+    "customer_support_train": {
+      "total": 301,
+      "feedback_types": {
+        "business_rule": 224,
+        "question": 62,
+        "irrelevant_spam": 6,
+        "issue_report": 8,
+        "feature_request": 1
+      },
+      "rule_categories": {
+        "metric_definition": 133,
+        "filter_rule": 32,
+        "mapping_rule": 26,
+        "data_quality_rule": 16,
+        "join_rule": 7,
+        "access_rule": 11
+      },
+      "actionable": {
+        "true": 224,
+        "false": 77
+      },
+      "clarification": {
+        "false": 238,
+        "true": 63
+      }
+    },
+    "customer_support_val": {
+      "total": 64,
+      "feedback_types": {
+        "irrelevant_spam": 2,
+        "question": 24,
+        "business_rule": 37,
+        "issue_report": 1
+      },
+      "rule_categories": {
+        "filter_rule": 2,
+        "mapping_rule": 15,
+        "metric_definition": 23
+      },
+      "actionable": {
+        "false": 27,
+        "true": 37
+      },
+      "clarification": {
+        "false": 40,
+        "true": 24
+      }
+    },
+    "customer_support_test": {
+      "total": 66,
+      "feedback_types": {
+        "question": 21,
+        "issue_report": 3,
+        "business_rule": 40,
+        "irrelevant_spam": 2
+      },
+      "rule_categories": {
+        "filter_rule": 24,
+        "metric_definition": 3,
+        "data_quality_rule": 7,
+        "join_rule": 7
+      },
+      "actionable": {
+        "false": 26,
+        "true": 40
+      },
+      "clarification": {
+        "true": 21,
+        "false": 45
+      }
+    },
+    "saas_subscription_train": {
+      "total": 302,
+      "feedback_types": {
+        "business_rule": 223,
+        "question": 66,
+        "issue_report": 6,
+        "irrelevant_spam": 6,
+        "feature_request": 1
+      },
+      "rule_categories": {
+        "data_quality_rule": 35,
+        "metric_definition": 100,
+        "join_rule": 14,
+        "filter_rule": 40,
+        "mapping_rule": 29,
+        "access_rule": 7
+      },
+      "actionable": {
+        "true": 223,
+        "false": 79
+      },
+      "clarification": {
+        "false": 236,
+        "true": 66
+      }
+    },
+    "saas_subscription_val": {
+      "total": 64,
+      "feedback_types": {
+        "business_rule": 36,
+        "question": 23,
+        "issue_report": 3,
+        "irrelevant_spam": 2
+      },
+      "rule_categories": {
+        "filter_rule": 9,
+        "access_rule": 1,
+        "metric_definition": 17,
+        "join_rule": 1,
+        "data_quality_rule": 2,
+        "mapping_rule": 7
+      },
+      "actionable": {
+        "true": 36,
+        "false": 28
+      },
+      "clarification": {
+        "false": 41,
+        "true": 23
+      }
+    },
+    "saas_subscription_test": {
+      "total": 66,
+      "feedback_types": {
+        "question": 18,
+        "feature_request": 1,
+        "business_rule": 43,
+        "issue_report": 2,
+        "irrelevant_spam": 2
+      },
+      "rule_categories": {
+        "data_quality_rule": 29,
+        "metric_definition": 4,
+        "access_rule": 5,
+        "mapping_rule": 7
+      },
+      "actionable": {
+        "false": 23,
+        "true": 43
+      },
+      "clarification": {
+        "true": 18,
+        "false": 48
+      }
+    }
+  },
+  "issues": [],
+  "warnings": [],
+  "ready_for_training": true
+}

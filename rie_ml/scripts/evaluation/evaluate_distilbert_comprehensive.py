@@ -37,7 +37,7 @@ from sklearn.metrics import (
 )
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from ml_models.distilbert_classifier import MultiTaskDistilBERTClassifier
 from ml_models import (
@@ -490,7 +490,7 @@ def convert_to_metrics_storage_format(
 def main():
     import argparse
     from transformers import DistilBertTokenizerFast
-    from train_distilbert_classifier import FeedbackDataset
+    from rie_ml.scripts.training.train_distilbert_classifier import FeedbackDataset
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--split', default='test', choices=['val', 'test'])
@@ -498,9 +498,9 @@ def main():
     args = parser.parse_args()
 
     # Paths
-    model_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"
-    calibration_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "calibration_params.json"
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_candidate"
+    model_path = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "checkpoints" / "best_model.pt"
+    calibration_path = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "calibration_params.json"
+    output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate"
 
     # Load test data from all domains
     print(f"Loading {args.split} data from all domains...")
@@ -508,7 +508,7 @@ def main():
     domains = ["ecommerce", "customer_support", "saas_subscription"]
 
     for domain in domains:
-        domain_path = Path(__file__).parent.parent / "dataset_generation" / "output" / domain / f"{args.split}.jsonl"
+        domain_path = Path(__file__).parent.parent.parent / "dataset_generation" / "output" / domain / f"{args.split}.jsonl"
         with open(domain_path, 'r') as f:
             for line in f:
                 if line.strip():

@@ -24,7 +24,7 @@ import argparse
 from dataclasses import asdict
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from evaluation.metrics_storage import (
@@ -79,7 +79,7 @@ class DuplicateDetectionEvaluator:
             Dict mapping rule_family_id to rule data
         """
         rules_by_id = {}
-        dataset_base = Path(__file__).parent.parent / "dataset_generation" / "output"
+        dataset_base = Path(__file__).parent.parent.parent / "dataset_generation" / "output"
         approved_file = dataset_base / domain / "approved.jsonl"
 
         if approved_file.exists():
@@ -111,7 +111,7 @@ class DuplicateDetectionEvaluator:
             List of duplicate pair samples with labels
         """
         pairs = []
-        dataset_base = Path(__file__).parent.parent / "dataset_generation" / "output"
+        dataset_base = Path(__file__).parent.parent.parent / "dataset_generation" / "output"
         duplicate_pairs_file = dataset_base / domain / "duplicate_pairs.jsonl"
 
         # First load all rules by ID
@@ -167,7 +167,7 @@ class DuplicateDetectionEvaluator:
             Dict mapping domain name to list of test samples
         """
         datasets = {}
-        dataset_base = Path(__file__).parent.parent / "dataset_generation" / "output"
+        dataset_base = Path(__file__).parent.parent.parent / "dataset_generation" / "output"
 
         for domain in domains:
             dataset_path = dataset_base / domain / "test.jsonl"

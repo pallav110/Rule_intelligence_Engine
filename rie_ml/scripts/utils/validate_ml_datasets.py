@@ -28,12 +28,14 @@ BLUE = '\033[94m'
 BOLD = '\033[1m'
 END = '\033[0m'
 
-# Expected labels per specification Section 8.3.2
+# Expected labels per specification Section 8.3.2 (NEW TAXONOMY v0.2.0)
 EXPECTED_FEEDBACK_TYPES = {
-    "business_rule_correction",
-    "unclear_feedback",
-    "irrelevant_spam",
-    "non_rule_feedback"
+    "business_rule",
+    "issue_report",
+    "feature_request",
+    "question",
+    "general_feedback",
+    "irrelevant_spam"  # Pre-filter class, kept outside 5-class classifier
 }
 
 EXPECTED_RULE_CATEGORIES = {
@@ -43,13 +45,6 @@ EXPECTED_RULE_CATEGORIES = {
     "access_rule",
     "join_rule",
     "data_quality_rule",
-    "calculation_correction",
-    "time_rule",
-    "status_mapping",
-    "entity_definition",
-    "column_meaning",
-    "join_correction",
-    "expected_result_correction",
 }
 
 
@@ -365,7 +360,7 @@ class DatasetValidator:
 
 
 def main():
-    base_dir = Path(__file__).parent.parent / "dataset_generation" / "output"
+    base_dir = Path(__file__).parent.parent.parent / "dataset_generation" / "output"
 
     print(f"Dataset validation starting...")
     print(f"Looking for datasets in: {base_dir}")

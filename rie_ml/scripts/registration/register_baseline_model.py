@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from model_registry import ModelRegistry, ModelType, ModelStatus
 from evaluation.metrics_storage import MetricsStorage
@@ -150,7 +150,7 @@ def generate_registry_report():
         report["models"][model_name] = model_data
 
     # Save report
-    report_path = Path(__file__).parent.parent / "models" / "registry" / "registry_report.json"
+    report_path = Path(__file__).parent.parent.parent / "models" / "registry" / "registry_report.json"
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=2)
 

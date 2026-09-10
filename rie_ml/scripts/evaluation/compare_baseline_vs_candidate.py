@@ -20,7 +20,7 @@ import sys
 from dataclasses import asdict
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from evaluation.metrics_storage import MetricsStorage
 
@@ -272,7 +272,7 @@ def main():
             print(f"   • {criterion}")
 
     # Save comparison report
-    output_path = Path(__file__).parent.parent / "models" / "distilbert_candidate" / "promotion_decision.json"
+    output_path = Path(__file__).parent.parent.parent / "models" / "distilbert_candidate" / "promotion_decision.json"
     baseline_eval_id = baseline_result.evaluation_id if hasattr(baseline_result, 'evaluation_id') else baseline_result['evaluation_id']
     candidate_eval_id = candidate_result.evaluation_id if hasattr(candidate_result, 'evaluation_id') else candidate_result['evaluation_id']
 

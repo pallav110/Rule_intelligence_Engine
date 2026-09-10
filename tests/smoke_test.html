@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smoke Test Results (All Fields) - v4</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            padding: 1.5rem;
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 98%;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+            color: var(--primary);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Metrics Bar */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .card-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+
+        /* Wide Dynamic Table */
+        .table-container {
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+            overflow-x: auto;
+            max-height: 75vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            padding: 0.75rem 0.5rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 2px solid var(--border);
+            border-right: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-align: left;
+        }
+
+        td {
+            padding: 0.6rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        /* Formatting Helpers */
+        .wrap-cell {
+            white-space: normal;
+            min-width: 200px;
+            max-width: 320px;
+        }
+
+        .badge {
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge.PASS { background-color: #dcfce7; color: #166534; }
+        .badge.FAIL { background-color: #fee2e2; color: #991b1b; }
+        .badge.NA { background-color: #e2e8f0; color: #475569; }
+
+        .tag {
+            background-color: #e2e8f0;
+            color: #334155;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            margin: 1px;
+            display: inline-block;
+        }
+
+        .tag.hallucinated {
+            background-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .condition-block {
+            background: #f1f5f9;
+            padding: 0.3rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            margin-bottom: 0.2rem;
+            white-space: normal;
+        }
+
+        .error-text {
+            color: var(--danger);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Smoke Test Detailed Breakdown <span id="version-display"></span></h1>
+        <div class="subtitle" id="meta-display">Loading metadata...</div>
+    </header>
+
+    <div class="metrics-grid">
+        <div class="card">
+            <div class="card-title">Total Cases</div>
+            <div class="card-value" id="total-cases">0</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Validation Pass Rate</div>
+            <div class="card-value" id="pass-rate" style="color: var(--success)">0%</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Actionable Rules</div>
+            <div class="card-value" id="actionable-cases">0</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Manual Reviews</div>
+            <div class="card-value" id="manual-reviews" style="color: var(--danger)">0</div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Feedback Text</th>
+                    <th>Time (s)</th>
+                    <th>Classification</th>
+                    <th>Business Term</th>
+                    <th>Operation</th>
+                    <th>N Cond</th>
+                    <th>Conditions Detail</th>
+                    <th>Affected Tables</th>
+                    <th>Affected Columns</th>
+                    <th>Hallucinated Tables</th>
+                    <th>Validation</th>
+                    <th>Routing Status</th>
+                    <th>Duplicate Relation</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <tr>
+                    <td colspan="15" style="text-align: center; padding: 2rem;">Loading data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    fetch('smoke_test_results_v4.json')
+        .then(response => {
+            if (!response.ok) throw new Error('File fetch failed');
+            return response.json();
+        })
+        .then(data => {
+            // Meta Information
+            document.getElementById('version-display').innerText = `(${data.meta.version})`;
+            document.getElementById('meta-display').innerText = `Date: ${data.meta.date} | Fixes: ${data.meta.fixes.replace(/\+/g, ', ')}`;
+
+            // Metrics
+            const total = data.meta.total;
+            const passes = data.cases.filter(c => c.validation_status === 'PASS').length;
+            const actionable = data.cases.filter(c => c.classification?.is_actionable).length;
+            const manualReviews = data.cases.filter(c => c.routing_status === 'mandatory_manual_review').length;
+
+            document.getElementById('total-cases').innerText = total;
+            document.getElementById('pass-rate').innerText = `${Math.round((passes / total) * 100)}%`;
+            document.getElementById('actionable-cases').innerText = actionable;
+            document.getElementById('manual-reviews').innerText = manualReviews;
+
+            // Render Table Rows
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            data.cases.forEach(c => {
+                const tr = document.createElement('tr');
+
+                // Helper: Array to Tags
+                const arrayToTags = (arr, isHallucinated = false) => {
+                    if (!arr || arr.length === 0) return '-';
+                    return arr.map(item => `<span class="tag ${isHallucinated ? 'hallucinated' : ''}">${item}</span>`).join(' ');
+                };
+
+                // Helper: Classification Format
+                const formatClassification = (cls) => {
+                    if (!cls) return '-';
+                    return `
+                        <div><strong>Type:</strong> ${cls.feedback_type || '-'}</div>
+                        <div><strong>Actionable:</strong> ${cls.is_actionable}</div>
+                        <div><strong>Conf:</strong> ${cls.confidence ?? '-'}</div>
+                    `;
+                };
+
+                // Helper: Conditions Formatting
+                const formatConditions = (conds) => {
+                    if (!conds || conds.length === 0) return '-';
+                    return conds.map(cond => `
+                        <div class="condition-block">
+                            <strong>${cond.field || 'NULL'}</strong> ${cond.operator || ''} '${cond.value || ''}'
+                            <br><span style="color:#64748b; font-size: 0.7rem;">Method: ${cond.extraction_method || 'N/A'} | Conf: ${cond.confidence}</span>
+                        </div>
+                    `).join('');
+                };
+
+                const valStatus = c.validation_status ? c.validation_status.replace('/', '') : 'NA';
+
+                tr.innerHTML = `
+                    <td><strong>#${c.id}</strong></td>
+                    <td class="wrap-cell">${c.feedback || '-'}</td>
+                    <td>${c.time_s ?? '-'}</td>
+                    <td class="wrap-cell">${formatClassification(c.classification)}</td>
+                    <td><strong>${c.business_term || '-'}</strong></td>
+                    <td>${c.operation || '-'}</td>
+                    <td style="text-align: center;">${c.n_conditions ?? 0}</td>
+                    <td class="wrap-cell">${formatConditions(c.conditions)}</td>
+                    <td>${arrayToTags(c.affected_tables)}</td>
+                    <td>${arrayToTags(c.affected_columns)}</td>
+                    <td>${arrayToTags(c.hallucinated_tables, true)}</td>
+                    <td><span class="badge ${valStatus}">${c.validation_status || 'N/A'}</span></td>
+                    <td><span class="tag">${c.routing_status || '-'}</span></td>
+                    <td>${c.duplicate_relationship || '-'}</td>
+                    <td class="error-text">${c.error || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            console.error('Error loading JSON:', err);
+            document.getElementById('table-body').innerHTML = `<tr><td colspan="15" style="text-align: center; color: red;">Failed to load JSON data. Ensure local web server is running.</td></tr>`;
+        });
+</script>
+
+</body>
+</html>

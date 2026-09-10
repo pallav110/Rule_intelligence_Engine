@@ -22,7 +22,7 @@
   {
     "rule_id": "CS_R002",
     "business_term": "first_response_time",
-    "rule_category": "time_rule",
+    "rule_category": "metric_definition",
     "operation": "include",
     "conditions": [
       {
@@ -42,7 +42,7 @@
   {
     "rule_id": "CS_R003",
     "business_term": "closed_ticket",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       {
@@ -62,7 +62,7 @@
   {
     "rule_id": "CS_R004",
     "business_term": "agent_access",
-    "rule_category": "access_scope_rule",
+    "rule_category": "access_rule",
     "operation": "restrict",
     "conditions": [
       {
@@ -102,7 +102,7 @@
   {
     "rule_id": "CS_R006",
     "business_term": "ticket_event",
-    "rule_category": "join_correction",
+    "rule_category": "join_rule",
     "operation": "replace",
     "conditions": [
       {
@@ -123,7 +123,7 @@
   {
     "rule_id": "CS_R007",
     "business_term": "duplicate_ticket",
-    "rule_category": "data_quality_issue",
+    "rule_category": "data_quality_rule",
     "operation": "exclude",
     "conditions": [
       {
@@ -143,7 +143,7 @@
   {
     "rule_id": "CS_R008",
     "business_term": "first_contact_resolution",
-    "rule_category": "calculation_correction",
+    "rule_category": "metric_definition",
     "operation": "include",
     "conditions": [
       {
@@ -163,7 +163,7 @@
   {
     "rule_id": "CS_R009",
     "business_term": "department_queue",
-    "rule_category": "entity_definition",
+    "rule_category": "metric_definition",
     "operation": "include",
     "conditions": [
       {

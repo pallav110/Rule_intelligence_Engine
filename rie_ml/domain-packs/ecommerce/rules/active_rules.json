@@ -92,7 +92,7 @@
   {
     "rule_id": "EC_R006",
     "rule_name": "North region reporting scope",
-    "rule_category": "access_scope_rule",
+    "rule_category": "access_rule",
     "business_term": "regional_orders",
     "operation": "restrict",
     "conditions": [
@@ -110,7 +110,7 @@
   {
     "rule_id": "EC_R007",
     "rule_name": "Shipped and delivered map to completed",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "business_term": "completed_order",
     "operation": "map",
     "conditions": [
@@ -128,7 +128,7 @@
   {
     "rule_id": "EC_R008",
     "rule_name": "Payments joined on transaction_id",
-    "rule_category": "join_correction",
+    "rule_category": "join_rule",
     "business_term": "payment_reconciliation",
     "operation": "replace",
     "conditions": [
@@ -146,7 +146,7 @@
   {
     "rule_id": "EC_R009",
     "rule_name": "Active customer 90-day window",
-    "rule_category": "entity_definition",
+    "rule_category": "metric_definition",
     "business_term": "active_customer",
     "operation": "include",
     "conditions": [
@@ -182,7 +182,7 @@
   {
     "rule_id": "EC_R011",
     "rule_name": "Monthly reporting uses calendar month",
-    "rule_category": "time_rule",
+    "rule_category": "metric_definition",
     "business_term": "monthly_revenue",
     "operation": "include",
     "conditions": [

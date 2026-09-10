@@ -2,7 +2,7 @@
   {
     "rule_id": "SAAS_CR001",
     "business_term": "active_subscription",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       { "field": "subscriptions.status", "operator": "equals", "value": "active" },
@@ -31,7 +31,7 @@
   {
     "rule_id": "SAAS_CR003",
     "business_term": "failed_payment",
-    "rule_category": "data_quality_issue",
+    "rule_category": "data_quality_rule",
     "operation": "include",
     "conditions": [
       { "field": "payments.status", "operator": "equals", "value": "pending" }

@@ -13,7 +13,7 @@ from collections import Counter
 from typing import List, Dict
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
 def analyze_samples(samples: List[Dict]) -> Dict:

@@ -15,7 +15,7 @@ from collections import defaultdict
 from tqdm import tqdm
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from ml_models.token_classifier_loader import load_token_classifier, load_bio_labels
 
@@ -27,10 +27,10 @@ def evaluate_token_classifier():
     print(f"Using device: {device}")
 
     # Load model and labels
-    model_path = Path(__file__).parent.parent / "models" / "distilbert_token_extractor" / "checkpoints" / "best_model.pt"
+    model_path = Path(__file__).parent.parent.parent / "models" / "distilbert_token_extractor" / "checkpoints" / "best_model.pt"
     bio_labels_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "bio_labels.json"
     test_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "test_bio.jsonl"
-    output_dir = Path(__file__).parent.parent / "models" / "distilbert_token_extractor"
+    output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_token_extractor"
 
     if not model_path.exists():
         print(f"❌ Model not found: {model_path}")

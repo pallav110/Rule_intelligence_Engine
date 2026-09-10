@@ -488,7 +488,11 @@ class MultiRuleGenerator(FeedbackGenerator):
 
 
 class AmbiguousGenerator(FeedbackGenerator):
-    """Generate ambiguous feedback requiring clarification."""
+    """Generate ambiguous feedback requiring clarification.
+
+    Per new taxonomy §8.3.2: unclear_feedback -> question (5-class: business_rule,
+    issue_report, feature_request, question, general_feedback).
+    """
 
     AMBIGUOUS_TEMPLATES = [
         "Fix {term}.",
@@ -531,7 +535,7 @@ class AmbiguousGenerator(FeedbackGenerator):
                 "domain_pack_version": self.config.domain_pack_version,
                 "rule_family_id": f"ambiguous_{term}_{random.randint(1000, 9999)}",
                 "feedback_text": template.format(term=_humanize(term)),
-                "feedback_type": "unclear_feedback",
+                "feedback_type": "question",  # was unclear_feedback -> question per new taxonomy
                 "rule_category": None,
                 "is_actionable": False,
                 "requires_clarification": True,
@@ -633,14 +637,16 @@ class ConflictGenerator(FeedbackGenerator):
 
 
 class NonRuleGenerator(FeedbackGenerator):
-    """Generate non-rule feedback (UI/UX complaints, etc.)."""
+    """Generate non-rule feedback (UI/UX complaints, feature requests, etc.).
+
+    Per new taxonomy §8.3.2: non_rule_feedback maps to either issue_report or
+    feature_request based on semantic content (not a single class anymore).
+    """
 
     NON_RULE_TEMPLATES = [
+        # Issue reports - things that are broken/wrong
         "The checkout button overlaps the footer on mobile.",
         "The dashboard loads too slowly.",
-        "Can we change the color of the submit button?",
-        "The font size is too small on the reports page.",
-        "Navigation menu is confusing on tablet.",
         "The export feature doesn't work for PDFs.",
         "The search bar is hard to find.",
         "Page layout breaks on Safari browser.",
@@ -651,7 +657,20 @@ class NonRuleGenerator(FeedbackGenerator):
         "The settings page takes forever to save changes.",
         "Table columns don't resize properly on my screen.",
         "The app logs me out too frequently.",
+        # Feature requests - requests for new functionality
+        "Can we change the color of the submit button?",
+        "The font size is too small on the reports page.",
+        "Navigation menu is confusing on tablet.",
     ]
+
+    def _classify_non_rule(self, text: str) -> str:
+        """Semantic classification: feature_request vs issue_report."""
+        text_lower = text.lower()
+        feature_keywords = ["can we", "can you", "please add", "should add", "would be nice", "could we", "add"]
+        for kw in feature_keywords:
+            if kw in text_lower:
+                return "feature_request"
+        return "issue_report"
 
     def generate(self, count: int = 5) -> list[dict[str, Any]]:
         """Generate non-rule feedback examples."""
@@ -664,7 +683,7 @@ class NonRuleGenerator(FeedbackGenerator):
                 "domain_pack_version": self.config.domain_pack_version,
                 "rule_family_id": f"nonrule_{random.randint(1000, 9999)}",
                 "feedback_text": text,
-                "feedback_type": "non_rule_feedback",
+                "feedback_type": self._classify_non_rule(text),  # semantic: issue_report or feature_request
                 "rule_category": None,
                 "is_actionable": False,
                 "requires_clarification": False,

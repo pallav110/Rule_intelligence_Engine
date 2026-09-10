@@ -294,10 +294,10 @@ class DatasetSplitter:
             # Business rule families have actionable records with rules
             is_business = False
             for record in group:
-                if record.get("is_actionable") and record.get("rules") and record.get("feedback_type") == "business_rule_correction":
+                if record.get("is_actionable") and record.get("rules") and record.get("feedback_type") == "business_rule":
                     is_business = True
                     break
-            
+
             # Also check rule_family_id pattern
             if rfid.startswith("ecommerce_EC_R") or rfid.startswith("ecommerce_multi_"):
                 is_business = True

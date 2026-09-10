@@ -111,9 +111,12 @@ class SeedValidator:
             return ValidationResult(False, errors, warnings, ctx)
         
         # Validate feedback_type
+        # Allow "irrelevant_spam" as a special pre-filter class even though
+        # it's not in the 5-class classifier taxonomy (per §8.3.2)
+        allowed_feedback_types = set(self.taxonomy["feedback_types"]) | {"irrelevant_spam"}
         self._validate_taxonomy_value(
             record.get("feedback_type"),
-            set(self.taxonomy["feedback_types"]),
+            allowed_feedback_types,
             "feedback_type",
             ctx,
             errors
@@ -132,10 +135,10 @@ class SeedValidator:
         # Validate consistency between is_actionable, requires_clarification, and rules
         if record.get("requires_clarification") and record.get("rules"):
             errors.append(f"{ctx}: clarification record should have empty rules[]")
-        
+
         if record.get("is_actionable") and not record.get("requires_clarification"):
-            if record.get("feedback_type") == "business_rule_correction" and not record.get("rules"):
-                errors.append(f"{ctx}: actionable business_rule_correction must have rules[]")
+            if record.get("feedback_type") == "business_rule" and not record.get("rules"):
+                errors.append(f"{ctx}: actionable business_rule must have rules[]")
         
         # Validate rules
         for j, rule in enumerate(record.get("rules", [])):

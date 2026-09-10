@@ -2,7 +2,7 @@
   {
     "rule_id": "SAAS_R001",
     "business_term": "active_subscription",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       { "field": "subscriptions.status", "operator": "equals", "value": "active" },
@@ -16,7 +16,7 @@
   {
     "rule_id": "SAAS_R002",
     "business_term": "cancelled_subscription",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       { "field": "subscriptions.status", "operator": "equals", "value": "cancelled" }
@@ -29,7 +29,7 @@
   {
     "rule_id": "SAAS_R003",
     "business_term": "trial_subscription",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       { "field": "subscriptions.status", "operator": "equals", "value": "trialing" }
@@ -56,7 +56,7 @@
   {
     "rule_id": "SAAS_R005",
     "business_term": "failed_payment",
-    "rule_category": "data_quality_issue",
+    "rule_category": "data_quality_rule",
     "operation": "include",
     "conditions": [
       { "field": "payments.status", "operator": "equals", "value": "failed" },
@@ -97,7 +97,7 @@
   {
     "rule_id": "SAAS_R008",
     "business_term": "subscription_renewal",
-    "rule_category": "time_rule",
+    "rule_category": "metric_definition",
     "operation": "include",
     "conditions": [
       { "field": "subscriptions.current_period_end", "operator": "is_not_null", "value": null },
@@ -111,7 +111,7 @@
   {
     "rule_id": "SAAS_R009",
     "business_term": "plan_change",
-    "rule_category": "entity_definition",
+    "rule_category": "metric_definition",
     "operation": "include",
     "conditions": [
       { "field": "product_events.event_type", "operator": "in", "value": ["upgrade", "downgrade"] }
@@ -124,7 +124,7 @@
   {
     "rule_id": "SAAS_R010",
     "business_term": "access_restriction",
-    "rule_category": "access_scope_rule",
+    "rule_category": "access_rule",
     "operation": "restrict",
     "conditions": [
       { "field": "users.role", "operator": "equals", "value": "billing" }

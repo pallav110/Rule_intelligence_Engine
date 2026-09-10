@@ -22,7 +22,7 @@
   {
     "rule_id": "CS_CR002",
     "business_term": "closed_ticket",
-    "rule_category": "status_mapping",
+    "rule_category": "mapping_rule",
     "operation": "map",
     "conditions": [
       {
@@ -43,7 +43,7 @@
   {
     "rule_id": "CS_CR003",
     "business_term": "agent_access",
-    "rule_category": "access_scope_rule",
+    "rule_category": "access_rule",
     "operation": "restrict",
     "conditions": [
       {
@@ -64,7 +64,7 @@
   {
     "rule_id": "CS_CR004",
     "business_term": "duplicate_ticket",
-    "rule_category": "data_quality_issue",
+    "rule_category": "data_quality_rule",
     "operation": "include",
     "conditions": [
       {
