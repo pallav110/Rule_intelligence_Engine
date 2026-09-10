@@ -1811,6 +1811,26 @@
                         ${data && data.calibration ? `<div style="margin-top:6px; font-size:10px; color:var(--text-secondary);">Calibrated (T=${data.calibration.temperature})</div>` : ''}
                     </div>
                 `;
+
+                // Show feedback_type probability distribution if available
+                if (data && data.feedback_type_probs) {
+                    const probs = Array.isArray(data.feedback_type_probs[0]) ? data.feedback_type_probs[0] : data.feedback_type_probs;
+                    const labels = ['business_rule_correction','unclear_feedback','irrelevant_spam','non_rule_feedback'];
+                    if (probs.length > 0) {
+                        html += '<div class="field" style="margin-top:6px;"><div class="field-label">Type Probabilities</div><div style="margin-top:4px;">';
+                        probs.forEach((p, idx) => {
+                            const pct = (p * 100).toFixed(1);
+                            const label = labels[idx] || `class_${idx}`;
+                            const isMax = p === Math.max(...probs);
+                            html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:9px;">` +
+                                `<span style="width:120px;color:${isMax ? 'var(--accent)' : 'var(--text-secondary)'};${isMax ? 'font-weight:600' : ''}">${label}</span>` +
+                                `<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">` +
+                                `<div style="width:${pct}%;height:100%;background:${isMax ? 'var(--accent)' : 'var(--text-secondary)'};border-radius:3px;"></div></div>` +
+                                `<span style="width:40px;text-align:right;color:${isMax ? 'var(--accent)' : 'var(--text-secondary)'};${isMax ? 'font-weight:600' : ''}">${pct}%</span></div>`;
+                        });
+                        html += '</div></div>';
+                    }
+                }
             }
 
             html += '</div>';

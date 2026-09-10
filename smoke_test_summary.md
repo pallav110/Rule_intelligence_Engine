@@ -1,25 +1,36 @@
-# Smoke Test — 45 Cases (2026-09-09 17:49:19)
+# Smoke Test 45-Case Regression Summary
 
-## Validation (Production)
-  PASS: 28 | PARTIAL: 8 | FAIL: 1 | ERR: 1
+## v3 → v4 (2026-09-10)
 
-## Validation (Baseline)
-  PASS: 15 | PARTIAL: 10 | FAIL: 7 | ERR: 1
+### Validation Scorecard
+| Metric | v3 | v4 | Δ |
+|--------|----|----|---|
+| PASS   | 28 | 34 | +6 |
+| PARTIAL| 8  | 2  | -6 |
+| N/A    | 7  | 7  |  0 |
+| FAIL   | 1  | 1  |  0 |
+| ERR    | 1  | 1  |  0 |
 
-## Routing (Production)
-  {'senior_review_required': 25, 'clarification_required': 9, 'auto_approved': 2, 'mandatory_manual_review': 8, '?': 1}
+### Hallucinated tables/columns: **0** (was present in v3)
 
-## Duplicate Detection
-  Prod: {'Exact Duplicate': 8, 'Unique Rule': 31, 'Modification': 3, 'Semantic Duplicate': 2, None: 1}
-  Base: {'Exact Duplicate': 4, 'Unique Rule': 27, 'Semantic Duplicate': 3, 'Modification': 10, None: 1}
+### Cases Improved (PARTIAL → PASS)
+| Case | v3 issue | v4 fix |
+|------|----------|--------|
+| 7  | term=Returned (adjective) → Products | Business term validation |
+| 11 | term=computing (verb) → Orders | Schema table noun lookup |
+| 16 | `created_at` hallucinated column | Date-column resolution + pruning |
+| 17 | "completed" hallucinated table | Non-schema table pruning |
+| 26 | term=Cancelled → Orders | Business term validation |
+| 30 | term=Cancelled → Orders | Business term validation |
 
-## Conflicts
-  Prod: 10 | Base: 10
+### Remaining Issues
+| Case | Status | Issue |
+|------|--------|-------|
+| 10, 22 | PARTIAL | "Purchases" not in domain glossary (extractor correct, glossary gap) |
+| 40 | FAIL | Gibberish input "xj29 revenue zzz" — correctly unclassifiable |
+| 41 | ERR | Empty feedback — Pydantic min_length=1 (expected) |
 
-## Clarification Required
-  Prod: 22 | Base: 22
-
-## Performance
-  Prod avg: 0.799s | Base avg: 0.037s
-  Errors: 1
-
+### Root Cause Fixed This Session
+Schema was loaded **after** extraction in both analyze + re-analyze endpoints, so
+the extractor's business-term validation and table-lookup ran with empty schema.
+Fixed by loading `domain_schema` before STEP 3 and injecting into context.

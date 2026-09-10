@@ -345,8 +345,20 @@ def re_analyze_feedback(
         # Augmented feedback with clarification
         augmented_feedback = f"{feedback.feedback_text}\n\n[CLARIFICATION PROVIDED]\n{clarification_response}"
 
-        # Re-run full pipeline with augmented feedback
+        # Re-run full pipeline with augmented feedback.
+        # Load schema BEFORE extraction (extractor resolves tables/columns
+        # against real entities — same ordering fix as analyze endpoint).
         schema_context = {"domain_pack_id": domain_id}
+        re_domain_schema = {}
+        if domain_id:
+            try:
+                re_schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_id / "schema" / "schema.json"
+                if re_schema_path.exists():
+                    with open(re_schema_path) as f:
+                        re_domain_schema = json.load(f)
+            except Exception:
+                pass
+        schema_context["domain_pack_schema"] = re_domain_schema
 
         # Classification (best available model: DistilBERT if ACTIVE, else baseline)
         from app.services.ml_model_service import MLModelService
@@ -362,7 +374,36 @@ def re_analyze_feedback(
         # Extraction (best available model)
         extraction_result = mls.extract(augmented_feedback, schema_context)
         extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
+
+        # Post-extraction cross-validation (same as analyze endpoint)
+        if extracted_rules:
+            extracted_rules = _post_extraction_cross_validate(
+                extracted_rules, schema_context, domain_id,
+                feedback_text=augmented_feedback
+            )
+            extraction_result["extraction"]["extracted_rules"] = extracted_rules
+
         primary_rule = extracted_rules[0] if extracted_rules else {}
+
+        # Schema Validation (missing from original re-analyze endpoint)
+        # re_domain_schema was already loaded + injected into schema_context
+        # before extraction; reuse it here.
+        domain_schema = re_domain_schema
+
+        is_actionable = classification_result_dict.get("is_actionable", True)
+        if not is_actionable or not extracted_rules:
+            schema_validation = {"status": "N/A", "coverage": 0.0, "mandatory_fields_valid": False, "validation_errors": []}
+        else:
+            schema_context_with_schema = {**schema_context, "domain_pack_schema": domain_schema}
+            schema_validator = SchemaValidationService(schema_context=schema_context_with_schema)
+            schema_validation_results = [schema_validator.validate_rule(r, domain_schema) for r in extracted_rules]
+            schema_validation = {
+                "status": "PASS" if all(v["status"] == "PASS" for v in schema_validation_results) else
+                          "PARTIAL" if any(v["status"] in ["PASS", "PARTIAL"] for v in schema_validation_results) else "FAIL",
+                "coverage": sum(v["coverage"] for v in schema_validation_results) / len(schema_validation_results) if schema_validation_results else 0.0,
+                "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in schema_validation_results),
+                "validation_errors": [e for v in schema_validation_results for e in v["validation_errors"]],
+            }
 
         # Duplicate Detection (Real/pgvector semantic retrieval)
         duplicate_service = RealDuplicateDetectionService()
@@ -738,6 +779,381 @@ def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict
         db.rollback()
         return {"success": False, "error": str(e)}
 
+
+def _post_extraction_cross_validate(
+    rules: list, schema_context: dict, domain_pack_id: str = None,
+    feedback_text: str = None
+) -> list:
+    """Post-extraction cross-validation (§8.5 pre-validation cleanup).
+
+    Normalizes and validates extracted rule entities BEFORE schema validation:
+    1. Table name normalization (synonyms, lowercase, trailing punctuation)
+    2. Column existence check against schema
+    3. Deduplication of affected_tables / affected_columns
+    4. Mark unresolvable entities for clarification
+    5. Infer conditions from feedback text when empty
+    """
+    if not rules or not domain_pack_id:
+        return rules
+
+    try:
+        schema_path = (
+            Path(__file__).parent.parent /
+            "rie_ml" / "domain-packs" / domain_pack_id /
+            "schema" / "schema.json"
+        )
+        if not schema_path.exists():
+            return rules
+        with open(schema_path) as f:
+            schema = json.load(f)
+    except Exception:
+        return rules
+
+    tables_schema = schema.get("tables", {})
+    table_names_lower = {t.lower(): t for t in tables_schema}
+
+    # Table synonym map (mirrors distilbert_token_extractor + enhanced_rule_extractor)
+    _TABLE_SYNONYMS = {
+        "purchases": "orders",
+        "transactions": "payments",
+        "completed_order": "orders",
+        "cancelled_order": "orders",
+        "refund": "refunds",
+        "sale": "orders",
+        "sales": "orders",
+        "metric": "revenue",
+        "metrics": "revenue",
+        "clv": "customers",
+        "ltv": "customers",
+    }
+
+    # Column → tables map
+    col_to_tables: dict = {}
+    for tname, tinfo in tables_schema.items():
+        for col_name in tinfo.get("columns", {}).keys():
+            col_to_tables.setdefault(col_name.lower(), []).append(tname)
+
+    cleaned = []
+    # Schema column sets for existence checks: {table: {col_lower, ...}}
+    table_cols = {
+        tname: {c.lower() for c in tinfo.get("columns", {}).keys()}
+        for tname, tinfo in tables_schema.items()
+    }
+
+    def _col_exists(table: str, col: str) -> bool:
+        """True if table.col exists in the schema (case-insensitive)."""
+        cols = table_cols.get(table)
+        return bool(cols) and col.lower() in cols
+
+    for rule in rules:
+        rule = dict(rule)  # shallow copy
+
+        # Track hallucinated entities that we prune (for clarification surfacing)
+        pruned = rule.get("_pruned_entities", [])
+        rule["_pruned_entities"] = pruned
+
+        # 1. Normalize affected_tables — DROP unknown tables (model fabrications
+        #    like "completed") instead of silently keeping them. Only schema
+        #    tables and known synonyms survive.
+        raw_tables = rule.get("affected_tables", [])
+        norm_tables = []
+        for t in raw_tables:
+            t_clean = str(t).strip().rstrip(".,;:!?()\"'").lower()
+            # Synonym aware: "purchases" -> "orders", "transactions" -> "payments"
+            t_mapped = _TABLE_SYNONYMS.get(t_clean, t_clean)
+            canonical = table_names_lower.get(t_mapped)
+            if canonical and canonical not in norm_tables:
+                norm_tables.append(canonical)
+            elif not canonical:
+                # Unknown table — prune and record (task #101: hallucinated tables)
+                pruned.append({"type": "table", "value": str(t)})
+        rule["affected_tables"] = norm_tables
+
+        # 2. Normalize affected_columns (table.column format) with EXISTENCE check.
+        #    Validates the whole reference so "orders.created_at" (a fabricated
+        #    column — orders has order_date/completed_at) is pruned too.
+        raw_cols = rule.get("affected_columns", [])
+        norm_cols = []
+        for c in raw_cols:
+            c_clean = str(c).strip().rstrip(".,;:!?()\"'")
+            if "." in c_clean:
+                tpart, cpart = c_clean.split(".", 1)
+                t_lower = tpart.lower()
+                t_mapped = _TABLE_SYNONYMS.get(t_lower, t_lower)
+                canonical_t = table_names_lower.get(t_mapped)
+                if canonical_t and _col_exists(canonical_t, cpart):
+                    qualified = f"{canonical_t}.{cpart}"
+                    if qualified not in norm_cols:
+                        norm_cols.append(qualified)
+                else:
+                    # Hallucinated column (bad table or bad column) — prune
+                    pruned.append({"type": "column", "value": str(c)})
+            else:
+                # Bare column — try to qualify to a real table column
+                c_lower = c_clean.lower()
+                if c_lower in col_to_tables:
+                    tables = col_to_tables[c_lower]
+                    if len(tables) == 1 and f"{tables[0]}.{c_clean}" not in norm_cols:
+                        norm_cols.append(f"{tables[0]}.{c_clean}")
+                else:
+                    # Unresolvable bare column — prune (can't ground it)
+                    pruned.append({"type": "column", "value": str(c)})
+        rule["affected_columns"] = norm_cols
+
+        # 3. Check conditions for table AND column existence
+        #    Not only resolve the table part, but verify the whole field exists.
+        conditions = rule.get("conditions", [])
+        for i, cond in enumerate(conditions):
+            if not isinstance(cond, dict):
+                continue
+            field = cond.get("field") or ""
+            if "." in field:
+                tpart, cpart = field.split(".", 1)
+                t_lower = tpart.lower()
+                t_mapped = _TABLE_SYNONYMS.get(t_lower, t_lower)
+                canonical_t = table_names_lower.get(t_mapped)
+                if canonical_t and _col_exists(canonical_t, cpart):
+                    conditions[i] = {**cond, "field": f"{canonical_t}.{cpart}"}
+                else:
+                    # Unknown table OR unknown column — both are hallucinations;
+                    # mark the condition for clarification instead of dropping it
+                    # silently (loses the value the reviewer may want to inspect).
+                    conditions[i] = {**cond, "field": None, "needs_clarification": True}
+                    pruned.append({"type": "condition_field", "value": str(field)})
+        rule["conditions"] = conditions
+        rule["_pruned_entities"] = pruned
+
+        # 4. Infer conditions from feedback text when empty
+        # Many feedback texts express conditions implicitly (e.g., "cancelled orders"
+        # implies order.status = cancelled). This step infers such conditions.
+        if not conditions and feedback_text:
+            inferred_conditions = _infer_conditions_from_text(
+                feedback_text, rule, tables_schema, table_names_lower, col_to_tables
+            )
+            if inferred_conditions:
+                rule["conditions"] = inferred_conditions
+                rule["conditions_inferred"] = True
+
+        cleaned.append(rule)
+
+    return cleaned
+
+
+def _infer_conditions_from_text(
+    feedback_text: str, rule: dict, tables_schema: dict,
+    table_names_lower: dict, col_to_tables: dict
+) -> list:
+    """Infer conditions from feedback text when extraction produces empty conditions.
+
+    Common patterns:
+    - "cancelled orders" → order.status = cancelled
+    - "successful payments" → payment.status = successful
+    - "created in current month" → order.created_at = current_month
+    - "premium customers" → customer.type = premium
+    """
+    import re
+    conditions = []
+    fb_lower = feedback_text.lower()
+
+    # Table synonyms (same as distilbert_token_extractor + enhanced_rule_extractor)
+    _TABLE_SYNONYMS = {
+        "purchases": "orders",
+        "transactions": "payments",
+        "completed_order": "orders",
+        "cancelled_order": "orders",
+        "refund": "refunds",
+    }
+
+    # Status adjective → table.status mapping
+    # Maps common adjectives to (table, column, value)
+    _STATUS_MAP = {
+        "cancelled": [("orders", "status", "cancelled")],
+        "canceled": [("orders", "status", "cancelled")],
+        "completed": [("orders", "status", "completed")],
+        "pending": [("orders", "status", "pending")],
+        "refunded": [("orders", "status", "refunded"), ("refunds", "status", "refunded")],
+        "successful": [("payments", "status", "successful")],
+        "failed": [("payments", "status", "failed")],
+        "processing": [("payments", "status", "processing")],
+        "active": [("products", "is_active", "true")],
+        "inactive": [("products", "is_active", "false")],
+        "returned": [("products", "is_active", "false")],
+    }
+
+    # Time window patterns
+    _TIME_PATTERNS = [
+        (r"\bcurrent\s+month\b", "current_month"),
+        (r"\bprevious\s+month\b", "previous_month"),
+        (r"\bcurrent\s+quarter\b", "current_quarter"),
+        (r"\bcurrent\s+year\b", "current_year"),
+        (r"\blast\s+(\d+)\s+days?\b", lambda m: f"last_{m.group(1)}_days"),
+        (r"\blast\s+(\d+)\s+weeks?\b", lambda m: f"last_{m.group(1)}_weeks"),
+        (r"\blast\s+(\d+)\s+months?\b", lambda m: f"last_{m.group(1)}_months"),
+    ]
+
+    def _resolve_table(noun: str) -> str:
+        """Resolve a noun (possibly plural, possibly synonym) to a canonical table name."""
+        noun_lower = noun.lower()
+        # Direct match
+        if noun_lower in table_names_lower:
+            return table_names_lower[noun_lower]
+        # Singular match
+        singular = noun_lower.rstrip("s")
+        if singular in table_names_lower:
+            return table_names_lower[singular]
+        # Synonym match
+        if noun_lower in _TABLE_SYNONYMS:
+            return _TABLE_SYNONYMS[noun_lower]
+        if singular in _TABLE_SYNONYMS:
+            return _TABLE_SYNONYMS[singular]
+        # Check if synonym resolves to a known table
+        syn = _TABLE_SYNONYMS.get(noun_lower, noun_lower)
+        if syn in table_names_lower:
+            return table_names_lower[syn]
+        return noun_lower
+
+    # Pattern 1: "status adjective + table noun" → table.status = adjective
+    # e.g., "cancelled orders" → orders.status = cancelled
+    for adj, mappings in _STATUS_MAP.items():
+        # Match "adj noun" or "adj nouns"
+        pattern = rf"\b{adj}\s+(\w+(?:s)?)\b"
+        for match in re.finditer(pattern, fb_lower):
+            noun = match.group(1)
+            canonical_table = _resolve_table(noun)
+            for table, column, value in mappings:
+                if canonical_table == table or canonical_table == table.rstrip("s"):
+                    conditions.append({
+                        "field": f"{table}.{column}",
+                        "operator": "EQUALS",
+                        "value": value,
+                        "type": "inferred",
+                        "confidence": 0.8,
+                        "source": f"status adjective pattern: '{adj} {noun}'"
+                    })
+                    break  # Only one condition per adjective-noun pair
+
+    # Pattern 2: "from/in/created in TIME_WINDOW" → table.<date_col> = time_window
+    # Resolve the ACTUAL date column for each table from the schema instead of
+    # assuming "created_at" exists on every table (orders uses order_date /
+    # completed_at, payments uses paid_at, refunds uses refund_date).
+    import re as _re
+    def _date_column_for(table: str) -> str | None:
+        """Pick the schema column that best represents a table's creation/event date."""
+        cols = tables_schema.get(table, {}).get("columns", {})
+        if not cols:
+            return None
+        col_keys = list(cols.keys())
+        # Exact preferred names first
+        for pref in ("created_at", "order_date", "completed_at", "paid_at", "refund_date", "transaction_date", "date"):
+            if pref in col_keys:
+                return pref
+        # Fallback: any column whose name suggests a date/timestamp
+        for c in col_keys:
+            cl = c.lower()
+            if cl.endswith("_at") or "_date" in cl or cl.endswith("date"):
+                return c
+        return None
+
+    for pattern, time_value in _TIME_PATTERNS:
+        for match in re.finditer(pattern, fb_lower):
+            tv = time_value(match) if callable(time_value) else time_value
+            # Find the table mentioned in the feedback
+            for table_name in tables_schema:
+                if table_name.lower() in fb_lower:
+                    date_col = _date_column_for(table_name)
+                    if not date_col:
+                        # No date column on this table — can't ground the window;
+                        # skip (avoid fabricating created_at).
+                        continue
+                    conditions.append({
+                        "field": f"{table_name}.{date_col}",
+                        "operator": "EQUALS",
+                        "value": tv,
+                        "type": "inferred",
+                        "confidence": 0.75,
+                        "source": f"time window pattern: '{match.group()}'"
+                    })
+                    break
+
+    # Pattern 3: "where FIELD is/equals VALUE" → table.field = value
+    where_pattern = r"where\s+(\w+)\s+(?:is|equals?|=)\s+(\w+)"
+    for match in re.finditer(where_pattern, fb_lower):
+        field_name = match.group(1)
+        value = match.group(2)
+        # Try to qualify field with table
+        if field_name in col_to_tables:
+            tables = col_to_tables[field_name]
+            if tables:
+                conditions.append({
+                    "field": f"{tables[0]}.{field_name}",
+                    "operator": "EQUALS",
+                    "value": value,
+                    "type": "inferred",
+                    "confidence": 0.85,
+                    "source": f"where clause pattern: 'where {field_name} = {value}'"
+                })
+
+    # Pattern 4: "payment method is/equals VALUE" → payments.payment_method = value
+    pm_pattern = r"payment\s+method\s+(?:is|equals?|=)\s+(\w+)"
+    for match in re.finditer(pm_pattern, fb_lower):
+        value = match.group(1)
+        conditions.append({
+            "field": "payments.payment_method",
+            "operator": "EQUALS",
+            "value": value,
+            "type": "inferred",
+            "confidence": 0.9,
+            "source": f"payment method pattern: 'payment method = {value}'"
+        })
+
+    # Pattern 5: "NOUN that was/were ADJECTIVE" → table.status = adjective
+    # e.g., "ignore orders that were cancelled" → orders.status = cancelled
+    # e.g., "orders that successfully went through" → orders.status = successful
+    for adj, mappings in _STATUS_MAP.items():
+        pattern = rf"\b(\w+(?:s)?)\s+that\s+(?:were|was|have been|had been|got)\s+(?:successfully\s+)?{adj}\b"
+        for match in re.finditer(pattern, fb_lower):
+            noun = match.group(1)
+            canonical_table = _resolve_table(noun)
+            for table, column, value in mappings:
+                if canonical_table == table or canonical_table == table.rstrip("s"):
+                    conditions.append({
+                        "field": f"{table}.{column}",
+                        "operator": "EQUALS",
+                        "value": value,
+                        "type": "inferred",
+                        "confidence": 0.8,
+                        "source": f"that+status pattern: '{match.group()}'"
+                    })
+                    break
+
+    # Pattern 6: "ADJECTIVE NOUN" where ADJECTIVE is 'successfully processed' and NOUN is table
+    # e.g., "successfully processed refunds" → refunds.status = successful
+    sp_pattern = r"successfully\s+processed\s+(\w+(?:s)?)\b"
+    for match in re.finditer(sp_pattern, fb_lower):
+        noun = match.group(1)
+        canonical_table = _resolve_table(noun)
+        if canonical_table in table_names_lower:
+            conditions.append({
+                "field": f"{canonical_table}.status",
+                "operator": "EQUALS",
+                "value": "successful",
+                "type": "inferred",
+                "confidence": 0.75,
+                "source": f"successfully processed pattern: '{match.group()}'"
+            })
+
+    # Deduplicate
+    seen = set()
+    unique = []
+    for cond in conditions:
+        key = (cond["field"], cond["operator"], cond["value"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(cond)
+
+    return unique
+
+
 # --- Feedback Analysis Endpoints ---
 
 def extract_workspace_from_context(payload_workspace: str, request_headers: dict = None) -> str:
@@ -1006,6 +1422,21 @@ def analyze_feedback(
     analysis_run.execution_timestamps["classification_completed"] = datetime.utcnow().isoformat()
 
     # STEP 3: Rule Extraction
+    # Load actual schema from domain pack FIRST so the extractor can resolve
+    # table/column references against real entities (prevents hallucinated
+    # names and lets business-term validation find valid table nouns).
+    domain_pack_id = full_schema_context.get("domain_pack_id")
+    domain_schema = {}
+    if domain_pack_id:
+        try:
+            schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
+            if schema_path.exists():
+                with open(schema_path, 'r') as f:
+                    domain_schema = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
+    full_schema_context["domain_pack_schema"] = domain_schema
+
     if model == "baseline":
         # Baseline path: Enhanced regex extractor (old method)
         from app.services.enhanced_rule_extractor import EnhancedRuleExtractor
@@ -1023,23 +1454,23 @@ def analyze_feedback(
     # Record extraction timestamp
     analysis_run.execution_timestamps["extraction_completed"] = datetime.utcnow().isoformat()
 
-    # STEP 3: Schema Validation
-    # Load actual schema from domain pack for validation
-    domain_pack_id = full_schema_context.get("domain_pack_id")
-    domain_schema = {}
-    if domain_pack_id:
-        try:
-            schema_path = Path(__file__).parent.parent / "rie_ml" / "domain-packs" / domain_pack_id / "schema" / "schema.json"
-            if schema_path.exists():
-                with open(schema_path, 'r') as f:
-                    domain_schema = json.load(f)
-        except Exception as e:
-            print(f"Warning: Could not load schema for {domain_pack_id}: {e}")
+    # ── Post-extraction cross-validation (Task #106) ──
+    # Lightweight cleanup pass BEFORE schema validation: normalize table/column
+    # references, deduplicate, and mark hallucinated entities for clarification.
+    # Use ORIGINAL feedback text for condition inference, not preprocessed (which
+    # normalizes words like "refunded" -> "refund", breaking adjective patterns).
+    if extracted_rules:
+        extracted_rules = _post_extraction_cross_validate(
+            extracted_rules, full_schema_context, domain_pack_id,
+            feedback_text=payload.feedback_text
+        )
+        # Sync back so downstream steps see the cleaned rules
+        extraction_result["extraction"]["extracted_rules"] = extracted_rules
+        extraction_result["extraction"]["rules"] = extracted_rules[:1] if extracted_rules else []
 
-    # Pass domain_pack_schema into the same context that already holds
-    # domain_pack_id / detection metadata (don't replace the dict and lose them).
-    full_schema_context["domain_pack_schema"] = domain_schema
-
+    # STEP 4: Schema Validation
+    # domain_schema was already loaded + injected into full_schema_context
+    # before STEP 3 (extraction needs it too); reuse it here.
     schema_validator = SchemaValidationService(schema_context=full_schema_context)
     schema_validation_results = []
 

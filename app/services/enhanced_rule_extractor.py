@@ -137,6 +137,10 @@ class EnhancedRuleExtractor:
         conditions = self._extract_conditions(feedback)
         candidate_conditions = self._extract_candidate_conditions(feedback)
 
+        # Post-extraction: qualify bare fields with schema table.column
+        if schema:
+            conditions = self._qualify_bare_fields(conditions, feedback, schema)
+
         # Extract scope
         scope = self._extract_scope(feedback)
 
@@ -401,6 +405,26 @@ class EnhancedRuleExtractor:
             if re.search(pattern, feedback, re.IGNORECASE):
                 operations.append(operation)
 
+        # Fallback: infer operation from exclude/include verbs when ML-style
+        # patterns miss (e.g., "ignore", "do not count", "shouldn't count").
+        if not operations:
+            fb_lower = feedback.lower()
+            _exclude_re = (
+                r"\b(?:do not consider|ignore|leave out|not include|"
+                r"shouldn'?t|should not|must not|can'?t|won'?t|do not count|"
+                r"don'?t count|not count|remove|removed from|drop|drops|strip|"
+                r"leave behind)\b"
+            )
+            _include_re = (
+                r"\b(?:only .+ should(?:\s+\w+){0,3} (?:contribute|count|be included)|"
+                r"must include|should be part of|count toward|contribute to|"
+                r"account for)\b"
+            )
+            if re.search(_exclude_re, fb_lower):
+                operations.append("exclude")
+            elif re.search(_include_re, fb_lower):
+                operations.append("include")
+
         return operations  # Empty list if no operation found (unresolved)
 
     def _extract_conditions(self, feedback: str) -> List[Dict[str, Any]]:
@@ -509,6 +533,98 @@ class EnhancedRuleExtractor:
         # Store candidate conditions in a separate field for clarification
         # Only return structured conditions for now
         return conditions
+
+    def _qualify_bare_fields(
+        self, conditions: List[Dict[str, Any]], feedback: str, schema: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Qualify bare field names with table.column using schema context.
+
+        When the baseline extractor produces a field like "refunds" or "orders"
+        (no dot), or "unknown.status", we try to resolve it to a real
+        "table.column" by:
+        1. If the field starts with "unknown.", strip the prefix and treat the
+           suffix as a bare column name.
+        2. If the bare name matches a table in the schema, keep it as-is (it's
+           a table reference, not a column).
+        3. If the bare name matches a column in exactly one schema table,
+           qualify it as "table.column".
+        4. Otherwise, look for a table mentioned in the feedback and pair it
+           with the bare column.
+        """
+        if not schema or not schema.get("tables"):
+            return conditions
+
+        # Table synonyms (same as distilbert_token_extractor)
+        _TABLE_SYNONYMS = {
+            "purchases": "orders", "transactions": "payments",
+            "completed_order": "orders", "cancelled_order": "orders",
+        }
+
+        schema_tables = set(schema.get("tables", {}).keys())
+        # Build column → [tables] map
+        col_to_tables: Dict[str, List[str]] = {}
+        for tname, tinfo in schema.get("tables", {}).items():
+            for col_name in tinfo.get("columns", {}).keys():
+                col_to_tables.setdefault(col_name.lower(), []).append(tname)
+
+        # Detect table mentioned in feedback
+        fb_lower = feedback.lower()
+        mentioned_tables = [t for t in schema_tables if t.lower() in fb_lower]
+
+        qualified = []
+        for cond in conditions:
+            field = cond.get("field") or ""
+            if not field:
+                qualified.append(cond)
+                continue
+
+            # Case A: "unknown.X" → strip prefix, treat X as bare column
+            if field.startswith("unknown."):
+                bare = field.split(".", 1)[1]
+            elif "." in field:
+                table_part, col_part = field.split(".", 1)
+                # Already qualified — just normalize
+                if table_part.lower() in {t.lower() for t in schema_tables}:
+                    # Find the canonical table name
+                    canonical = next(
+                        (t for t in schema_tables if t.lower() == table_part.lower()),
+                        table_part
+                    )
+                    cond = {**cond, "field": f"{canonical}.{col_part}"}
+                qualified.append(cond)
+                continue
+            else:
+                bare = field
+
+            bare_lower = bare.lower().strip()
+            bare_clean = _TABLE_SYNONYMS.get(bare_lower, bare_lower)
+
+            # If bare name IS a table name, don't qualify (it's a table ref)
+            if bare_clean in schema_tables or bare_lower in {t.lower() for t in schema_tables}:
+                qualified.append(cond)
+                continue
+
+            # If bare name matches exactly one column in the schema
+            if bare_lower in col_to_tables:
+                tables = col_to_tables[bare_lower]
+                if len(tables) == 1:
+                    cond = {**cond, "field": f"{tables[0]}.{bare}"}
+                elif mentioned_tables:
+                    # Multiple tables have this column — use the one mentioned in feedback
+                    matching = [t for t in tables if t in mentioned_tables]
+                    if len(matching) == 1:
+                        cond = {**cond, "field": f"{matching[0]}.{bare}"}
+                    else:
+                        cond = {**cond, "field": f"{tables[0]}.{bare}"}
+                else:
+                    cond = {**cond, "field": f"{tables[0]}.{bare}"}
+            elif mentioned_tables:
+                # Column not in schema, but a table is mentioned — pair them
+                cond = {**cond, "field": f"{mentioned_tables[0]}.{bare}"}
+
+            qualified.append(cond)
+
+        return qualified
 
     def _extract_candidate_conditions(self, feedback: str) -> List[Dict[str, Any]]:
         """Extract candidate conditions (unresolved phrases) from feedback."""

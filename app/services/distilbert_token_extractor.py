@@ -224,7 +224,11 @@ class DistilBERTTokenExtractor:
                             predictions.append('O')
 
             # Extract entities from BIO tags with component mapping
-            extracted_rule, component_mapping, detailed_components = self._extract_entities_from_tags(words, predictions)
+            schema = schema_context or {}
+            schema_for_extraction = schema.get("domain_pack_schema") or schema.get("tables") or schema
+            extracted_rule, component_mapping, detailed_components = self._extract_entities_from_tags(
+                words, predictions, feedback, schema_for_extraction
+            )
 
             # ---- Rule Construction (Spec 8.4 Stage 2) ----
             constructed_rule = self._construct_rule(
@@ -266,7 +270,7 @@ class DistilBERTTokenExtractor:
                 "validation_ready": False
             }
 
-    def _extract_entities_from_tags(self, words: List[str], tags: List[str]) -> tuple:
+    def _extract_entities_from_tags(self, words: List[str], tags: List[str], feedback_text: str = None, schema: dict = None) -> tuple:
         """Extract structured rule from BIO tags, with detailed component mapping.
 
         Returns:
@@ -309,6 +313,95 @@ class DistilBERTTokenExtractor:
                 })
                 component_mapping["business_term"] = word
                 break
+
+        # ── Business term validation ──
+        # The NER model sometimes tags adjectives (e.g., "Cancelled", "Returned",
+        # "premium") as B_BUSINESS_TERM instead of the actual noun. When the
+        # extracted term is an adjective, resolve it to the nearest valid noun.
+        _ADJECTIVE_BLACKLIST = {
+            "cancelled", "canceled", "completed", "returned", "refunded",
+            "successful", "failed", "pending", "premium", "active",
+            "inactive", "processing", "computing", "calculating",
+            "include", "exclude", "total", "average", "net", "gross",
+            "some", "all", "only", "each", "every", "other",
+        }
+
+        _VALID_TABLE_SYNONYMS = {
+            "purchases": "orders", "transactions": "payments",
+            "completed_order": "orders", "cancelled_order": "orders",
+            "refund": "refunds", "sale": "orders", "sales": "orders",
+            "metric": "revenue", "metrics": "revenue",
+            "clv": "customers", "ltv": "customers",
+        }
+
+        bt_lower = (rule.get("business_term") or "").lower()
+        if bt_lower in _ADJECTIVE_BLACKLIST:
+            # Try to find the correct noun from schema tables or words
+            _schema_tables = set(schema.get("tables", {}).keys()) if schema else set()
+            _schema_tables_lower = {t.lower() for t in _schema_tables}
+
+            # Strategy 1: Look for a table noun in nearby words
+            bt_pos = None
+            for i, tag in enumerate(tags):
+                if tag.startswith('B_BUSINESS_TERM'):
+                    bt_pos = i
+                    break
+
+            corrected_term = None
+            if bt_pos is not None:
+                # Look forward first, then backward for a valid table noun
+                search_range = list(range(bt_pos + 1, min(bt_pos + 4, len(words)))) + \
+                               list(range(max(0, bt_pos - 3), bt_pos))
+                for wi in search_range:
+                    w = (words[wi] or "").lower().rstrip(".,;:!?()\"'")
+                    if w in _schema_tables_lower or w.rstrip("s") in _schema_tables_lower:
+                        corrected_term = w
+                        break
+                    # Check synonyms
+                    syn = _VALID_TABLE_SYNONYMS.get(w, _VALID_TABLE_SYNONYMS.get(w.rstrip("s")))
+                    if syn:
+                        corrected_term = w
+                        break
+
+            # Strategy 2: Use the first table in the feedback text
+            if not corrected_term:
+                fb_lower = (feedback_text or "").lower()
+                for tname in _schema_tables:
+                    if tname.lower() in fb_lower:
+                        corrected_term = tname.lower()
+                        break
+
+            # Strategy 3: Look for nouns in words (exclude known non-nouns)
+            if not corrected_term:
+                _STOP_WORDS = {
+                    "the", "a", "an", "is", "are", "was", "were", "be", "been",
+                    "have", "has", "had", "do", "does", "did", "will", "would",
+                    "could", "should", "may", "might", "can", "shall", "must",
+                    "not", "no", "nor", "but", "or", "and", "for", "in", "on",
+                    "at", "to", "by", "of", "with", "from", "that", "this",
+                    "these", "those", "it", "its", "they", "them", "their",
+                    "we", "our", "you", "your", "i", "my", "me",
+                    "when", "where", "if", "then", "than", "only", "also",
+                    "just", "very", "so", "too", "much", "many", "some",
+                    "all", "each", "every", "both", "few", "more", "most",
+                    "other", "such", "what", "which", "who", "whom", "how",
+                    "about", "above", "after", "before", "between", "under",
+                    "over", "up", "down", "out", "off", "through", "into",
+                    "from", "since", "during", "while", "because", "although",
+                    "revenue", "sales", "order", "amount", "value", "count",
+                }
+                for wi in range(len(words)):
+                    w = (words[wi] or "").lower().rstrip(".,;:!?()\"'")
+                    if w and w not in _STOP_WORDS and w not in _ADJECTIVE_BLACKLIST and len(w) > 2:
+                        corrected_term = w
+                        break
+
+            if corrected_term:
+                rule["business_term"] = corrected_term.title()
+                component_mapping["business_term"] = corrected_term.title()
+                if detailed_components["business_terms"]:
+                    detailed_components["business_terms"][0]["word"] = corrected_term.title()
+                    detailed_components["business_terms"][0]["corrected_from"] = bt_lower
 
         # Extract operation — the NER model often tags modal verbs ("should",
         # "must", "can"...) as B_OPERATION ahead of the real verb. Skip modals so
@@ -469,6 +562,45 @@ class DistilBERTTokenExtractor:
         return rule, component_mapping, detailed_components
 
 
+    def _extract_time_window(self, feedback_text: str) -> str:
+        """Extract time window from feedback text using regex patterns.
+
+        Returns a normalized time window string (e.g., "current_month",
+        "last_30_days", "ytd") or None if no temporal expression found.
+        """
+        import re
+        fb = feedback_text.lower()
+
+        # Ordered by specificity — most specific first
+        patterns = [
+            (r"\blast\s+(\d+)\s+days?\b", lambda m: f"last_{m.group(1)}_days"),
+            (r"\blast\s+(\d+)\s+weeks?\b", lambda m: f"last_{m.group(1)}_weeks"),
+            (r"\blast\s+(\d+)\s+months?\b", lambda m: f"last_{m.group(1)}_months"),
+            (r"\b(current|this)\s+month\b", lambda _: "current_month"),
+            (r"\b(current|this)\s+quarter\b", lambda _: "current_quarter"),
+            (r"\b(current|this)\s+week\b", lambda _: "current_week"),
+            (r"\b(current|this)\s+year\b", lambda _: "current_year"),
+            (r"\b(previous|last)\s+month\b", lambda _: "previous_month"),
+            (r"\b(previous|last)\s+quarter\b", lambda _: "previous_quarter"),
+            (r"\b(previous|last)\s+year\b", lambda _: "previous_year"),
+            (r"\bytd\b|\byear\s+to\s+date\b", lambda _: "ytd"),
+            (r"\bmtd\b|\bmonth\s+to\s+date\b", lambda _: "mtd"),
+            (r"\bqtd\b|\bquarter\s+to\s+date\b", lambda _: "qtd"),
+            (r"\brolling\s+(\d+)\s+(days?|weeks?|months?)\b",
+             lambda m: f"rolling_{m.group(1)}_{m.group(2)}"),
+            (r"\btrailing\s+(\d+)\s+(days?|weeks?|months?)\b",
+             lambda m: f"trailing_{m.group(1)}_{m.group(2)}"),
+            (r"\btoday\b", lambda _: "today"),
+            (r"\byesterday\b", lambda _: "yesterday"),
+        ]
+
+        for pattern, extractor in patterns:
+            match = re.search(pattern, fb)
+            if match:
+                return extractor(match)
+
+        return None
+
     def _construct_rule(
         self,
         raw_rule: Dict[str, Any],
@@ -598,12 +730,17 @@ class DistilBERTTokenExtractor:
             return "EQUALS"
 
         # ---- 4. Build complete conditions ----
+        # Extract time window from feedback text (BIO tagger doesn't tag these)
+        _time_window = raw_rule.get("time_window")
+        if not _time_window and feedback_text:
+            _time_window = self._extract_time_window(feedback_text)
+
         constructed = {
             "business_term": business_term,
             "operation": canonical_op,
             "conditions": [],
             "scope": raw_rule.get("scope", "global"),
-            "time_window": raw_rule.get("time_window"),
+            "time_window": _time_window,
             "threshold": raw_rule.get("threshold"),
             "affected_tables": list(raw_rule.get("affected_tables", [])),
             "affected_columns": list(raw_rule.get("affected_columns", [])),
