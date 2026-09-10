@@ -29,15 +29,18 @@ class RealClassifier:
         try:
             import joblib
 
-            # Use unified model (new approach - works for all domains)
-            model_path = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "baseline_classifier_unified.pkl"
+            # Use unified model (new approach — works for all domains)
+            # New location (dataset regen); fall back to legacy flat path
+            model_path = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "baseline" / "baseline_classifier_unified.pkl"
+            if not model_path.exists():
+                model_path = Path(__file__).parent.parent.parent / "rie_ml" / "models" / "baseline_classifier_unified.pkl"
 
             if model_path.exists():
                 bundle = joblib.load(str(model_path))
                 self.vectorizer = bundle.get("vectorizer")
                 self.model = bundle.get("model")
                 self.is_trained = True
-                print(f"✅ Loaded unified baseline classifier (cross-domain)")
+                print(f"✅ Loaded unified baseline classifier (cross-domain) from {model_path}")
             else:
                 print(f"⚠️  No unified model found at {model_path}, using regex fallback")
                 self._fallback_to_regex = True
@@ -144,20 +147,25 @@ class RealClassifier:
             X = self.vectorizer.transform([feedback])
             preds = self.model.predict(X)[0]
 
-            # Map predictions to labels
+            # NEW TAXONOMY v0.2.0 (5-class feedback_type, 6-class rule_category)
+            # NOTE: the baseline model was trained with string labels directly,
+            # so most predictions arrive as strings. The int->label maps below are
+            # only for the degenerate numeric-encoding case and must match the
+            # training label order exactly.
             type_map = {
-                0: "business_rule_correction",
-                1: "data_quality_issue",
-                2: "access_rule",
-                3: "filter_rule",
-                4: "calculation_correction",
+                0: "business_rule",
+                1: "issue_report",
+                2: "feature_request",
+                3: "question",
+                4: "general_feedback",
             }
             category_map = {
                 0: "metric_definition",
                 1: "filter_rule",
-                2: "access_scope_rule",
-                3: "calculation_correction",
-                4: "column_meaning",
+                2: "mapping_rule",
+                3: "access_rule",
+                4: "join_rule",
+                5: "data_quality_rule",
             }
 
             # Handle both string and numeric predictions
@@ -180,13 +188,10 @@ class RealClassifier:
             except AttributeError:
                 confidence = 0.75 if len(feedback) > 20 else 0.5
 
-            is_actionable = feedback_type in {
-                "business_rule_correction",
-                "data_quality_issue",
-                "access_rule",
-                "filter_rule",
-                "calculation_correction",
-            }
+            # NEW TAXONOMY v0.2.0: only business_rule is actionable (matches
+            # src/baseline/classifier.py). issue_report / feature_request /
+            # question / general_feedback are not rule-carriers.
+            is_actionable = feedback_type == "business_rule"
 
             return {
                 "feedback_type": feedback_type,
@@ -199,21 +204,27 @@ class RealClassifier:
             return self._classify_with_regex(feedback)
 
     def _classify_with_regex(self, feedback: str) -> Dict[str, Any]:
-        """Classify using regex patterns (fallback)."""
+        """Classify using regex patterns (fallback).
+
+        NEW TAXONOMY v0.2.0 — every label emitted here matches the authoritative
+        5-class feedback_type / 6-class rule_category. (Older names like
+        access_scope_rule / status_mapping / calculation_correction are removed.)
+        """
         feedback_lower = feedback.lower().strip()
 
-        # Rule classification patterns
+        # Rule classification patterns -> NEW 6-class rule_category
         rule_patterns = [
             (r"\b(revenue|metric|sum|total|count|average|amount)\b", "metric_definition", 0.90),
             (r"\b(exclude|include|restrict|should|must|contribute|not contribute)\b.*\b(revenue|metric|sum|total|count|average|amount)\b", "metric_definition", 0.90),
-            (r"\b(should|must|only).*\b(access|view|edit|delete)\b", "access_scope_rule", 0.85),
-            (r"\b(status|state|phase)\b.*\b(map|equals|is)\b", "status_mapping", 0.88),
-            (r"\b(time|date|period|quarter|month|week)\b.*\b(rule|condition|apply)\b", "time_rule", 0.82),
+            (r"\b(should|must|only).*\b(access|view|edit|delete)\b", "access_rule", 0.85),
+            (r"\b(status|state|phase)\b.*\b(map|equals|is)\b", "mapping_rule", 0.88),
             (r"\b(exclude|filter|remove|should not|must not).*\b(order|record|transaction)\b", "filter_rule", 0.92),
-            (r"\b(calculate|compute|derive)\b.*\b(from|by|using)\b", "calculation_correction", 0.85),
+            (r"\b(duplicate|missing|incomplete|null|empty|invalid)\b", "data_quality_rule", 0.85),
+            (r"\b(join|link|combine|merge)\b.*\b(table|record|id)\b", "join_rule", 0.82),
+            (r"\b(calculate|compute|derive)\b.*\b(from|by|using)\b", "metric_definition", 0.85),
         ]
 
-        feedback_type = "business_rule_correction"
+        feedback_type = "business_rule"
         rule_category = "metric_definition"
         confidence = 0.5
         is_actionable = False
@@ -224,7 +235,7 @@ class RealClassifier:
                 rule_category = category
                 confidence = conf
                 is_actionable = True
-                feedback_type = "business_rule_correction"
+                feedback_type = "business_rule"
                 break
 
         # Check for non-actionable patterns (questions, unclear feedback)
@@ -234,7 +245,8 @@ class RealClassifier:
         if any(word in feedback_lower.split() for word in question_words):
             # Check if it's a question about rules (should still be actionable)
             if "should" not in feedback_lower and "must" not in feedback_lower:
-                feedback_type = "unclear_feedback"
+                # NEW TAXONOMY v0.2.0: unclear_feedback -> question
+                feedback_type = "question"
                 is_actionable = False
                 confidence = 0.3  # Lower confidence for questions
 

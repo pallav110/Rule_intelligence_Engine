@@ -81,6 +81,24 @@ class ModelVersionService:
                 raise ValueError(f"Invalid status transition: {current} -> {new_status}")
             model_version.status = new_status
 
+            # Spec 8.11: only ONE model may be ACTIVE per model_type at a time.
+            # Promoting a challenger to ACTIVE automatically ARCHIVEs the prior
+            # ACTIVE of the same type, so get_active_model()/inference always
+            # resolve to a single, unambiguous champion. Without this, a promote
+            # can leave two ACTIVE rows and which one serves is undefined.
+            if new_status == ModelVersionStatus.ACTIVE.value:
+                prior_active = (
+                    db.query(ModelVersion)
+                    .filter(
+                        ModelVersion.model_type == model_version.model_type,
+                        ModelVersion.model_version_id != model_version_id,
+                        ModelVersion.status == ModelVersionStatus.ACTIVE.value,
+                    )
+                    .all()
+                )
+                for prior in prior_active:
+                    prior.status = ModelVersionStatus.ARCHIVED.value
+
         if payload.description is not None:
             model_version.description = payload.description
 

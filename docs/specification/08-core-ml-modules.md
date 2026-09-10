@@ -1,5 +1,206 @@
 # Section 8: Core ML Modules
 
+## 8.1 Input Validation
+Before any machine learning model is executed, the API validates the incoming request.
+
+The validation stage verifies:
+- Authentication token
+- Workspace membership authorization
+- JSON schema
+- Required request fields
+- Maximum feedback length
+- Supported content type
+- Duplicate request identifier (Idempotency Key)
+
+Requests failing validation immediately return an appropriate HTTP error response without entering the processing pipeline.
+
+Authorization verifies that the authenticated user is permitted to access the requested workspace before analysis begins.
+
+---
+
+## 8.2 Feedback Preprocessing
+The preprocessing module normalizes the submitted feedback while preserving its business meaning.
+
+Operations performed include:
+- Unicode normalization
+- Whitespace normalization
+- Sentence segmentation
+- Tokenization
+- Removal of unnecessary punctuation
+- Business keyword preservation
+- Detection of schema references
+- Basic spelling correction (optional)
+- Language normalization for conversational English and Hinglish
+
+**Example:**
+```
+Input : Revenue shouldnt include cancelld orders...
+Output: Revenue should not include cancelled orders.
+```
+
+No business information is added or inferred during preprocessing.
+
+---
+
+## 8.3 Feedback Classification
+
+The objective of the classification module is to determine whether the submitted feedback contains actionable business logic and how it should be routed.
+
+The classification module generates calibrated predictions for **four independent classification tasks**:
+
+| Prediction | Description |
+|------------|-------------|
+| **Feedback Type** | Identifies whether the feedback represents a business rule, issue report, feature request, question, or general feedback |
+| **Rule Category** | Categorizes actionable feedback (Metric Rule, Filter Rule, Mapping Rule, Access Rule, Join Rule, etc.) |
+| **Actionable** | Determines whether rule extraction should continue |
+| **Clarification Requirement** | Predicts whether additional information is likely to be required before rule extraction |
+
+> Raw model probabilities are calibrated before downstream decision making. Classification outputs are recorded independently from extraction and other pipeline stages.
+
+### 8.3.1 Baseline Approach
+The baseline classifier provides the deterministic reference implementation used for benchmarking candidate machine learning models.
+
+**Components:**
+- Regular Expressions
+- Business Keyword Dictionaries
+- TF-IDF Vectorization
+- Logistic Regression Classifier
+
+**Pipeline:**
+```
+Feedback → Text Cleaning → TF-IDF Vectorization → Logistic Regression → Predicted Category
+```
+
+The TF-IDF vectorizer converts feedback into sparse numerical vectors representing word importance. A Logistic Regression classifier is trained on these vectors to predict category labels.
+
+**Advantages:**
+- Fast inference
+- Explainable predictions
+- Easy debugging
+- Provides a reproducible performance baseline
+
+> This deterministic approach serves as the evaluation baseline for model comparison and as the fallback mechanism if no candidate model is approved.
+
+### 8.3.2 Machine Learning Implementation
+
+The initial candidate machine learning classifier uses the Hugging Face checkpoint `distilbert-base-uncased`, fine-tuned for the four independent classification tasks.
+
+The candidate model is selected because it:
+- Understands semantic meaning
+- Handles conversational language
+- Works well with short business feedback
+- Is approximately 40% smaller than BERT
+- Provides faster inference
+
+The candidate model predicts the following independent outputs **simultaneously**:
+- Feedback Type
+- Rule Category
+- Actionable
+- Clarification Required
+
+#### Training and Annotation Dataset
+
+Training data consists of:
+- Manually annotated classification dataset
+- Synthetic business feedback
+- Reviewer-approved business feedback
+- Public datasets (where applicable)
+
+Data split:
+| Split | Percentage |
+|-------|-----------|
+| Training | 70% |
+| Validation | 15% |
+| Frozen Evaluation | 15% |
+
+> The frozen evaluation dataset is never used during model training, validation, or hyperparameter tuning. No feedback from the testing dataset is used during training.
+
+#### Model Input
+```json
+{
+  "workspace": "Finance",
+  "feedback": "Revenue should exclude cancelled orders."
+}
+```
+
+Before inference:
+```
+Lowercase → Tokenization → Attention Mask → Tokenizer Encoding → DistilBERT
+```
+
+#### Model Output
+```json
+{
+  "feedback_type": "Business Rule",
+  "rule_category": "Metric Definition",
+  "actionable": true,
+  "clarification_required": false,
+  "classification_probability": 0.96
+}
+```
+
+> Classification probabilities are calibrated before downstream decision making and are recorded independently from extraction confidence.
+
+#### Implementation Details
+
+**Python Libraries:** `transformers`, `torch`, `scikit-learn`, `datasets`
+
+**Training Pipeline:**
+```
+Dataset → Tokenizer → DistilBERT → Fine Tuning → Validation → Model Registry
+```
+
+**Inference:**
+```
+FastAPI → Load DistilBERT → Predict → JSON
+```
+
+**Evaluation:**
+Classification performance is measured using:
+- Accuracy
+- Precision
+- Recall
+- Macro F1
+- Weighted F1
+- Per-category F1
+- Confusion Matrix
+
+The deterministic baseline and the candidate DistilBERT model are evaluated on the same frozen evaluation dataset. The candidate must demonstrate measurable improvement over the baseline.
+
+#### Model Comparison Table
+
+| Model | Role |
+|-------|------|
+| TF-IDF + Logistic Regression | Deterministic baseline |
+| DistilBERT (`distilbert-base-uncased`) | Initial candidate model |
+| BERT | Alternative candidate |
+| RoBERTa | Alternative candidate |
+
+#### Configuration Table
+
+| Configuration | Value |
+|--------------|-------|
+| Model Checkpoint | `distilbert-base-uncased` |
+| Tokenizer | `DistilBertTokenizerFast` |
+| Maximum Sequence Length | 256 tokens |
+| Batch Size | 16 |
+| Optimizer | AdamW |
+| Learning Rate | 2e-5 |
+| Execution Hardware | CPU-based inference with optional GPU support during training |
+
+#### Classification Task Labels
+
+| Classification Task | Labels |
+|--------------------|--------|
+| **Feedback Type** | `Business Rule`, `Issue Report`, `Feature Request`, `Question`, `General Feedback` |
+| **Rule Category** | `Metric Definition`, `Filter Rule`, `Mapping Rule`, `Access Rule`, `Join Rule`, `Data Quality Rule` |
+| **Actionable** | `true`, `false` (sigmoid) |
+| **Clarification Required** | `true`, `false` (sigmoid) |
+
+> **Source of truth:** These labels are defined in the authoritative Word document (§8.3.2). The `rule_category` labels also serve as sub-categories under `Business Rule` feedback type. Non-rule feedback types (`Issue Report`, `Feature Request`, `Question`, `General Feedback`) do not undergo rule extraction.
+
+---
+
 ## 8.4 Rule Extraction
 
 ### Overview

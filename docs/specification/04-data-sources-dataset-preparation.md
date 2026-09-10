@@ -44,9 +44,47 @@ The Rule Intelligence Engine (RIE) operates using controlled datasets...
 - Manual review required for any future production feedback
 
 ## 4.7 Dataset Annotation Guidelines
-- Separate annotations for classification + rule extraction
-- Attributes: Feedback Type, Rule Category, Actionability, Clarification Required, Business Term, Operation, Conditions, Scope, Time Window, Thresholds, Affected Tables/Columns, Duplicate/Conflict Relationships, # Extracted Rules, NER Labels
-- Minimum 2 reviewers, senior review for disagreements
+
+To ensure consistency across training and evaluation datasets, every feedback sample follows a standardized annotation protocol.
+
+Each feedback instance is annotated with the following attributes:
+
+### Classification Annotations
+
+| Attribute | Description | Values |
+|-----------|-------------|--------|
+| **Feedback Type** | Identifies whether the feedback represents a business rule, issue report, feature request, question, or general feedback | `Business Rule`, `Issue Report`, `Feature Request`, `Question`, `General Feedback` |
+| **Rule Category** | Categorizes actionable feedback into rule families | `Metric Definition`, `Filter Rule`, `Mapping Rule`, `Access Rule`, `Join Rule`, `Data Quality Rule` |
+| **Actionability** | Determines whether rule extraction should continue | `true` / `false` |
+| **Clarification Requirement** | Predicts whether additional information is likely to be required before rule extraction | `true` / `false` |
+
+### Extraction Annotations
+
+| Attribute | Description |
+|-----------|-------------|
+| **Business Term** | Primary business concept referenced (e.g., "Revenue") |
+| **Operation** | Rule operation (e.g., Include, Exclude, Restrict) |
+| **Conditions** | Structured field/operator/value tuples |
+| **Scope** | Business scope of application |
+| **Time Window** | Temporal constraint (if any) |
+| **Threshold Values** | Numeric comparison values |
+| **Affected Tables and Columns** | Database entities referenced |
+
+### Relationship Annotations
+
+| Attribute | Description |
+|-----------|-------------|
+| **Duplicate Relationship** | Whether feedback duplicates existing rules |
+| **Conflict Relationship** | Whether feedback conflicts with existing rules |
+| **Number of Extracted Rules** | Count of independent rules in the feedback |
+
+### NER Annotations
+
+| Attribute | Description |
+|-----------|-------------|
+| **Named Entity Recognition (NER) Labels** | BIO-tagged spans for Business Terms, Operations, Tables, Columns, Conditions, Values, Scopes, Time Windows, Thresholds |
+
+> All annotations are independently reviewed by at least two reviewers. In cases of disagreement, the sample is escalated to a senior reviewer for final determination.
 
 ## 4.8 Dataset Distribution and Rule Families
 - Metric Definition (30%), Filter Rules (20%), Mapping Rules (15%), Access Rules (15%), Data Quality Rules (10%), Ambiguous/Clarification (10%)
