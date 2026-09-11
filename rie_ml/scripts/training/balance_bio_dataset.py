@@ -107,7 +107,8 @@ def main():
     print("BALANCING BIO DATASET - DOWNSAMPLE O TOKENS")
     print("="*80)
 
-    output_dir = Path(__file__).parent.parent / "datasets" / "extraction_bio"
+    # parent.parent.parent: __file__=rie_ml/scripts/training/... -> rie_ml/
+    output_dir = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio"
 
     # Load training data
     all_samples = []

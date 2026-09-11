@@ -406,7 +406,9 @@ def split_by_rule_family(samples: List[Dict], val_ratio: float = 0.18, test_rati
 
 def main():
     """Prepare BIO training data from all domains."""
-    output_dir = Path(__file__).parent.parent / "datasets" / "extraction_bio"
+    # parent.parent.parent: __file__=rie_ml/scripts/training/... -> rie_ml/
+    # (parent.parent would wrongly resolve to rie_ml/scripts/datasets/...)
+    output_dir = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("\n" + "=" * 80)

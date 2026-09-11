@@ -28,8 +28,9 @@ def evaluate_token_classifier():
 
     # Load model and labels
     model_path = Path(__file__).parent.parent.parent / "models" / "distilbert_token_extractor" / "checkpoints" / "best_model.pt"
-    bio_labels_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "bio_labels.json"
-    test_file = Path(__file__).parent.parent / "datasets" / "extraction_bio" / "test_bio.jsonl"
+    # parent.parent.parent: __file__=rie_ml/scripts/evaluation/... -> rie_ml/
+    bio_labels_file = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio" / "bio_labels.json"
+    test_file = Path(__file__).parent.parent.parent / "datasets" / "extraction_bio" / "test_bio.jsonl"
     output_dir = Path(__file__).parent.parent.parent / "models" / "distilbert_token_extractor"
 
     if not model_path.exists():
