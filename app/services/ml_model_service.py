@@ -10,6 +10,8 @@ Per Spec 8.11 Model Registry: Models progress CANDIDATE → APPROVED → ACTIVE
 The ACTIVE model is used for production inference without code changes.
 """
 
+import re
+
 import torch
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -134,6 +136,69 @@ class MLModelService:
 
         return None
 
+    # QWERTY home rows (mirrors RealClassifier): real English words are rarely a
+    # contiguous substring of a single row, so a match is almost always mashing.
+    _QWERTY_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
+
+    # Promotional-spam signals. The 5-class classifier head has NO irrelevant_spam
+    # output (Spec v0.2.0 treats spam as an UPSTREAM pre-filter, not a model class),
+    # so spam must be caught here before the model runs or it collapses to the
+    # majority business_rule class. These catch real-word promo spam ("Buy cheap
+    # followers now at this link, 80 percent off") that the keyboard-mash /
+    # no-real-word heuristic below misses. Kept conservative to avoid false
+    # positives on legitimate business feedback.
+    _PROMO_SPAM_PATTERNS = (
+        r"\bfollowers\b.{0,30}\b(buy|cheap|discount|link|now|percent|off|gain|wholesale)\b",
+        r"\b(buy|gain|cheap|wholesale)\b.{0,20}\bfollowers\b",
+        r"\b(cheap|buy|free)\b.{0,20}\b(likes|subscribers|views)\b",
+        r"\b(click|sign up|claim)\b.{0,15}\b(now|here|link|offer)\b.{0,10}\b(free|cash|prize|gift)\b",
+    )
+    _PROMO_SPAM_RE = tuple(re.compile(p, re.IGNORECASE) for p in _PROMO_SPAM_PATTERNS)
+
+    @staticmethod
+    def _is_keyboard_mash(word: str) -> bool:
+        """True if a lowercased word is a contiguous substring of one QWERTY row."""
+        if len(word) < 3 or not word.isalpha():
+            return False
+        return any(word in row for row in MLModelService._QWERTY_ROWS)
+
+    def _irrelevant_input_reason(self, feedback: str) -> Optional[str]:
+        """Deterministic spam/gibberish pre-filter (Spec v0.2.0 irrelevant_spam).
+
+        Returns a short reason string if the input should short-circuit to
+        irrelevant_spam, else None. Applied before ANY model runs on the ACTIVE
+        (DistilBERT) path — the classifier head has no spam output, so without
+        this gate spam leaks to the model and lands on the majority class.
+
+        Mirrors RealClassifier._is_gibberish but also catches promotional spam
+        written in real words, which keyboard-mash / no-real-word checks miss.
+        """
+        if not feedback or not isinstance(feedback, str) or not feedback.strip():
+            return "empty_input"
+        text = feedback.lower().strip()
+        words = text.split()
+        alnum = sum(1 for c in feedback if c.isalnum())
+        non_alnum_ratio = (len(feedback) - alnum) / max(len(feedback), 1)
+        has_real_word = any(
+            len(w) >= 3 and w.isalpha() and not self._is_keyboard_mash(w) for w in words
+        )
+        mash_run = (
+            len(words) >= 2
+            and sum(1 for w in words if self._is_keyboard_mash(w)) >= len(words) / 2
+        )
+        if (
+            len(text) < 10
+            or not any(c.isalpha() for c in feedback)
+            or non_alnum_ratio > 0.5
+            or (len(words) > 0 and not has_real_word and len(text) > 20)
+            or mash_run
+        ):
+            return "gibberish"
+        for idx, pattern in enumerate(self._PROMO_SPAM_RE):
+            if pattern.search(text):
+                return f"promo_spam_{idx}"
+        return None
+
     def classify(self, feedback: str, domain: str = None) -> Dict[str, Any]:
         """
         Classify feedback using best available model.
@@ -147,8 +212,26 @@ class MLModelService:
         Returns:
             Classification result with model info
         """
-        # Try DistilBERT if ACTIVE model exists
+        # Spec v0.2.0: irrelevant_spam is an UPSTREAM pre-filter, not a classifier
+        # class. Gate it here for both the ACTIVE (DistilBERT) and fallback paths —
+        # otherwise spam goes into the 5-class head (no spam output) and collapses
+        # to the majority business_rule class.
         active = self.get_active_model("classification")
+        spam_reason = self._irrelevant_input_reason(feedback)
+        if spam_reason:
+            return {
+                "feedback_type": "irrelevant_spam",
+                "rule_category": "none",
+                "is_actionable": False,
+                "confidence": 0.95,
+                "model": "spam_prefilter",
+                "spam_reason": spam_reason,
+                "model_version_id": active["model_version_id"] if active else None,
+                "model_version": active["version"] if active else None,
+                "registry_status": "active_ml" if active else "no_active_model",
+            }
+        # Try DistilBERT if ACTIVE model exists
+        # (active already resolved above; re-use it to avoid a second registry query)
         if active:
             checkpoint = self._resolve_checkpoint_path(active["checkpoint_path"])
             if checkpoint and checkpoint.exists():
