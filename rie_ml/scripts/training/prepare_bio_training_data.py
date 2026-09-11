@@ -46,8 +46,11 @@ BIO_LABELS = [
     'B_TIME_WINDOW',          # Beginning of time window
     'I_TIME_WINDOW',          # Inside time window
     'B_THRESHOLD',            # Beginning of threshold
+    'I_THRESHOLD',            # Inside threshold (multi-token numeric span)
     'B_TABLE',                # Beginning of table reference
+    'I_TABLE',                # Inside table reference (multi-token entity)
     'B_COLUMN',               # Beginning of column reference
+    'I_COLUMN',               # Inside column reference (multi-token entity)
 ]
 
 LABEL2ID = {label: idx for idx, label in enumerate(BIO_LABELS)}
