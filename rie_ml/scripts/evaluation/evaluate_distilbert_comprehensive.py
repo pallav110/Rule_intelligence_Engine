@@ -490,6 +490,9 @@ def convert_to_metrics_storage_format(
 def main():
     import argparse
     from transformers import DistilBertTokenizerFast
+    # Bring the repo root onto sys.path so `rie_ml.scripts.training...` resolves
+    # regardless of the CWD the script is invoked from.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
     from rie_ml.scripts.training.train_distilbert_classifier import FeedbackDataset
 
     parser = argparse.ArgumentParser()

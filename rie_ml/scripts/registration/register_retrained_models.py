@@ -60,7 +60,9 @@ classifier_metrics = {
     "is_actionable_f1": ia["f1_score"],
     "requires_clarification_accuracy": rq["accuracy"],
     "requires_clarification_f1": rq["f1_score"],
-    "test_samples": 201,
+    # Derive test size from the confusion matrix (v0.2.0 6-class frozen eval) so it
+    # never drifts out of sync with the eval JSON (was hardcoded 201 / 4-class old set).
+    "test_samples": sum(sum(row) for row in ft["confusion_matrix"]),
     "confusion_matrix_feedback_type": ft["confusion_matrix"],
     "per_category_f1": ft["per_category_f1"],
 }
@@ -78,15 +80,17 @@ RETRAINED = [
     {
         "model_name": "distilbert-classifier",
         "model_type": "classification",
-        "version": "v1.1.0",
+        "version": "v2.0.0",
         "description": (
-            "Retrained multi-task DistilBERT classifier (all domains combined: "
-            "922 train / 196 val). Best val loss 0.7553. Replaces stale v1.0.0 "
-            "whose stored metrics were pre-retrain."
+            "Retrained multi-task DistilBERT classifier on balanced v0.2.0 "
+            "combined set (1513 train / 323 val, spam prefiltered). Trained on "
+            "CPU. feeback_type acc %g on the 328-sample 6-class frozen eval. "
+            "Replaces baseline v2.0.0 as ACTIVE classification."
+            % ft["accuracy"]
         ),
         "checkpoint_path": "/models/distilbert-classifier",
-        "training_dataset_version_id": "feedback-combined-v1-train-922",
-        "validation_dataset_version_id": "feedback-combined-v1-val-196",
+        "training_dataset_version_id": "feedback-combined-v2-train-1513",
+        "validation_dataset_version_id": "feedback-combined-v2-val-323",
         "annotation_scheme_version": "multi-task-v1",
         "hyperparameters": {
             "model": "distilbert-base-uncased",
@@ -96,32 +100,34 @@ RETRAINED = [
             "early_stopping_patience": 3,
             "tasks": ["feedback_type", "rule_category", "is_actionable", "requires_clarification"],
         },
-        "training_timestamp": datetime(2026, 9, 7, 15, 19, 0, tzinfo=timezone.utc),
+        "training_timestamp": datetime(2026, 9, 11, 16, 42, 0, tzinfo=timezone.utc),
         "evaluation_metrics": classifier_metrics,
     },
     {
         "model_name": "distilbert-extractor",
         "model_type": "rule-extraction",
-        "version": "v1.1.0",
+        "version": "v2.0.0",
         "description": (
-            "Retrained DistilBERT BIO token classifier for rule extraction "
-            "(611 train / 205 val, 16 labels). Best per-label F1: "
-            "B_BUSINESS_TERM 0.866, B_FIELD 0.822, B_OPERATION 0.778, B_VALUE 0.793."
+            "Retrained DistilBERT BIO token classifier for rule extraction on "
+            "balanced v0.2.0 data (950 train / 279 val, 19 labels incl. "
+            "I_COLUMN/I_TABLE/I_THRESHOLD continuations). Overall acc %g, "
+            "macro_f1 %g on the 273-sample 6-domain test BIO set."
+            % (extractor_eval["overall_accuracy"], extractor_eval["macro_f1"])
         ),
         "checkpoint_path": "/models/distilbert-extractor",
-        "training_dataset_version_id": "token-bio-v1-train-611",
-        "validation_dataset_version_id": "token-bio-v1-val-205",
-        "annotation_scheme_version": "BIO-16labels-v1",
+        "training_dataset_version_id": "token-bio-v2-train-950",
+        "validation_dataset_version_id": "token-bio-v2-val-279",
+        "annotation_scheme_version": "BIO-19labels-v2",
         "hyperparameters": {
             "model": "distilbert-base-uncased",
             "epochs": 5,
-            "batch_size": 16,
+            "batch_size": 8,
             "learning_rate": 2e-5,
-            "num_labels": 16,
+            "num_labels": 19,
             "class_balanced": True,
             "task": "token_classification_rule_extraction",
         },
-        "training_timestamp": datetime(2026, 9, 7, 13, 49, 0, tzinfo=timezone.utc),
+        "training_timestamp": datetime(2026, 9, 11, 16, 43, 0, tzinfo=timezone.utc),
         "evaluation_metrics": extractor_metrics,
     },
 ]

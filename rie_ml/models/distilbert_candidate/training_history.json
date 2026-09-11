@@ -1,170 +1,122 @@
 {
   "train_loss": [
-    4.181290563784148,
-    1.8470820857767474,
-    0.8119028425007536,
-    0.4510033504481901,
-    0.23350064208110174,
-    0.14880033451737018,
-    0.10632172501400898,
-    0.086315080327423,
-    0.070379956576385,
-    0.06406660495620024
+    3.5913485098392406,
+    1.2561236334607957,
+    0.47304158229777155,
+    0.2077588289183505,
+    0.09804467230718186,
+    0.05910799652338028,
+    0.044401658342239705
   ],
   "val_loss": [
-    3.089548647403717,
-    1.1966854333877563,
-    0.9314201896389326,
-    0.7736800474425157,
-    0.6880694286276897,
-    0.6501369389394919,
-    0.6419790362318357,
-    0.5990461762994528,
-    0.5985714197158813,
-    0.6201447878653804
+    1.9802186071872712,
+    0.9411072328686714,
+    0.8343068942427635,
+    0.8086263585835696,
+    0.8305541899055242,
+    0.8799840371124447,
+    0.8466788804158568
   ],
   "train_metrics": [
     {
-      "total_loss": 4.181290563784148,
-      "feedback_type": 1.216542400811848,
-      "rule_category": 1.7804249274103265,
-      "is_actionable": 0.595702360857997,
-      "requires_clarification": 0.5886208843766597
+      "total_loss": 3.5913485098392406,
+      "feedback_type": 1.0146637904517195,
+      "rule_category": 1.6164084717314293,
+      "is_actionable": 0.5006300669084204,
+      "requires_clarification": 0.45964618772268295
     },
     {
-      "total_loss": 1.8470820857767474,
-      "feedback_type": 0.28740327060222626,
-      "rule_category": 1.0784891415060611,
-      "is_actionable": 0.2142894390251553,
-      "requires_clarification": 0.26690023621184783
+      "total_loss": 1.2561236334607957,
+      "feedback_type": 0.23847371240721105,
+      "rule_category": 0.8136092903132134,
+      "is_actionable": 0.08522653397410473,
+      "requires_clarification": 0.1188140906235005
     },
     {
-      "total_loss": 0.8119028425007536,
-      "feedback_type": 0.1256741719941298,
-      "rule_category": 0.5248592341678184,
-      "is_actionable": 0.0666104942364128,
-      "requires_clarification": 0.09475894076259513
+      "total_loss": 0.47304158229777155,
+      "feedback_type": 0.07466549608618656,
+      "rule_category": 0.3051137399483234,
+      "is_actionable": 0.042374456083362405,
+      "requires_clarification": 0.05088788934765344
     },
     {
-      "total_loss": 0.4510033504481901,
-      "feedback_type": 0.08165573697994676,
-      "rule_category": 0.2591285113441317,
-      "is_actionable": 0.04555792923559222,
-      "requires_clarification": 0.06466117321529932
+      "total_loss": 0.2077588289183505,
+      "feedback_type": 0.039672830994141865,
+      "rule_category": 0.10940269824672252,
+      "is_actionable": 0.027531678847810055,
+      "requires_clarification": 0.03115161922463077
     },
     {
-      "total_loss": 0.23350064208110174,
-      "feedback_type": 0.04777214009510843,
-      "rule_category": 0.12047544866800308,
-      "is_actionable": 0.02672519299544786,
-      "requires_clarification": 0.03852785842721922
+      "total_loss": 0.09804467230718186,
+      "feedback_type": 0.020442790916546227,
+      "rule_category": 0.04435388183102329,
+      "is_actionable": 0.015364726836931832,
+      "requires_clarification": 0.017883273188341806
     },
     {
-      "total_loss": 0.14880033451737018,
-      "feedback_type": 0.035457752383591834,
-      "rule_category": 0.06887530339391608,
-      "is_actionable": 0.02132279378476373,
-      "requires_clarification": 0.023144485020454516
+      "total_loss": 0.05910799652338028,
+      "feedback_type": 0.012772542721730597,
+      "rule_category": 0.02430383576714295,
+      "is_actionable": 0.010330081748914845,
+      "requires_clarification": 0.011701536810699296
     },
     {
-      "total_loss": 0.10632172501400898,
-      "feedback_type": 0.026682879212067315,
-      "rule_category": 0.04656667615237989,
-      "is_actionable": 0.015136551316173976,
-      "requires_clarification": 0.017935619869253093
-    },
-    {
-      "total_loss": 0.086315080327423,
-      "feedback_type": 0.022644452391224996,
-      "rule_category": 0.037419677450599376,
-      "is_actionable": 0.012624632403777357,
-      "requires_clarification": 0.013626318735380968
-    },
-    {
-      "total_loss": 0.070379956576385,
-      "feedback_type": 0.020122126676142216,
-      "rule_category": 0.026800287887454033,
-      "is_actionable": 0.01117287648090145,
-      "requires_clarification": 0.012284665156090469
-    },
-    {
-      "total_loss": 0.06406660495620024,
-      "feedback_type": 0.01714232732264096,
-      "rule_category": 0.02422230671110906,
-      "is_actionable": 0.010789082075158754,
-      "requires_clarification": 0.011912889386478224
+      "total_loss": 0.044401658342239705,
+      "feedback_type": 0.010137990919595703,
+      "rule_category": 0.016888024364697173,
+      "is_actionable": 0.008157479254766665,
+      "requires_clarification": 0.009218163877487816
     }
   ],
   "val_metrics": [
     {
-      "total_loss": 3.089548647403717,
-      "feedback_type": 0.6277108925084273,
-      "rule_category": 1.4393444408973057,
-      "is_actionable": 0.4631156884133816,
-      "requires_clarification": 0.5593775709470113
+      "total_loss": 1.9802186071872712,
+      "feedback_type": 0.4149438042193651,
+      "rule_category": 1.2111488536000252,
+      "is_actionable": 0.12157406341284513,
+      "requires_clarification": 0.23255186714231968
     },
     {
-      "total_loss": 1.1966854333877563,
-      "feedback_type": 0.18023167519519726,
-      "rule_category": 0.7936840032537779,
-      "is_actionable": 0.0753392344340682,
-      "requires_clarification": 0.14743053509543338
+      "total_loss": 0.9411072328686714,
+      "feedback_type": 0.1786007414571941,
+      "rule_category": 0.640993009135127,
+      "is_actionable": 0.048040340468287465,
+      "requires_clarification": 0.07347314469516278
     },
     {
-      "total_loss": 0.9314201896389326,
-      "feedback_type": 0.1159665696322918,
-      "rule_category": 0.6540655490631858,
-      "is_actionable": 0.050354601660122476,
-      "requires_clarification": 0.11103346959377329
+      "total_loss": 0.8343068942427635,
+      "feedback_type": 0.18671634956263006,
+      "rule_category": 0.5480555038899183,
+      "is_actionable": 0.036858075438067316,
+      "requires_clarification": 0.06267697373405098
     },
     {
-      "total_loss": 0.7736800474425157,
-      "feedback_type": 0.05482332641258836,
-      "rule_category": 0.6166719185809294,
-      "is_actionable": 0.032912616773198046,
-      "requires_clarification": 0.06927216735978921
+      "total_loss": 0.8086263585835696,
+      "feedback_type": 0.16177480071783065,
+      "rule_category": 0.5541560593526811,
+      "is_actionable": 0.03269230844452977,
+      "requires_clarification": 0.060003177542239425
     },
     {
-      "total_loss": 0.6880694286276897,
-      "feedback_type": 0.036734897022446,
-      "rule_category": 0.5870229592546821,
-      "is_actionable": 0.034293808275833726,
-      "requires_clarification": 0.030017771758139133
+      "total_loss": 0.8305541899055242,
+      "feedback_type": 0.1779025957803242,
+      "rule_category": 0.5523021437693387,
+      "is_actionable": 0.030294138961471616,
+      "requires_clarification": 0.07005530903115868
     },
     {
-      "total_loss": 0.6501369389394919,
-      "feedback_type": 0.015532782805773119,
-      "rule_category": 0.601931801221023,
-      "is_actionable": 0.015077519385764996,
-      "requires_clarification": 0.017594844025249284
+      "total_loss": 0.8799840371124447,
+      "feedback_type": 0.15954715448897333,
+      "rule_category": 0.6150436765048652,
+      "is_actionable": 0.03159332277718931,
+      "requires_clarification": 0.07379988322500139
     },
     {
-      "total_loss": 0.6419790362318357,
-      "feedback_type": 0.015448145451955497,
-      "rule_category": 0.5926923365332186,
-      "is_actionable": 0.016423483883651595,
-      "requires_clarification": 0.01741507575691988
-    },
-    {
-      "total_loss": 0.5990461762994528,
-      "feedback_type": 0.012491408735513687,
-      "rule_category": 0.557694606638203,
-      "is_actionable": 0.013755284637833634,
-      "requires_clarification": 0.015104874386452138
-    },
-    {
-      "total_loss": 0.5985714197158813,
-      "feedback_type": 0.012481956160627306,
-      "rule_category": 0.558688040667524,
-      "is_actionable": 0.012966729312514266,
-      "requires_clarification": 0.014434683447082838
-    },
-    {
-      "total_loss": 0.6201447878653804,
-      "feedback_type": 0.013830061613892516,
-      "rule_category": 0.5765308612026274,
-      "is_actionable": 0.014154900641491016,
-      "requires_clarification": 0.015628969413228333
+      "total_loss": 0.8466788804158568,
+      "feedback_type": 0.17067566854530014,
+      "rule_category": 0.584755676263012,
+      "is_actionable": 0.03201395471114665,
+      "requires_clarification": 0.059233561926521364
     }
   ]
 }
