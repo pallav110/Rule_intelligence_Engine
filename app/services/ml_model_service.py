@@ -107,6 +107,31 @@ class MLModelService:
             if path.exists() and checkpoint_path in key:
                 return path
 
+        # Robust fallback: the stored checkpoint_path may be an absolute HOST
+        # path (e.g. /home/.../rie_ml/models/distilbert_candidate/checkpoints/
+        # best_model.pt) that does not exist inside the Docker container, where
+        # the code lives under /app. Resolve it against this repo's own
+        # rie_ml/models/<candidate>/checkpoints/best_model.pt tree by matching
+        # the candidate directory name embedded in the stored path. This works
+        # identically on the host and in the container since it is rooted at
+        # the checked-out project, not a hardcoded home directory.
+        try:
+            repo_models = Path(__file__).parent.parent.parent / "rie_ml" / "models"
+            if repo_models.exists() and repo_models.is_dir():
+                stored_lower = str(checkpoint_path).lower()
+                for cand_dir in repo_models.iterdir():
+                    if not cand_dir.is_dir():
+                        continue
+                    # Match the candidate folder (e.g. distilbert_candidate,
+                    # bert_candidate, distilbert_token_extractor, ...) when it
+                    # appears anywhere in the stored path.
+                    if cand_dir.name.lower() in stored_lower:
+                        candidate = cand_dir / "checkpoints" / "best_model.pt"
+                        if candidate.exists():
+                            return candidate
+        except Exception:
+            pass
+
         return None
 
     def classify(self, feedback: str, domain: str = None) -> Dict[str, Any]:
