@@ -1401,8 +1401,8 @@
                         "scope": rule.scope || "global",
                         "conditions": rule.conditions || [],
                         "affected_entities": {
-                            "tables": rule.affected_entities?.tables || [],
-                            "columns": rule.affected_entities?.columns || []
+                            "tables": rule.affected_tables || rule.affected_entities?.tables || [],
+                            "columns": rule.affected_columns || rule.affected_entities?.columns || []
                         },
                         "extraction_metadata": {
                             "method": "template_based_regex",
@@ -1431,8 +1431,9 @@
                             <div class="field">
                                 <div class="field-label">Affected Entities</div>
                                 <div class="field-value">
-                                    Tables: ${rule.affected_entities?.tables ? rule.affected_entities.tables.join(', ') : 'N/A'} |
-                                    Columns: ${rule.affected_entities?.columns ? rule.affected_entities.columns.join(', ') : 'N/A'}
+                                    Tables: ${((rule.affected_tables || rule.affected_entities?.tables) || []).join(', ') || 'N/A'} |
+                                    Columns: ${((rule.affected_columns || rule.affected_entities?.columns) || []).join(', ') || 'N/A'} |
+                                    Time Window: ${rule.time_window || 'N/A'}
                                 </div>
                             </div>
                             <div class="field">
@@ -1862,11 +1863,15 @@
                         html += `<div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
                             <div class="field-label">Rule ${idx + 1}: ${rule.business_term} - ${rule.operation}</div>
                             <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--border); overflow-y: auto; max-height: 100px;">
-                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);">${JSON.stringify({rule_index: idx + 1, business_term: rule.business_term, operation: rule.operation, conditions_count: (rule.conditions || []).length}, null, 2)}</pre>
+                                <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary);">${JSON.stringify({rule_index: idx + 1, business_term: rule.business_term, operation: rule.operation, scope: rule.scope || 'global', time_window: rule.time_window || null, affected_tables: rule.affected_tables || (rule.affected_entities?.tables) || [], affected_columns: rule.affected_columns || (rule.affected_entities?.columns) || [], conditions_count: (rule.conditions || []).length}, null, 2)}</pre>
                             </div>
                             ${rule.conditions && rule.conditions.length > 0 ? `<div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--success); overflow-y: auto; max-height: 100px;">
                                 <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--success);">${JSON.stringify(rule.conditions, null, 2)}</pre>
                             </div>` : ''}
+                            <div class="field-label" style="margin-top:6px;">Resolved Entities &amp; Time</div>
+                            <div class="field-value" style="font-size:9px;">
+                                Time Window: <b>${rule.time_window || '—'}</b> &nbsp;|&nbsp; Scope: <b>${rule.scope || 'global'}</b> &nbsp;|&nbsp; Tables: <b>${(rule.affected_tables || (rule.affected_entities?.tables) || []).join(', ') || '—'}</b> &nbsp;|&nbsp; Columns: <b>${(rule.affected_columns || (rule.affected_entities?.columns) || []).join(', ') || '—'}</b>
+                            </div>
                         </div>`;
                     });
                 } else {
@@ -1886,7 +1891,7 @@
                 // Detailed components (BIO token breakdown)
                 if (extraction && extraction.detailed_components && Object.keys(extraction.detailed_components).length > 0) {
                     html += `<div class="field" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                        <div class="field-label">Token Classification (BIO Tags)</div>
+                        <div class="field-label">Token Classification (BIO Tags) <span style="font-weight:400; font-size:8px; color:var(--text-secondary);">— raw token-classifier tags; scopes/time_windows/columns may be sparse here. Resolved values appear in the rule box above.</span></div>
                         <div class="field-value" style="font-size: 8px; background: var(--primary); padding: 6px; border-radius: 3px; margin-top: 4px; border: 1px solid var(--warning); overflow-y: auto; max-height: 150px;">
                             <pre style="margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--warning);">${JSON.stringify(extraction.detailed_components, null, 2)}</pre>
                         </div>
