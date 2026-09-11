@@ -636,6 +636,62 @@ class ConflictGenerator(FeedbackGenerator):
         return generated
 
 
+class RephraseGenerator(FeedbackGenerator):
+    """Expand NON-actionable seeds (feature_request / issue_report /
+    general_feedback) that the main paraphrase loop skips because they have
+    no extracted rules.
+
+    Trade-off note: business seeds get 6 strong paraphrases (semantics
+    preserved by rebuilding the sentence). Non-rule seeds have no rule
+    structure to rebuild, so instead we wrap the *seed's own text* in a few
+    safe, grammar-neutral openings/closings. This only adds surface-form
+    diversity around the same underlying message — enough for the classifier
+    to learn the class without the single-digit counts that made
+    feature_request/general_feedback effectively unpredictable.
+    """
+
+    # Additive wrappers only — they never splice into subject/verb agreement,
+    # so they stay grammatical for any seed sentence tone.
+    OPENERS = [
+        "{text}",
+        "Hi, just reaching out: {text}",
+        "A quick note for the team: {text}",
+        "Sharing this: {text}",
+        "Wanted to flag this: {text}",
+        "Noting this for the backlog: {text}",
+    ]
+    CLOSERS = [
+        "{text} Thanks.",
+        "{text} Please advise.",
+        "{text} Let me know your thoughts.",
+    ]
+
+    def generate(self, seeds: list[dict[str, Any]], count: int) -> list[dict[str, Any]]:
+        """Produce `count` rephrased variants distributed across the given seeds."""
+        generated: list[dict[str, Any]] = []
+        seeds = [s for s in seeds if s.get("feedback_text")]
+        if not seeds:
+            return generated
+
+        all_templates = self.OPENERS + self.CLOSERS
+        n_seeds, n_tpl = len(seeds), len(all_templates)
+        i = 0
+        while len(generated) < count and i < count * 20:
+            i += 1
+            # Cycle seeds, and offset the template by the seed index so
+            # consecutive seed records don't all receive the same wrapper.
+            seed = seeds[len(generated) % n_seeds]
+            template = all_templates[(len(generated) // n_seeds) % n_tpl]
+
+            record = self._copy_record_template(seed)
+            text = seed.get("feedback_text", "").rstrip()
+            record["feedback_text"] = template.format(text=text)
+            record["source_seed_id"] = seed.get("feedback_id")
+            record["generation_method"] = "rephrase"
+            generated.append(record)
+        return generated
+
+
 class NonRuleGenerator(FeedbackGenerator):
     """Generate non-rule feedback (UI/UX complaints, feature requests, etc.).
 
@@ -661,12 +717,26 @@ class NonRuleGenerator(FeedbackGenerator):
         "Can we change the color of the submit button?",
         "The font size is too small on the reports page.",
         "Navigation menu is confusing on tablet.",
+        # General feedback - non-actionable praise/compliments (no request,
+        # no defect); the third leg of the §8.3.2 non-rule split that a pure
+        # feature-vs-issue heuristic would otherwise never produce.
+        "The new dashboard looks great, nice work.",
+        "Our team really likes the new filtering options.",
+        "Great experience overall, keep it up.",
+        "Thanks for the quick turnaround on the report.",
     ]
 
     def _classify_non_rule(self, text: str) -> str:
-        """Semantic classification: feature_request vs issue_report."""
+        """Semantic classification: feature_request | issue_report | general_feedback.
+
+        Order matters: check praise first (no request, no defect), then an
+        existence-request language pattern, otherwise assume an issue report.
+        """
         text_lower = text.lower()
-        feature_keywords = ["can we", "can you", "please add", "should add", "would be nice", "could we", "add"]
+        praise_keywords = ["great", "looks great", "nice work", "really like", "thanks", "keep it up", "love"]
+        if any(kw in text_lower for kw in praise_keywords):
+            return "general_feedback"
+        feature_keywords = ["can we", "can you", "please add", "should add", "would be nice", "could we", "add", "changed"]
         for kw in feature_keywords:
             if kw in text_lower:
                 return "feature_request"
@@ -793,10 +863,10 @@ class GenerationPipeline:
         
         # Set random seed for reproducibility
         random.seed(config.random_seed)
-        
+
         # Reset shared counter for unique IDs
         FeedbackGenerator._shared_counter = 0
-        
+
         # Initialize generators
         self.paraphrase_gen = ParaphraseGenerator(config, seed_records)
         self.conversational_gen = ConversationalGenerator(config, seed_records)
@@ -805,8 +875,20 @@ class GenerationPipeline:
         self.ambiguous_gen = AmbiguousGenerator(config, seed_records)
         self.conflict_gen = ConflictGenerator(config, seed_records)
         self.non_rule_gen = NonRuleGenerator(config, seed_records)
+        self.rephrase_gen = RephraseGenerator(config, seed_records)
         self.spam_gen = SpamGenerator(config, seed_records)
         self.invalid_schema_gen = InvalidSchemaGenerator(config, seed_records)
+
+        # Per-class floors for the non-rule feedback_types. The main
+        # paraphrase loop only expands actionable business seeds, so without
+        # this pass feature_request / issue_report / general_feedback stay in
+        # single digits (and general_feedback is never generated at all) —
+        # making them unpredictable for the classifier (§8.3.2 five-class).
+        self.non_rule_targets: dict[str, int] = {
+            "feature_request": 45,
+            "issue_report": 45,
+            "general_feedback": 45,
+        }
 
     def generate_all(self) -> dict[str, list[dict[str, Any]]]:
         """Generate all types of synthetic feedback."""
@@ -820,6 +902,7 @@ class GenerationPipeline:
             "non_rule": [],
             "spam": [],
             "invalid_schema": [],
+            "rephrase": [],
         }
 
         for seed in self.seed_records:
@@ -848,6 +931,22 @@ class GenerationPipeline:
         all_generated["invalid_schema"].extend(
             self.invalid_schema_gen.generate(self.seed_records, count=5)
         )
+
+        # Expand the non-actionable classes that the business paraphrase loop
+        # never touches, so they clear a learnable floor. General_feedback has
+        # no generator that emits it, so this is its only programmatic source.
+        for ft, target in self.non_rule_targets.items():
+            expandable = [s for s in self.seed_records if s.get("feedback_type") == ft]
+            if not expandable:
+                continue
+            # Already covered by the seed originals themselves (they are added
+            # back into the pool for splitting), so only top up the difference.
+            existing = len(expandable)
+            need = max(0, target - existing)
+            if need > 0:
+                all_generated["rephrase"].extend(
+                    self.rephrase_gen.generate(expandable, count=need)
+                )
 
         return self._dedupe(all_generated)
 

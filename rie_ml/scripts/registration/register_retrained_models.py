@@ -19,8 +19,16 @@ Idempotent: safe to re-run. Skips registration if the version already exists.
 """
 
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# This script runs INSIDE the api container, where the app/ package lives at
+# /app/app. `python /app/rie_ml/.../script.py` (script-path invocation — the
+# documented docker exec form) sets sys.path[0] to the script's own directory,
+# NOT the container workdir /app, so `app` is otherwise not importable. Make the
+# container mount root importable regardless of how the script is invoked.
+sys.path.insert(0, "/app")
 
 from app.db.database import SessionLocal
 from app.db.models.model_version import ModelVersion
