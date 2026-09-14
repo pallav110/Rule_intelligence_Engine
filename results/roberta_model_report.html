@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoBERTa Model Evaluation Report - Rule Intelligence Engine</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a5276;
+        }
+        .metric-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .metric-value {
+            font-weight: bold;
+            color: #27ae60;
+        }
+        .timestamp {
+            text-align: right;
+            color: #7f8c8d;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #95a5a6;
+            font-size: 0.9em;
+        }
+        .highlight-box {
+            background-color: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>RoBERTa ML Model Evaluation Report</h1>
+    <div class="timestamp">Generated on: September 14, 2026</div>
+
+    <div class="highlight-box">
+        <h2>Model Overview</h2>
+        <p><strong>Model Type:</strong> ML Candidate - RoBERTa</p>
+        <p><strong>Model Version:</strong> roberta_v1.0</p>
+        <p><strong>Evaluation Dataset:</strong> Frozen Test Set</p>
+        <p><strong>Dataset Size:</strong> 201 examples</p>
+        <p><strong>Evaluation ID:</strong> roberta-baseline-v1</p>
+    </div>
+
+    <div class="metric-section">
+        <h2>Classification Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Classification Accuracy</td>
+                    <td class="metric-value">0.6517 (65.17%)</td>
+                </tr>
+                <tr>
+                    <td>Calibration Error</td>
+                    <td class="metric-value">0.0800 (8.00%)</td>
+                </tr>
+                <tr>
+                    <td>Correct Predictions</td>
+                    <td>131 / 201</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Per-Category F1 Score</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>F1 Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Business Rule</td>
+                    <td class="metric-value">0.6373626373626374</td>
+                </tr>
+                <tr>
+                    <td>Issue Report</td>
+                    <td class="metric-value">0.6428571428571429</td>
+                </tr>
+                <tr>
+                    <td>Feature Request</td>
+                    <td class="metric-value">0.0000</td>
+                </tr>
+                <tr>
+                    <td>Question</td>
+                    <td class="metric-value">0.7222222222222222</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="metric-section">
+        <h2>Rule Extraction Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Complete Rule Accuracy (Exact Match Rate)</td>
+                    <td class="metric-value">0.6200</td>
+                </tr>
+                <tr>
+                    <td>Schema Validation Pass Rate</td>
+                    <td class="metric-value">0.5500 (55.00%)</td>
+                </tr>
+                <tr>
+                    <td>Business Term F1</td>
+                    <td class="metric-value">0.8350</td>
+                </tr>
+                <tr>
+                    <td>Operation F1</td>
+                    <td class="metric-value">0.8000</td>
+                </tr>
+                <tr>
+                    <td>Conditions F1</td>
+                    <td class="metric-value">0.7200</td>
+                </tr>
+                <tr>
+                    <td>Scope F1</td>
+                    <td class="metric-value">0.7350</td>
+                </tr>
+                <tr>
+                    <td>Time Window F1</td>
+                    <td class="metric-value">0.7700</td>
+                </tr>
+                <tr>
+                    <td>Affected Entities F1</td>
+                    <td class="metric-value">0.8100</td>
+                </tr>
+                <tr>
+                    <td>Threshold F1</td>
+                    <td class="metric-value">0.7500</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="metric-section">
+        <h2>Duplicate Detection Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Duplicate Precision</td>
+                    <td class="metric-value">0.6500</td>
+                </tr>
+                <tr>
+                    <td>Duplicate Recall</td>
+                    <td class="metric-value">0.6200</td>
+                </tr>
+                <tr>
+                    <td>Recall@K</td>
+                    <td class="metric-value">0.7800</td>
+                </tr>
+                <tr>
+                    <td>F1 Score</td>
+                    <td class="metric-value">0.6350</td>
+                </tr>
+                <tr>
+                    <td>False Positive Rate</td>
+                    <td class="metric-value">0.3500</td>
+                </tr>
+                <tr>
+                    <td>False Negative Rate</td>
+                    <td class="metric-value">0.3800</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="metric-section">
+        <h2>Conflict Detection Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Conflict Precision</td>
+                    <td class="metric-value">0.6800</td>
+                </tr>
+                <tr>
+                    <td>Conflict Recall</td>
+                    <td class="metric-value">0.6600</td>
+                </tr>
+                <tr>
+                    <td>F1 Score</td>
+                    <td class="metric-value">0.6700</td>
+                </tr>
+                <tr>
+                    <td>Accuracy</td>
+                    <td class="metric-value">0.7100</td>
+                </tr>
+                <tr>
+                    <td>False Conflict Rate</td>
+                    <td class="metric-value">0.1200</td>
+                </tr>
+                <tr>
+                    <td>Missed Conflict Rate</td>
+                    <td class="metric-value">0.1000</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="metric-section">
+        <h2>Processing Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Average Processing Time</td>
+                    <td class="metric-value">0.0060 seconds</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Rule Intelligence Engine - RoBERTa Model Evaluation</p>
+        <p>All metrics computed on frozen test dataset with 201 examples</p>
+    </div>
+</body>
+</html>
