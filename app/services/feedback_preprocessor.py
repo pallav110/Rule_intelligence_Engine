@@ -18,6 +18,7 @@ import unicodedata
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from app.logging_config import preprocessing_logger
+from app.services.pii_masking import mask_feedback_text
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +188,7 @@ class FeedbackPreprocessor:
             }
         """
         preprocessing_logger.info("=== FEEDBACK PREPROCESSING START ===")
-        preprocessing_logger.info(f"Original feedback: {feedback_text}")
+        preprocessing_logger.info(f"Original feedback: {mask_feedback_text(feedback_text)}")
 
         # --- Build active vocabulary from domain pack (or fallback) ---
         domain_pack_id = (domain_context or {}).get("domain_pack_id")
@@ -262,7 +263,7 @@ class FeedbackPreprocessor:
         steps.append({"step": "language_normalization", "input": step9_input, "output": current_text, "changes": step9_changes})
         preprocessing_logger.info(f"Step 9 - Language normalization: {step9_changes}")
 
-        preprocessing_logger.info(f"Final processed text: {current_text}")
+        preprocessing_logger.info(f"Final processed text: {mask_feedback_text(current_text)}")
         preprocessing_logger.info("=== FEEDBACK PREPROCESSING COMPLETE ===")
 
         return {

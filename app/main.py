@@ -30,6 +30,7 @@ from app.schemas.feedback import (
 
 # Setup logging
 from app.logging_config import setup_logging, input_validation_logger
+from app.services.pii_masking import mask_feedback_text
 logger = setup_logging()
 
 from app.schemas.suggestion import (
@@ -269,7 +270,7 @@ def detect_domain_pack_endpoint(payload: FeedbackAnalysisRequest):
     # === INPUT VALIDATION LOGGING (8.1) ===
     input_validation_logger.info("=== DOMAIN PACK DETECTION - INPUT VALIDATION START ===")
     input_validation_logger.info(f"Workspace ID: {payload.workspace_id}")
-    input_validation_logger.info(f"Feedback length: {len(payload.feedback_text or '')} characters")
+    input_validation_logger.info(f"Feedback length: {len(payload.feedback_text or '')} characters (content masked for logging)")
     input_validation_logger.info("=== DOMAIN PACK DETECTION - INPUT VALIDATION COMPLETE ===")
 
     feedback_text = payload.feedback_text or ""
