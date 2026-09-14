@@ -6,8 +6,119 @@ classification with fallback to regex patterns if model unavailable.
 
 import re
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Rare-class pre-gates (Spec v0.2.0)
+# ---------------------------------------------------------------------------
+# Both classification engines saturate on the majority business_rule class:
+# the DistilBERT head was trained on starved rare-class seeds, and the regex
+# fallback assigns business_rule to almost every rule-shaped sentence.
+# issue_report / feature_request / question are non-actionable intents (their
+# seeds all carry is_actionable=False), so asserting them deterministically —
+# like the irrelevant_spam pre-filter — stops them leaking into business_rule
+# and then toward review routing. These frames are deliberately narrow: they
+# only fire on unambiguous lexical signals the annotated seeds actually use.
+# A rule-signal (exclude/include/should + a schema noun) yields to the model
+# ("trusted middle") so a real rule is never stolen. The rule-signal guard
+# does NOT apply to the question gate: an interrogative "should we exclude…?"
+# about rule semantics is exactly what the taxonomy calls a question
+# (requires_clarification), so gating it is the desired behavior.
+
+_RULE_SIGNAL_RE = re.compile(
+    r"\b(exclude|include|should|must|filter|count|sum|calculate)\b.{0,60}"
+    r"\b(order|record|transaction|invoice|revenue|subscription|ticket|report|"
+    r"refund|metric|column|table)\b",
+    re.IGNORECASE,
+)
+
+_FR_FRAMES = (
+    r"\bplease\s+(add|give|assign|create|notify|alert|show)\b",
+    r"\bkindly\s+(add|give)\b",
+    r"\bcan\s+we\s+get\b",
+    r"\bcould\s+(you|we)\s+(add|get|provide)\b",
+    r"\b(it|that)\s+would\s+be\s+(nice|helpful|great|good)\s+to\b",
+    r"\bwould\s+help\s+to\b",
+    r"\bplease\s+give\b.{0,40}\baccess\b",
+)
+
+_IR_FRAMES = (
+    r"\b(is|are|reads|shows|returns|counts?|renders?|loads?|opens?|landed\s+on)\s+"
+    r"\w{0,4}\s*(wrong|broken|overlapping|missing|stuck|slow|incorrect|off|blank)\b",
+    r"\b(seems?|looks?|appears?)\s+(to\s+be\s+)?(wrong|broken|missing|incorrect|stuck|slow|off)\b",
+    r"\bkeeps?\s+\w+ing\b",
+    r"\b\w+ing\s+to\s+the\s+wrong\b",
+    r"\b\w+ing\s+(very\s+)?slow(ly)?\b",
+    r"\bis\s+the\s+\w+\s+(count|value|number|metric)\s+(wrong|off|incorrect)\b",
+)
+
+# An issue report must name the thing that is broken (button/dashboard/email/
+# report/timer/count/…). This keeps "Orders that are missing" — which is rule
+# wording, not a UI bug — from being gated on "are missing" alone.
+_IR_ARTIFACT_RE = re.compile(
+    r"\b(button|dashboard|email|report|timer|invoice|count|metric|page|screen|"
+    r"table|filter|banner|chart|notification|backlog|sla|csat|tab|widget|"
+    r"checkbox|window|spinner|panel|console)\b",
+    re.IGNORECASE,
+)
+
+# Question gate requires a literal terminal "?" AND one of these interrogative
+# frames. Not subject to _RULE_SIGNAL_RE (see header comment).
+_Q_FRAMES = (
+    r"\bhow\s+(should|do|does|would|is|are)\b",
+    r"\bwhat\s+(does|counts\s+as|qualifies\s+as|is|defines|should)\b",
+    r"\bwhy\s+(is|does|do|are|would|should)\b",
+    r"\bclarify\s+whether\b",
+    r"\bwhether\b",
+    r"\bdoes\s+(?:[\w.]+\s+){0,4}(include|exclude|represent|count|mean|signify|track)\b",
+    r"\b(is|are)\s+(?:[\w.]+\s+){0,4}(inclusive|exclusive|counted|included|billed|part\s+of|subject\s+to)\b",
+    r"\bshould\s+we\s+(treat|exclude|include|count|filter|use)\b",
+    r"\bwhich\s+(applies|counts|should|one|rule)\b",
+    r"\bwhat\s+should\s+we\b",
+)
+
+_FR_RE = tuple(re.compile(p, re.IGNORECASE) for p in _FR_FRAMES)
+_IR_RE = tuple(re.compile(p, re.IGNORECASE) for p in _IR_FRAMES)
+_Q_RE = tuple(re.compile(p, re.IGNORECASE) for p in _Q_FRAMES)
+
+
+def rare_class_gate(feedback) -> Optional[dict]:
+    """Deterministically route an unambiguous non-actionable intent.
+
+    Returns a classification dict for feature_request / issue_report / question,
+    or None when the input is not clearly one of those (the model arbitrates).
+
+    Runs AFTER the spam/gibberish pre-filter and BEFORE any model — same
+    philosophy as the irrelevant_spam gate. Each returned dict carries
+    is_actionable=False so the pipeline routes it to N/A / clarification, never
+    to review as a rule.
+    """
+    if not feedback or not isinstance(feedback, str):
+        return None
+    text = feedback.lower().strip()
+    has_rule_signal = bool(_RULE_SIGNAL_RE.search(text))
+    if has_rule_signal and not any(p.search(text) for p in _FR_RE):
+        # Genuine rule wording with no feature-request frame -> leave to the
+        # model rather than risk stealing a real rule.
+        return None
+    if any(p.search(text) for p in _FR_RE):
+        return {"feedback_type": "feature_request", "rule_category": "none",
+                "is_actionable": False, "confidence": 0.9}
+    if _IR_ARTIFACT_RE.search(text) and any(p.search(text) for p in _IR_RE):
+        return {"feedback_type": "issue_report", "rule_category": "none",
+                "is_actionable": False, "confidence": 0.9}
+    # Question frame fires on an interrogative + terminal "?". The one
+    # exception: "clarify whether X is …" is unambiguous on its own and the
+    # annotated seeds for it (CS/SAAS colmean_002) don't end in a question mark,
+    # so that frame gates without requiring "?".
+    strong_q = bool(re.search(r"\bclarify\s+whether\b", text))
+    if strong_q or (text.endswith("?") and any(p.search(text) for p in _Q_RE)):
+        return {"feedback_type": "question", "rule_category": "none",
+                "is_actionable": False, "confidence": 0.9,
+                "requires_clarification": True}
+    return None
 
 
 class RealClassifier:
@@ -73,6 +184,14 @@ class RealClassifier:
                 "is_actionable": False,
                 "confidence": 0.95,
             }
+
+        # Rare-class pre-gate (after spam, before model): assert an unambiguous
+        # feature_request / issue_report / question deterministically. Without
+        # this, the starved-rare-class model and regex both collapse them into
+        # business_rule, and non-actionable intents leak toward rule routing.
+        gate = rare_class_gate(feedback)
+        if gate:
+            return gate
 
         if self.is_trained and self.model and not self._fallback_to_regex:
             result = self._classify_with_model(feedback)

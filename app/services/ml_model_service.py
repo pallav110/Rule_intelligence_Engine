@@ -250,6 +250,19 @@ class MLModelService:
                 "model_version": active["version"] if active else None,
                 "registry_status": "active_ml" if active else "no_active_model",
             }
+        # Rare-class pre-gate (after spam, before model): same deterministic
+        # override as RealClassifier.classify for feature_request /
+        # issue_report / question. The 5-class head has no reliable signal for
+        # these (starved seeds) and would collapse them into business_rule.
+        from app.services.classifier import rare_class_gate
+        gate = rare_class_gate(feedback)
+        if gate:
+            return {
+                **gate,
+                "model": "rare_class_gate",
+                "model_version_id": active["model_version_id"] if active else None,
+                "registry_status": "active_ml" if active else "no_active_model",
+            }
         # Try DistilBERT if ACTIVE model exists
         # (active already resolved above; re-use it to avoid a second registry query)
         if active:
