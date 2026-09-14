@@ -89,20 +89,20 @@ def run_evaluation_task(self, evaluation_run_id: str):
     from app.db.database import SessionLocal
     from app.db.models.evaluation_run import EvaluationRun
     from app.db.models.evaluation_metric import EvaluationMetric
-    
+
     db = SessionLocal()
     try:
         run = db.get(EvaluationRun, evaluation_run_id)
         if not run:
             return {"status": "failed", "error": "Not found"}
-        
+
         run.status = "running"
         run.started_at = datetime.utcnow()
         db.commit()
-        
+
         # Mock long-running evaluation ML
         time.sleep(2)
-        
+
         # Emit mock metrics
         db.add(EvaluationMetric(
             metric_id=str(uuid.uuid4()),
@@ -111,7 +111,7 @@ def run_evaluation_task(self, evaluation_run_id: str):
             metric_value=0.92,
             metric_details={}
         ))
-        
+
         db.add(EvaluationMetric(
             metric_id=str(uuid.uuid4()),
             evaluation_run_id=evaluation_run_id,
@@ -119,13 +119,13 @@ def run_evaluation_task(self, evaluation_run_id: str):
             metric_value=0.88,
             metric_details={"precision": 0.89, "recall": 0.87}
         ))
-        
+
         run.status = "completed"
         run.completed_at = datetime.utcnow()
         db.commit()
-        
+
         return {"status": "completed", "evaluation_run_id": evaluation_run_id}
-        
+
     except Exception as e:
         db.rollback()
         run = db.get(EvaluationRun, evaluation_run_id)
@@ -135,3 +135,25 @@ def run_evaluation_task(self, evaluation_run_id: str):
         raise
     finally:
         db.close()
+
+
+@celery_app.task(
+    name="retention.cleanup",
+    bind=True,
+)
+def retention_cleanup_task(self):
+    """
+    Periodic task to run data retention cleanup.
+    """
+    from app.services.retention_service import RetentionService
+
+    service = RetentionService()
+    result = service.run_retention_cleanup()
+
+    if not result.get("success"):
+        # Log the error but don't retry automatically for retention cleanup
+        # as it might be a configuration issue
+        logger = self.get_logger()
+        logger.error(f"Retention cleanup failed: {result.get('error')}")
+
+    return result

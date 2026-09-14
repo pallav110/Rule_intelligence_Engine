@@ -1,6 +1,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 
 REDIS_URL = os.getenv(
@@ -23,4 +24,11 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    beat_schedule={
+        # Run retention cleanup daily at 2:00 AM UTC
+        'retention-cleanup-daily': {
+            'task': 'retention.cleanup',
+            'schedule': crontab(hour=2, minute=0),
+        },
+    }
 )
