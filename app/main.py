@@ -90,6 +90,13 @@ from app.services.security import (
     Role,
     SecurityContext,
 )
+from app.services.rate_limiter import (
+    limit_feedback,
+    limit_batch,
+    limit_rules,
+    limit_reviews,
+    limit_auth,
+)
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.services.audit import write_audit, write_auth_event
 
@@ -138,7 +145,7 @@ if static_dir.exists():
 # --- Authentication & Authorization (Spec §10.1, §5.1) ---
 
 @app.post("/v1/auth/token", response_model=TokenResponse)
-def login_route(payload: LoginRequest, db=Depends(get_db)):
+def login_route(payload: LoginRequest, db=Depends(get_db), _: None = Depends(limit_auth)):
     """Exchange credentials + workspace for a signed access token.
 
     Authenticates the user against their workspace membership (§10.1 / §10.2),
@@ -413,6 +420,7 @@ def re_analyze_feedback(
     feedback_id: str,
     payload: dict,
     db=Depends(get_db),
+    _: None = Depends(limit_batch),
 ):
     """
     Re-analyze feedback with clarification response.
@@ -734,6 +742,7 @@ def activate_rule(
     payload: dict,
     db=Depends(get_db),
     _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+    _: None = Depends(limit_rules),
 ):
     """
     Activate a created rule and transition suggestion to RULE_ACTIVATED.
@@ -1341,6 +1350,7 @@ def analyze_feedback(
     request: Request,
     model: str = "active",
     db=Depends(get_db),
+    _: None = Depends(limit_feedback),
 ):
     """
     Analyze feedback through complete 8-step Phase 2 pipeline.
@@ -2174,6 +2184,7 @@ def respond_to_clarification_route(
 def create_review_route(
     payload: ReviewCreateRequest,
     db=Depends(get_db),
+    _: None = Depends(limit_reviews),
     _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     from app.db.models.review import Review
@@ -2216,6 +2227,7 @@ def get_review_route(
     review_id: str,
     db=Depends(get_db),
     _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
+    _: None = Depends(limit_reviews),
 ):
     from app.db.models.review import Review
 
@@ -2241,6 +2253,7 @@ def get_review_route(
 def complete_review_route(
     review_id: str,
     payload: ReviewCompleteRequest,
+    _: None = Depends(limit_reviews),
     db=Depends(get_db),
     _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
@@ -2277,6 +2290,7 @@ def complete_review_route(
 def assign_reviewer_route(
     review_id: str,
     payload: ReviewAssignRequest,
+    _: None = Depends(limit_reviews),
     db=Depends(get_db),
     _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):

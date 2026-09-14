@@ -58,6 +58,15 @@ services:
       # the insecure development default when ENV=production. Set it in .env
       # (gitignored) or export it before `docker compose up`.
       RIE_JWT_SECRET: ${RIE_JWT_SECRET:?RIE_JWT_SECRET must be set (see .env.example)}
+      # API rate limiting (Spec §10.3): feedback=100/h, batch=10/h, rules=20/h,
+      # reviews=200/h. Overridable per bucket via RIE_RATE_<BUCKET> and the
+      # window via RIE_RATE_WINDOW so deployments can tune without code changes.
+      RIE_RATE_WINDOW: ${RIE_RATE_WINDOW:-3600}
+      RIE_RATE_AUTH: ${RIE_RATE_AUTH:-30}
+      RIE_RATE_FEEDBACK: ${RIE_RATE_FEEDBACK:-100}
+      RIE_RATE_BATCH: ${RIE_RATE_BATCH:-10}
+      RIE_RATE_RULES: ${RIE_RATE_RULES:-20}
+      RIE_RATE_REVIEWS: ${RIE_RATE_REVIEWS:-200}
     volumes:
       - ./app:/app/app
       - ./app/static:/app/app/static
