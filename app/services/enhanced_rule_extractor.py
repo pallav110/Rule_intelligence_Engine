@@ -2,7 +2,7 @@
 
 import re
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 from app.services.glossary_service import get_glossary_service
 from app.services.rule_construction import compute_rule_family_id
@@ -18,6 +18,62 @@ class EnhancedRuleExtractor:
         self.schemas = {}  # Cache for schemas
         self.relationships = {}  # Cache for relationships
         self.taxonomies = {}  # Cache for taxonomies
+
+    # ------------------------------------------------------------------
+    # Condition-value vocabulary shared by candidate promotion (§8.4)
+    # ------------------------------------------------------------------
+
+    # Canonical status literals a promoted phrase must collapse onto. Mirrors
+    # the status-adjective map in main.py _infer_conditions_from_text so the
+    # baseline extractor emits the SAME clean value the inference step would.
+    _STATUS_VALUE_WORDS = {
+        "cancelled", "canceled", "completed", "pending", "refunded",
+        "successful", "failed", "processing", "active", "inactive", "returned",
+    }
+
+    _TABLE_NOUNS = {
+        "orders", "customers", "products", "payments", "invoices", "refunds",
+        "transactions", "subscriptions", "tickets", "organizations", "sessions",
+        "records", "purchases", "sales",
+    }
+
+    @staticmethod
+    def _clean_condition_value(phrase: str) -> Optional[str]:
+        """Collapse an unresolved candidate phrase to its core condition literal.
+
+        Leading/trailing status adjective or an explicit "status VALUE":
+            "cancelled orders across all stores for the last 30 days" -> "cancelled"
+            "orders cancelled"                                        -> "cancelled"
+            "status completed"                                        -> "completed"
+        Unresolvable noun phrases stay unresolved:
+            "promotional discounts" -> None        (not a clean literal)
+
+        A None return means the phrase must NOT be promoted to a condition:
+        it stays a candidate so existing inference / completeness / clarification
+        logic handles it. Over-capturing a whole sentence as the condition value
+        produced false conflicts against canonical rules (EC_R001's "cancelled"
+        vs "cancelled orders across all stores for the last 30 days").
+        """
+        if not phrase or not isinstance(phrase, str):
+            return None
+        tokens = [t.strip(".,;:!?()\"'") for t in phrase.lower().split()]
+        tokens = [t for t in tokens if t]
+        if not tokens:
+            return None
+        # Single token is already a clean literal value.
+        if len(tokens) == 1:
+            return tokens[0]
+        # Leading status adjective: "cancelled orders ..." -> "cancelled"
+        if tokens[0] in EnhancedRuleExtractor._STATUS_VALUE_WORDS:
+            return tokens[0]
+        # Trailing status adjective after a bare table noun: "orders cancelled" -> "cancelled"
+        if tokens[0] in EnhancedRuleExtractor._TABLE_NOUNS and tokens[-1] in EnhancedRuleExtractor._STATUS_VALUE_WORDS:
+            return tokens[-1]
+        # "status cancelled" -> "cancelled"
+        if tokens[0] == "status" and len(tokens) > 1 and tokens[1] in EnhancedRuleExtractor._STATUS_VALUE_WORDS:
+            return tokens[1]
+        # Anything else is a sentence fragment, not a condition value.
+        return None
 
     def _load_domain_config(self, domain_pack_id: str) -> Dict[str, Any]:
         """Load domain_config.json for domain pack."""
@@ -155,19 +211,27 @@ class EnhancedRuleExtractor:
 
             # Promote high-confidence candidate conditions to main conditions if main conditions are empty
             if not rule_conditions and candidate_conditions:
-                # Use candidates with confidence >= 0.7 as actual conditions
+                # Use candidates with confidence >= 0.7 as actual conditions —
+                # but ONLY when the phrase collapses to a clean canonical
+                # literal. A whole-sentence fragment ("cancelled orders across
+                # all stores for the last 30 days") must NOT become the
+                # condition value — it over-captured and produced false
+                # conflicts against canonical rules. Unpromotable phrases stay
+                # candidates and reach inference / clarification instead.
                 high_conf_candidates = [c for c in candidate_conditions if c.get("confidence", 0) >= 0.7]
                 if high_conf_candidates:
                     # Convert candidates to proper condition format
                     rule_conditions = []
                     for candidate in high_conf_candidates:
-                        # Extract field and value from candidate text if possible
+                        clean_value = self._clean_condition_value(candidate.get("text"))
+                        if clean_value is None:
+                            continue
+
                         text = candidate.get("text", "").lower()
 
                         # Infer table and field from feedback context
                         inferred_table = None
                         inferred_field = None
-                        inferred_value = text.strip()
 
                         # Extract table from feedback if mentioned
                         # Common tables: orders, customers, products, payments, etc.
@@ -176,33 +240,18 @@ class EnhancedRuleExtractor:
                                 inferred_table = table
                                 break
 
-                        # Common status/state fields
-                        if any(word in text for word in ["status", "cancelled", "active", "pending", "completed"]):
-                            if inferred_table:
-                                inferred_field = f"{inferred_table}.status"
-                            else:
-                                inferred_field = f"{term['term']}.status"
-                            inferred_value = text.replace("status ", "").strip()
-
-                            # Strip trailing entity/table nouns so the value matches the
-                            # canonical rule (e.g. "cancelled orders" -> "cancelled").
-                            # Single-token values like "refunds" are left untouched.
-                            value_words = inferred_value.split()
-                            if len(value_words) > 1:
-                                table_nouns = {
-                                    "orders", "customers", "products", "payments",
-                                    "invoices", "refunds", "transactions", "subscriptions",
-                                    "tickets", "organizations", "sessions", "records",
-                                }
-                                if value_words[-1].lower() in table_nouns:
-                                    inferred_value = " ".join(value_words[:-1])
+                        # Common status/state fields — a promoted status literal
+                        # maps onto <table>.status
+                        if any(w in text for w in EnhancedRuleExtractor._STATUS_VALUE_WORDS):
+                            inferred_field = f"{inferred_table or term['term']}.status"
 
                         rule_conditions.append({
                             "field": inferred_field or f"{inferred_table or term['term']}",
                             "operator": "equals",
-                            "value": inferred_value,
+                            "value": clean_value,
                             "inferred": True,
-                            "source": "promoted_candidate"
+                            "source": "promoted_candidate",
+                            "value_clean": True,
                         })
 
             # Extract affected entities from conditions first (explicit fields), then fall back to glossary
@@ -714,20 +763,44 @@ class EnhancedRuleExtractor:
 
         return "global"
 
-    def _extract_time_window(self, feedback: str) -> Dict[str, Any]:
-        """Extract time window from feedback."""
-        time_patterns = [
-            (r"\b(current|this|today|now)\b.*?\b(quarter|month|week|day)\b", "current"),
-            (r"\b(last|previous)\b.*?\b(quarter|month|week|day)\b", "previous"),
-            (r"\b(next|upcoming|future)\b.*?\b(quarter|month|week|day)\b", "future"),
+    def _extract_time_window(self, feedback: str) -> Optional[str]:
+        """Extract a normalized time window string from feedback text.
+
+        Ported from the DistilBERT token extractor so the baseline emits the
+        same convention ("last_30_days", "current_month", "ytd", ...).
+        Schema validation (§8.5 check 9) accepts null or such a string pattern —
+        a dict is neither and would fail validation, hence string-or-None.
+        """
+        fb = feedback.lower()
+
+        # Ordered by specificity — most specific first
+        patterns = [
+            (r"\blast\s+(\d+)\s+days?\b", lambda m: f"last_{m.group(1)}_days"),
+            (r"\blast\s+(\d+)\s+weeks?\b", lambda m: f"last_{m.group(1)}_weeks"),
+            (r"\blast\s+(\d+)\s+months?\b", lambda m: f"last_{m.group(1)}_months"),
+            (r"\b(current|this)\s+month\b", lambda _: "current_month"),
+            (r"\b(current|this)\s+quarter\b", lambda _: "current_quarter"),
+            (r"\b(current|this)\s+week\b", lambda _: "current_week"),
+            (r"\b(current|this)\s+year\b", lambda _: "current_year"),
+            (r"\b(previous|last)\s+month\b", lambda _: "previous_month"),
+            (r"\b(previous|last)\s+quarter\b", lambda _: "previous_quarter"),
+            (r"\b(previous|last)\s+year\b", lambda _: "previous_year"),
+            (r"\bytd\b|\byear\s+to\s+date\b", lambda _: "ytd"),
+            (r"\bmtd\b|\bmonth\s+to\s+date\b", lambda _: "mtd"),
+            (r"\bqtd\b|\bquarter\s+to\s+date\b", lambda _: "qtd"),
+            (r"\brolling\s+(\d+)\s+(days?|weeks?|months?)\b",
+             lambda m: f"rolling_{m.group(1)}_{m.group(2)}"),
+            (r"\btrailing\s+(\d+)\s+(days?|weeks?|months?)\b",
+             lambda m: f"trailing_{m.group(1)}_{m.group(2)}"),
+            (r"\btoday\b", lambda _: "today"),
+            (r"\byesterday\b", lambda _: "yesterday"),
         ]
 
-        for pattern, period in time_patterns:
-            if re.search(pattern, feedback, re.IGNORECASE):
-                return {"period": period}
+        for pattern, extractor in patterns:
+            match = re.search(pattern, fb)
+            if match:
+                return extractor(match)
 
-        # Schema validation (§8.5 check 9) accepts null or a string pattern; an
-        # empty dict is neither and would fail validation. Return None instead.
         return None
 
     def _extract_affected_entities(

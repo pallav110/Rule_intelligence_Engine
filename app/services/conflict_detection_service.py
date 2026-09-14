@@ -162,8 +162,11 @@ class ConflictDetector:
             return self.NO_CONFLICT, 0.0, details
 
         # 2. Scope overlap
-        new_scope = new_rule.get("scope", "").lower()
-        existing_scope = existing_rule.get("scope", "").lower()
+        # `.get("scope", "")` returns None when the key exists with a null
+        # value (extraction sometimes emits scope: null), so coerce with
+        # `or ""` to keep .lower() from crashing on None.
+        new_scope = (new_rule.get("scope") or "").lower()
+        existing_scope = (existing_rule.get("scope") or "").lower()
         details["scope_overlap"] = (
             new_scope == existing_scope or new_scope == "global" or existing_scope == "global"
         )
@@ -296,12 +299,20 @@ class ConflictDetector:
     def _find_contradictions(self, new_conditions: List[Dict], existing_conditions: List[Dict]) -> List[Dict]:
         contradictions = []
         for new_cond in new_conditions:
-            new_field = new_cond.get("field", "").lower()
-            new_operator = new_cond.get("operator", "").lower()
+            if not isinstance(new_cond, dict):
+                continue
+            # field/operator can be None (ML value-only conditions, and
+            # post-extraction cross-validation nulls unresolvable fields).
+            # `.get("field", "")` returns None when the key exists as null,
+            # so coerce with `or ""` to avoid a NoneType .lower() crash.
+            new_field = (new_cond.get("field") or "").lower()
+            new_operator = (new_cond.get("operator") or "").lower()
             new_value = new_cond.get("value")
             for existing_cond in existing_conditions:
-                existing_field = existing_cond.get("field", "").lower()
-                existing_operator = existing_cond.get("operator", "").lower()
+                if not isinstance(existing_cond, dict):
+                    continue
+                existing_field = (existing_cond.get("field") or "").lower()
+                existing_operator = (existing_cond.get("operator") or "").lower()
                 existing_value = existing_cond.get("value")
                 if self._fields_related(new_field, existing_field):
                     if self._operators_contradict(new_operator, new_value, existing_operator, existing_value):
@@ -328,18 +339,60 @@ class ConflictDetector:
         for pair in op_pairs:
             if (op1 == pair[0] and op2 == pair[1]) or (op1 == pair[1] and op2 == pair[0]):
                 return True
-        if op1 == "equals" and op2 == "equals" and val1 != val2:
+        # equals == equals is only a contradiction when the two values are
+        # DEFINITELY different. A value that is a phrase-superset of the other
+        # ("cancelled orders across all stores" vs "cancelled") is not proven
+        # contradictory — flagging it yields false conflicts — so treat it as
+        # equivalent rather than assume the extractor emitted pristine atoms.
+        if op1 == "equals" and op2 == "equals" and not ConflictDetector._values_equal(val1, val2):
             return True
         if op1 == "in" and op2 == "not_in":
             if isinstance(val1, list) and isinstance(val2, list):
-                return all(v in val2 for v in val1)
+                return all(ConflictDetector._values_equal(v, val2) for v in val1)
         return False
+
+    @staticmethod
+    def _values_equal(val1: Any, val2: Any) -> bool:
+        """Robust value equivalence used before declaring a contradiction.
+
+        Handles the common shapes that reach conflict detection:
+        * scalars (str/int/float/bool) — compared case-insensitively for text
+        * a multi-word string whose token set contains the other value, i.e.
+          phrase-superset values ("cancelled orders across all stores for the
+          last 30 days" ⊇ "cancelled") — treated as equivalent, not opposite
+        * equal-length lists (e.g. `in` values) compared element-wise
+        """
+        if val1 is None or val2 is None:
+            return val1 is val2  # only both-None counts as equal
+        if isinstance(val1, list) and isinstance(val2, list):
+            if len(val1) != len(val2):
+                return False
+            return all(ConflictDetector._values_equal(a, b) for a, b in zip(val1, val2))
+        if isinstance(val1, bool) and isinstance(val2, bool):
+            return val1 == val2
+        if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+            return val1 == val2
+        if isinstance(val1, str) and isinstance(val2, str):
+            a_tokens = [t for t in val1.strip().lower().split() if t]
+            b_tokens = [t for t in val2.strip().lower().split() if t]
+            if a_tokens == b_tokens:
+                return True
+            # Phrase-superset: a multi-word value whose token set contains the
+            # other SINGLE-token value — "cancelled orders across all stores for
+            # the last 30 days" ⊇ "cancelled". A single token must match a whole
+            # token (not a substring) so "active" ⊉ "inactive".
+            if len(a_tokens) > 1 and len(b_tokens) == 1 and b_tokens[0] in a_tokens:
+                return True
+            if len(b_tokens) > 1 and len(a_tokens) == 1 and a_tokens[0] in b_tokens:
+                return True
+            return False
+        return val1 == val2
 
     @staticmethod
     def _contradiction_reason(op1: str, val1: Any, op2: str, val2: Any) -> str:
         if op1 == "is_not_null" and op2 == "is_null":
             return "One requires field to be null, other requires non-null"
-        if op1 == "equals" and op2 == "equals" and val1 != val2:
+        if op1 == "equals" and op2 == "equals" and not ConflictDetector._values_equal(val1, val2):
             return f"Requires field to equal both {val1} and {val2}"
         if (op1 in ("greater_than", "greater_than_or_equal")) and (op2 in ("less_than", "less_than_or_equal")):
             return f"Requires field to be > {val1} and < {val2}"
