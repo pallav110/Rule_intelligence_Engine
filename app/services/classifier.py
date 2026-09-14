@@ -112,6 +112,10 @@ class RealClassifier:
             or non_alnum_ratio > 0.5  # More than 50% special chars = likely gibberish
             or (len(words) > 0 and not has_real_word and total_chars > 20)  # Long but no real words
             or self._is_keyboard_mash_run(words)
+            # Noise-token dominance: catches gibberish that smuggles real words
+            # ("xj29 revenue zzz qqq cancelled blahhh 9281 asdfgh") past the
+            # no-real-word and mash-run checks above.
+            or (len(words) >= 3 and sum(1 for w in words if self._noise_token(w)) >= len(words) / 2)
         )
 
     # QWERTY home rows. Real English words are rarely contiguous substrings of a
@@ -137,6 +141,21 @@ class RealClassifier:
             return False
         mash_count = sum(1 for w in words if RealClassifier._is_keyboard_mash(w))
         return mash_count >= 2 and mash_count >= len(words) / 2
+
+    @staticmethod
+    def _noise_token(word: str) -> bool:
+        """True if a token reads as gibberish on its own: keyboard-mash, a run of
+        3+ identical characters ("zzz", "qqq", "blahhh"), a letter+digit jumble
+        ("xj29"), or a standalone number of 3+ digits ("9281"). Real rule
+        phrasing rarely trips these — "30"/"90"/"US"/"order_id" are classed clean."""
+        w = word.strip(".,;:!?\"'()[]{}%$@#/\\|*^~=+-_")
+        return (
+            (not w)
+            or RealClassifier._is_keyboard_mash(w)
+            or bool(re.search(r"([a-zA-Z0-9])\1{2,}", w))
+            or (bool(re.search(r"[a-zA-Z]", w)) and bool(re.search(r"\d", w)))
+            or (w.isdigit() and len(w) >= 3)
+        )
 
     def _classify_with_model(self, feedback: str) -> Dict[str, Any]:
         """Classify using trained baseline model."""

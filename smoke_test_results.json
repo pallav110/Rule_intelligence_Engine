@@ -1,14 +1,14 @@
 {
   "meta": {
     "total": 45,
-    "time": "2026-09-11 13:14:50"
+    "time": "2026-09-14 10:59:43"
   },
   "cases": [
     {
       "id": 1,
       "feedback": "Revenue should exclude cancelled orders.",
       "production": {
-        "time_s": 0.703,
+        "time_s": 0.357,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -16,11 +16,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5126548409461975,
-          "operation": 0.5126548409461975,
-          "conditions": 0.5126548409461975,
-          "scope": 0.5126548409461975,
-          "affected_entities": 0.5126548409461975
+          "business_term": 0.6848810315132141,
+          "operation": 0.6848810315132141,
+          "conditions": 0.6848810315132141,
+          "scope": 0.6848810315132141,
+          "affected_entities": 0.6848810315132141
         },
         "rules": [
           {
@@ -32,7 +32,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5126548409461975
+                "confidence": 0.6848810315132141
               }
             ],
             "time_window": null,
@@ -81,11 +81,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.167,
+        "time_s": 0.037,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.653,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -105,7 +105,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -142,7 +143,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.653,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.405,
@@ -158,7 +159,7 @@
       "id": 2,
       "feedback": "Revenue must include completed payments only.",
       "production": {
-        "time_s": 0.62,
+        "time_s": 0.378,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -166,11 +167,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4789954721927643,
-          "operation": 0.4789954721927643,
-          "conditions": 0.4789954721927643,
-          "scope": 0.4789954721927643,
-          "affected_entities": 0.4789954721927643
+          "business_term": 0.6315326690673828,
+          "operation": 0.6315326690673828,
+          "conditions": 0.6315326690673828,
+          "scope": 0.6315326690673828,
+          "affected_entities": 0.6315326690673828
         },
         "rules": [
           {
@@ -182,7 +183,7 @@
                 "operator": "EQUALS",
                 "value": "completed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.4789954721927643
+                "confidence": 0.6315326690673828
               }
             ],
             "time_window": null,
@@ -231,7 +232,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.105,
+        "time_s": 0.037,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -253,9 +254,10 @@
               {
                 "field": "payments.status",
                 "operator": "equals",
-                "value": "completed payments only",
+                "value": "completed",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -308,7 +310,7 @@
       "id": 3,
       "feedback": "Refunds should be excluded from the total revenue.",
       "production": {
-        "time_s": 0.573,
+        "time_s": 0.315,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -316,11 +318,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4371992349624634,
-          "operation": 0.4371992349624634,
-          "conditions": 0.4371992349624634,
-          "scope": 0.4371992349624634,
-          "affected_entities": 0.4371992349624634
+          "business_term": 0.545545220375061,
+          "operation": 0.545545220375061,
+          "conditions": 0.545545220375061,
+          "scope": 0.545545220375061,
+          "affected_entities": 0.545545220375061
         },
         "rules": [
           {
@@ -328,7 +330,9 @@
             "operation": "EXCLUDE",
             "conditions": [],
             "time_window": null,
-            "affected_tables": [],
+            "affected_tables": [
+              "refunds"
+            ],
             "affected_columns": []
           }
         ],
@@ -369,7 +373,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.078,
+        "time_s": 0.036,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -377,25 +381,17 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
         },
         "rules": [
           {
             "business_term": "revenue",
             "operation": "exclude",
-            "conditions": [
-              {
-                "field": "refunds",
-                "operator": "equals",
-                "value": "from the total revenue",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
+            "conditions": [],
             "time_window": null,
             "affected_tables": [
               "payments",
@@ -404,45 +400,43 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
         "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.909,
-          "errors": [
-            "Field must be qualified: table.column (got: refunds)"
-          ]
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
         },
         "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
+          "is_duplicate": true,
+          "relationship": "Semantic Duplicate",
+          "confidence": 0.8,
+          "matching_rule_id": "EC_R012"
         },
         "conflict": {
           "has_conflict": false,
           "conflict_type": "No Conflict",
           "severity": null
         },
-        "clarification_required": false,
+        "clarification_required": true,
         "routing": {
           "review_status": "senior_review_required",
           "priority": "urgent",
-          "reason": "Sensitive business rule detected (score=0.8)",
+          "reason": "Sensitive business rule detected (score=0.6)",
           "suggested_reviewer_type": "senior_reviewer",
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
             "confidence_score": 0.9,
             "impact_score": 0.8,
-            "complexity_score": 0.4,
-            "risk_score": 0.12,
+            "complexity_score": 0.3,
+            "risk_score": 0.39,
             "factors": [
-              "Sensitive business rule detected (score=0.8)"
+              "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
@@ -453,7 +447,7 @@
       "id": 4,
       "feedback": "Orders with status pending should not be counted in revenue.",
       "production": {
-        "time_s": 0.734,
+        "time_s": 0.309,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -461,11 +455,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.6250349283218384,
-          "operation": 0.6250349283218384,
-          "conditions": 0.6250349283218384,
-          "scope": 0.6250349283218384,
-          "affected_entities": 0.6250349283218384
+          "business_term": 0.7186091542243958,
+          "operation": 0.7186091542243958,
+          "conditions": 0.7186091542243958,
+          "scope": 0.7186091542243958,
+          "affected_entities": 0.7186091542243958
         },
         "rules": [
           {
@@ -477,7 +471,7 @@
                 "operator": "EQUALS",
                 "value": "pending",
                 "extraction_method": "explicit_field_value",
-                "confidence": 0.6250349283218384
+                "confidence": 0.7186091542243958
               }
             ],
             "time_window": null,
@@ -526,7 +520,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.086,
+        "time_s": 0.043,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -553,9 +547,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -600,7 +594,7 @@
       "id": 5,
       "feedback": "Only successful payments should contribute to total revenue.",
       "production": {
-        "time_s": 0.681,
+        "time_s": 0.314,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -608,11 +602,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4409465193748474,
-          "operation": 0.4409465193748474,
-          "conditions": 0.4409465193748474,
-          "scope": 0.4409465193748474,
-          "affected_entities": 0.4409465193748474
+          "business_term": 0.6432785987854004,
+          "operation": 0.6432785987854004,
+          "conditions": 0.6432785987854004,
+          "scope": 0.6432785987854004,
+          "affected_entities": 0.6432785987854004
         },
         "rules": [
           {
@@ -623,16 +617,17 @@
                 "field": "payments.status",
                 "operator": "EQUALS",
                 "value": "successful",
-                "type": "inferred",
-                "confidence": 0.8,
-                "source": "status adjective pattern: 'successful payments'"
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6432785987854004
               }
             ],
             "time_window": null,
             "affected_tables": [
               "payments"
             ],
-            "affected_columns": []
+            "affected_columns": [
+              "payments.status"
+            ]
           }
         ],
         "validation": {
@@ -672,7 +667,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.089,
+        "time_s": 0.042,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -708,9 +703,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -755,7 +750,7 @@
       "id": 6,
       "feedback": "Customer lifetime value should include all completed purchases.",
       "production": {
-        "time_s": 0.563,
+        "time_s": 0.321,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -763,11 +758,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5475602149963379,
-          "operation": 0.5475602149963379,
-          "conditions": 0.5475602149963379,
-          "scope": 0.5475602149963379,
-          "affected_entities": 0.5475602149963379
+          "business_term": 0.676933228969574,
+          "operation": 0.676933228969574,
+          "conditions": 0.676933228969574,
+          "scope": 0.676933228969574,
+          "affected_entities": 0.676933228969574
         },
         "rules": [
           {
@@ -779,7 +774,7 @@
                 "operator": "EQUALS",
                 "value": "completed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5475602149963379
+                "confidence": 0.676933228969574
               }
             ],
             "time_window": null,
@@ -831,7 +826,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.074,
+        "time_s": 0.034,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -839,11 +834,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.8,
-          "operation": 0.8,
-          "conditions": 0.8,
-          "scope": 0.8,
-          "affected_entities": 0.8
+          "business_term": 0.7,
+          "operation": 0.7,
+          "conditions": 0.7,
+          "scope": 0.7,
+          "affected_entities": 0.7
         },
         "rules": [
           {
@@ -851,12 +846,12 @@
             "operation": "include",
             "conditions": [
               {
-                "field": null,
-                "operator": "equals",
-                "value": "all completed purchases",
-                "inferred": true,
-                "source": "promoted_candidate",
-                "needs_clarification": true
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "completed",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'completed purchases'"
               }
             ],
             "time_window": null,
@@ -880,7 +875,7 @@
           "conflict_type": "No Conflict",
           "severity": null
         },
-        "clarification_required": true,
+        "clarification_required": false,
         "routing": {
           "review_status": "mandatory_manual_review",
           "priority": "urgent",
@@ -905,19 +900,19 @@
       "id": 7,
       "feedback": "Returned products must be excluded from sales calculations.",
       "production": {
-        "time_s": 0.757,
+        "time_s": 0.296,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
+          "rule_category": "filter_rule",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5295198559761047,
-          "operation": 0.5295198559761047,
-          "conditions": 0.5295198559761047,
-          "scope": 0.5295198559761047,
-          "affected_entities": 0.5295198559761047
+          "business_term": 0.5491172075271606,
+          "operation": 0.5491172075271606,
+          "conditions": 0.5491172075271606,
+          "scope": 0.5491172075271606,
+          "affected_entities": 0.5491172075271606
         },
         "rules": [
           {
@@ -934,9 +929,7 @@
               }
             ],
             "time_window": null,
-            "affected_tables": [
-              "products"
-            ],
+            "affected_tables": [],
             "affected_columns": []
           }
         ],
@@ -980,7 +973,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.086,
+        "time_s": 0.055,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -988,11 +981,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
         },
         "rules": [
           {
@@ -1000,22 +993,23 @@
             "operation": "exclude",
             "conditions": [
               {
-                "field": "products",
-                "operator": "equals",
-                "value": "from sales calculations",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "field": "products.is_active",
+                "operator": "EQUALS",
+                "value": "false",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'returned products'"
               }
             ],
             "time_window": null,
             "affected_tables": [
-              "order_items",
-              "products"
+              "products",
+              "order_items"
             ],
             "affected_columns": [
+              "products.name",
               "products.product_id",
               "products.category",
-              "products.name",
               "products.is_active"
             ]
           }
@@ -1061,7 +1055,7 @@
       "id": 8,
       "feedback": "Revenue should include orders created in the current month.",
       "production": {
-        "time_s": 0.608,
+        "time_s": 0.309,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1069,11 +1063,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4852408170700073,
-          "operation": 0.4852408170700073,
-          "conditions": 0.4852408170700073,
-          "scope": 0.4852408170700073,
-          "affected_entities": 0.4852408170700073
+          "business_term": 0.5587500929832458,
+          "operation": 0.5587500929832458,
+          "conditions": 0.5587500929832458,
+          "scope": 0.5587500929832458,
+          "affected_entities": 0.5587500929832458
         },
         "rules": [
           {
@@ -1090,7 +1084,9 @@
               }
             ],
             "time_window": null,
-            "affected_tables": [],
+            "affected_tables": [
+              "orders"
+            ],
             "affected_columns": []
           }
         ],
@@ -1131,7 +1127,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.144,
+        "time_s": 0.049,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1139,11 +1135,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.8,
-          "operation": 0.8,
-          "conditions": 0.8,
-          "scope": 0.8,
-          "affected_entities": 0.8
+          "business_term": 0.7,
+          "operation": 0.7,
+          "conditions": 0.7,
+          "scope": 0.7,
+          "affected_entities": 0.7
         },
         "rules": [
           {
@@ -1151,11 +1147,12 @@
             "operation": "include",
             "conditions": [
               {
-                "field": "orders",
-                "operator": "equals",
-                "value": "orders created_at in the current monthly",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "field": "orders.order_date",
+                "operator": "EQUALS",
+                "value": "current_month",
+                "type": "inferred",
+                "confidence": 0.75,
+                "source": "time window pattern: 'current month'"
               }
             ],
             "time_window": null,
@@ -1166,18 +1163,16 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
         "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.909,
-          "errors": [
-            "Field must be qualified: table.column (got: orders)"
-          ]
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
@@ -1215,7 +1210,7 @@
       "id": 9,
       "feedback": "Do not consider cancelled orders when calculating revenue.",
       "production": {
-        "time_s": 0.693,
+        "time_s": 0.299,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1223,11 +1218,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5543448328971863,
-          "operation": 0.5543448328971863,
-          "conditions": 0.5543448328971863,
-          "scope": 0.5543448328971863,
-          "affected_entities": 0.5543448328971863
+          "business_term": 0.7009670734405518,
+          "operation": 0.7009670734405518,
+          "conditions": 0.7009670734405518,
+          "scope": 0.7009670734405518,
+          "affected_entities": 0.7009670734405518
         },
         "rules": [
           {
@@ -1239,7 +1234,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5543448328971863
+                "confidence": 0.7009670734405518
               }
             ],
             "time_window": null,
@@ -1288,7 +1283,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.129,
+        "time_s": 0.037,
         "classification": {
           "feedback_type": "question",
           "rule_category": "metric_definition",
@@ -1296,11 +1291,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.8400000000000001,
+          "operation": 0.8400000000000001,
+          "conditions": 0.8400000000000001,
+          "scope": 0.8400000000000001,
+          "affected_entities": 0.8400000000000001
         },
         "rules": [
           {
@@ -1308,11 +1303,12 @@
             "operation": "exclude",
             "conditions": [
               {
-                "field": "orders",
-                "operator": "equals",
-                "value": "calculating revenue",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'cancelled orders'"
               }
             ],
             "time_window": null,
@@ -1323,9 +1319,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -1370,7 +1366,7 @@
       "id": 10,
       "feedback": "Cancelled purchases shouldn't contribute to revenue.",
       "production": {
-        "time_s": 0.664,
+        "time_s": 0.506,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1378,11 +1374,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.47245368361473083,
-          "operation": 0.47245368361473083,
-          "conditions": 0.47245368361473083,
-          "scope": 0.47245368361473083,
-          "affected_entities": 0.47245368361473083
+          "business_term": 0.7251183986663818,
+          "operation": 0.7251183986663818,
+          "conditions": 0.7251183986663818,
+          "scope": 0.7251183986663818,
+          "affected_entities": 0.7251183986663818
         },
         "rules": [
           {
@@ -1445,7 +1441,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.126,
+        "time_s": 0.041,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1481,9 +1477,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -1528,7 +1524,7 @@
       "id": 11,
       "feedback": "When computing revenue, ignore orders that were cancelled.",
       "production": {
-        "time_s": 0.763,
+        "time_s": 0.32,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1536,15 +1532,15 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5516036152839661,
-          "operation": 0.5516036152839661,
-          "conditions": 0.5516036152839661,
-          "scope": 0.5516036152839661,
-          "affected_entities": 0.5516036152839661
+          "business_term": 0.6186315417289734,
+          "operation": 0.6186315417289734,
+          "conditions": 0.6186315417289734,
+          "scope": 0.6186315417289734,
+          "affected_entities": 0.6186315417289734
         },
         "rules": [
           {
-            "business_term": "Orders",
+            "business_term": "revenue",
             "operation": "EXCLUDE",
             "conditions": [
               {
@@ -1581,11 +1577,11 @@
         },
         "clarification_required": false,
         "routing": {
-          "review_status": "auto_approved",
-          "priority": "auto_approve",
-          "reason": "High confidence in classification; Low complexity; No conflicts detected; No duplicates detected",
-          "suggested_reviewer_type": "automated",
-          "suggested_reviewer_id": "system:auto_approve",
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": true,
           "reasoning": {
             "confidence_score": 1.0,
@@ -1593,17 +1589,14 @@
             "complexity_score": 0.3,
             "risk_score": 0.09,
             "factors": [
-              "High confidence in classification",
-              "Low complexity",
-              "No conflicts detected",
-              "No duplicates detected"
+              "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
-        "_routing_status": "auto_approved"
+        "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.122,
+        "time_s": 0.036,
         "classification": {
           "feedback_type": "question",
           "rule_category": "metric_definition",
@@ -1611,11 +1604,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.8400000000000001,
+          "operation": 0.8400000000000001,
+          "conditions": 0.8400000000000001,
+          "scope": 0.8400000000000001,
+          "affected_entities": 0.8400000000000001
         },
         "rules": [
           {
@@ -1624,18 +1617,24 @@
             "conditions": [
               {
                 "field": "orders.status",
-                "operator": "equals",
-                "value": "computing revenue, ignore orders that were cancelled",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "that+status pattern: 'orders that were cancelled'"
               }
             ],
             "time_window": null,
             "affected_tables": [
+              "payments",
               "orders"
             ],
             "affected_columns": [
-              "orders.status"
+              "orders.is_test",
+              "orders.status",
+              "payments.amount",
+              "payments.status",
+              "orders.total_amount"
             ]
           }
         ],
@@ -1651,8 +1650,8 @@
           "matching_rule_id": null
         },
         "conflict": {
-          "has_conflict": true,
-          "conflict_type": "Conflict",
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
           "severity": null
         },
         "clarification_required": false,
@@ -1666,8 +1665,8 @@
           "reasoning": {
             "confidence_score": 0.3,
             "impact_score": 0.8,
-            "complexity_score": 0.35,
-            "risk_score": 0.505,
+            "complexity_score": 0.4,
+            "risk_score": 0.12,
             "factors": [
               "Mandatory schema validation failed: route for manual review"
             ]
@@ -1680,19 +1679,19 @@
       "id": 12,
       "feedback": "Revenue calculations need to leave out cancelled transactions.",
       "production": {
-        "time_s": 0.942,
+        "time_s": 0.316,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
+          "rule_category": "filter_rule",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5528503656387329,
-          "operation": 0.5528503656387329,
-          "conditions": 0.5528503656387329,
-          "scope": 0.5528503656387329,
-          "affected_entities": 0.5528503656387329
+          "business_term": 0.6065698266029358,
+          "operation": 0.6065698266029358,
+          "conditions": 0.6065698266029358,
+          "scope": 0.6065698266029358,
+          "affected_entities": 0.6065698266029358
         },
         "rules": [
           {
@@ -1704,7 +1703,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5528503656387329
+                "confidence": 0.6065698266029358
               }
             ],
             "time_window": null,
@@ -1753,7 +1752,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.121,
+        "time_s": 0.036,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1780,9 +1779,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -1827,7 +1826,7 @@
       "id": 13,
       "feedback": "Only orders that successfully went through should be counted toward revenue.",
       "production": {
-        "time_s": 0.907,
+        "time_s": 0.469,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1835,11 +1834,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5090303421020508,
-          "operation": 0.5090303421020508,
-          "conditions": 0.5090303421020508,
-          "scope": 0.5090303421020508,
-          "affected_entities": 0.5090303421020508
+          "business_term": 0.624507486820221,
+          "operation": 0.624507486820221,
+          "conditions": 0.624507486820221,
+          "scope": 0.624507486820221,
+          "affected_entities": 0.624507486820221
         },
         "rules": [
           {
@@ -1851,7 +1850,7 @@
                 "operator": "EQUALS",
                 "value": "successful",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5090303421020508
+                "confidence": 0.624507486820221
               }
             ],
             "time_window": null,
@@ -1900,7 +1899,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.123,
+        "time_s": 0.05,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1927,9 +1926,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -1974,19 +1973,19 @@
       "id": 14,
       "feedback": "Revenue must not account for refunded purchases.",
       "production": {
-        "time_s": 0.687,
+        "time_s": 0.347,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
+          "rule_category": "metric_definition",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4633495807647705,
-          "operation": 0.4633495807647705,
-          "conditions": 0.4633495807647705,
-          "scope": 0.4633495807647705,
-          "affected_entities": 0.4633495807647705
+          "business_term": 0.572637677192688,
+          "operation": 0.572637677192688,
+          "conditions": 0.572637677192688,
+          "scope": 0.572637677192688,
+          "affected_entities": 0.572637677192688
         },
         "rules": [
           {
@@ -2003,7 +2002,10 @@
               }
             ],
             "time_window": null,
-            "affected_tables": [],
+            "affected_tables": [
+              "orders",
+              "refunds"
+            ],
             "affected_columns": []
           }
         ],
@@ -2044,7 +2046,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.079,
+        "time_s": 0.039,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2080,9 +2082,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -2127,7 +2129,7 @@
       "id": 15,
       "feedback": "Revenue should exclude cancelled orders from the US.",
       "production": {
-        "time_s": 0.706,
+        "time_s": 0.288,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2135,11 +2137,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.43776315450668335,
-          "operation": 0.43776315450668335,
-          "conditions": 0.43776315450668335,
-          "scope": 0.43776315450668335,
-          "affected_entities": 0.43776315450668335
+          "business_term": 0.535818338394165,
+          "operation": 0.535818338394165,
+          "conditions": 0.535818338394165,
+          "scope": 0.535818338394165,
+          "affected_entities": 0.535818338394165
         },
         "rules": [
           {
@@ -2151,7 +2153,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.43776315450668335
+                "confidence": 0.535818338394165
               }
             ],
             "time_window": null,
@@ -2200,11 +2202,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.067,
+        "time_s": 0.031,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.653,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -2224,7 +2226,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -2261,7 +2264,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.653,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.405,
@@ -2277,7 +2280,7 @@
       "id": 16,
       "feedback": "Revenue should exclude cancelled orders created in the current month.",
       "production": {
-        "time_s": 0.73,
+        "time_s": 0.3,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2285,11 +2288,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5576850771903992,
-          "operation": 0.5576850771903992,
-          "conditions": 0.5576850771903992,
-          "scope": 0.5576850771903992,
-          "affected_entities": 0.5576850771903992
+          "business_term": 0.5697108507156372,
+          "operation": 0.5697108507156372,
+          "conditions": 0.5697108507156372,
+          "scope": 0.5697108507156372,
+          "affected_entities": 0.5697108507156372
         },
         "rules": [
           {
@@ -2301,7 +2304,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5576850771903992
+                "confidence": 0.5697108507156372
               }
             ],
             "time_window": null,
@@ -2350,11 +2353,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.09,
+        "time_s": 0.038,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.643,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -2372,13 +2375,100 @@
               {
                 "field": "orders.status",
                 "operator": "equals",
-                "value": "cancelled orders created_at in the current monthly",
+                "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
             "affected_tables": [
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.status"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
+        },
+        "duplicate": {
+          "is_duplicate": true,
+          "relationship": "Exact Duplicate",
+          "confidence": 0.99,
+          "matching_rule_id": "EC_R001"
+        },
+        "conflict": {
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
+          "severity": null
+        },
+        "clarification_required": false,
+        "routing": {
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
+          "auto_approval_eligible": false,
+          "reasoning": {
+            "confidence_score": 0.643,
+            "impact_score": 0.8,
+            "complexity_score": 0.35,
+            "risk_score": 0.405,
+            "factors": [
+              "Sensitive business rule detected (score=0.6)"
+            ]
+          }
+        },
+        "_routing_status": "senior_review_required"
+      }
+    },
+    {
+      "id": 17,
+      "feedback": "Only completed orders from premium customers should contribute to revenue.",
+      "production": {
+        "time_s": 0.315,
+        "classification": {
+          "feedback_type": "business_rule",
+          "rule_category": "filter_rule",
+          "confidence": 1.0,
+          "is_actionable": true
+        },
+        "extraction_confidence": {
+          "business_term": 0.6178069114685059,
+          "operation": 0.6178069114685059,
+          "conditions": 0.6178069114685059,
+          "scope": 0.6178069114685059,
+          "affected_entities": 0.6178069114685059
+        },
+        "rules": [
+          {
+            "business_term": "revenue",
+            "operation": "EXCLUDE",
+            "conditions": [
+              {
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "completed",
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6178069114685059
+              },
+              {
+                "field": null,
+                "operator": "EQUALS",
+                "value": "premium",
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6178069114685059,
+                "needs_clarification": true
+              }
+            ],
+            "time_window": null,
+            "affected_tables": [
+              "customers",
               "orders"
             ],
             "affected_columns": [
@@ -2402,7 +2492,7 @@
           "conflict_type": "Conflict",
           "severity": null
         },
-        "clarification_required": false,
+        "clarification_required": true,
         "routing": {
           "review_status": "senior_review_required",
           "priority": "urgent",
@@ -2411,99 +2501,19 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 1.0,
             "impact_score": 0.8,
-            "complexity_score": 0.35,
-            "risk_score": 0.505,
+            "complexity_score": 0.4,
+            "risk_score": 0.52,
             "factors": [
               "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
         "_routing_status": "senior_review_required"
-      }
-    },
-    {
-      "id": 17,
-      "feedback": "Only completed orders from premium customers should contribute to revenue.",
-      "production": {
-        "time_s": 0.691,
-        "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
-          "confidence": 1.0,
-          "is_actionable": true
-        },
-        "extraction_confidence": {
-          "business_term": 0.43399375677108765,
-          "operation": 0.43399375677108765,
-          "conditions": 0.43399375677108765,
-          "scope": 0.43399375677108765,
-          "affected_entities": 0.43399375677108765
-        },
-        "rules": [
-          {
-            "business_term": "Customers",
-            "operation": "INCLUDE",
-            "conditions": [
-              {
-                "field": "orders.status",
-                "operator": "EQUALS",
-                "value": "completed",
-                "type": "inferred",
-                "confidence": 0.8,
-                "source": "status adjective pattern: 'completed orders'"
-              }
-            ],
-            "time_window": null,
-            "affected_tables": [
-              "customers",
-              "orders"
-            ],
-            "affected_columns": []
-          }
-        ],
-        "validation": {
-          "status": "PASS",
-          "coverage": 1.0,
-          "errors": []
-        },
-        "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
-        },
-        "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
-          "severity": null
-        },
-        "clarification_required": false,
-        "routing": {
-          "review_status": "auto_approved",
-          "priority": "auto_approve",
-          "reason": "High confidence in classification; Low complexity; No conflicts detected; No duplicates detected",
-          "suggested_reviewer_type": "automated",
-          "suggested_reviewer_id": "system:auto_approve",
-          "auto_approval_eligible": true,
-          "reasoning": {
-            "confidence_score": 1.0,
-            "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.09,
-            "factors": [
-              "High confidence in classification",
-              "Low complexity",
-              "No conflicts detected",
-              "No duplicates detected"
-            ]
-          }
-        },
-        "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.139,
+        "time_s": 0.039,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2539,9 +2549,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -2586,19 +2596,19 @@
       "id": 18,
       "feedback": "Exclude refunded orders where the payment method is cash.",
       "production": {
-        "time_s": 0.623,
+        "time_s": 0.404,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "join_rule",
+          "rule_category": "data_quality_rule",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.48044687509536743,
-          "operation": 0.48044687509536743,
-          "conditions": 0.48044687509536743,
-          "scope": 0.48044687509536743,
-          "affected_entities": 0.48044687509536743
+          "business_term": 0.6321333646774292,
+          "operation": 0.6321333646774292,
+          "conditions": 0.6321333646774292,
+          "scope": 0.6321333646774292,
+          "affected_entities": 0.6321333646774292
         },
         "rules": [
           {
@@ -2666,7 +2676,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.083,
+        "time_s": 0.052,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2742,7 +2752,7 @@
       "id": 19,
       "feedback": "Revenue should include completed orders but exclude refunded orders.",
       "production": {
-        "time_s": 0.666,
+        "time_s": 0.286,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2750,11 +2760,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5184049606323242,
-          "operation": 0.5184049606323242,
-          "conditions": 0.5184049606323242,
-          "scope": 0.5184049606323242,
-          "affected_entities": 0.5184049606323242
+          "business_term": 0.6238072514533997,
+          "operation": 0.6238072514533997,
+          "conditions": 0.6238072514533997,
+          "scope": 0.6238072514533997,
+          "affected_entities": 0.6238072514533997
         },
         "rules": [
           {
@@ -2766,7 +2776,7 @@
                 "operator": "EQUALS",
                 "value": "completed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5184049606323242
+                "confidence": 0.6238072514533997
               }
             ],
             "time_window": null,
@@ -2815,11 +2825,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.074,
+        "time_s": 0.043,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
-          "confidence": 0.614,
+          "rule_category": "metric_definition",
+          "confidence": 0.9,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -2835,18 +2845,12 @@
             "operation": "exclude",
             "conditions": [
               {
-                "field": "orders",
-                "operator": "equals",
-                "value": "refund orders",
-                "inferred": true,
-                "source": "promoted_candidate"
-              },
-              {
                 "field": "orders.status",
                 "operator": "equals",
-                "value": "completed orders but exclude refund",
+                "value": "completed",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -2859,11 +2863,9 @@
           }
         ],
         "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.9,
-          "errors": [
-            "Field must be qualified: table.column (got: orders)"
-          ]
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
@@ -2885,10 +2887,10 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.614,
+            "confidence_score": 0.9,
             "impact_score": 0.8,
-            "complexity_score": 0.45,
-            "risk_score": 0.535,
+            "complexity_score": 0.35,
+            "risk_score": 0.505,
             "factors": [
               "Sensitive business rule detected (score=0.6)"
             ]
@@ -2901,19 +2903,19 @@
       "id": 20,
       "feedback": "Do not count cancelled orders or failed payments when calculating revenue.",
       "production": {
-        "time_s": 0.561,
+        "time_s": 0.31,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
+          "rule_category": "filter_rule",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.558597207069397,
-          "operation": 0.558597207069397,
-          "conditions": 0.558597207069397,
-          "scope": 0.558597207069397,
-          "affected_entities": 0.558597207069397
+          "business_term": 0.6893692016601562,
+          "operation": 0.6893692016601562,
+          "conditions": 0.6893692016601562,
+          "scope": 0.6893692016601562,
+          "affected_entities": 0.6893692016601562
         },
         "rules": [
           {
@@ -2925,14 +2927,14 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.558597207069397
+                "confidence": 0.6893692016601562
               },
               {
                 "field": "payments.status",
                 "operator": "EQUALS",
                 "value": "failed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.558597207069397
+                "confidence": 0.6893692016601562
               }
             ],
             "time_window": null,
@@ -2983,19 +2985,19 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.085,
+        "time_s": 0.041,
         "classification": {
-          "feedback_type": "question",
+          "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.3,
-          "is_actionable": false
+          "confidence": 0.606,
+          "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.8400000000000001,
+          "operation": 0.8400000000000001,
+          "conditions": 0.8400000000000001,
+          "scope": 0.8400000000000001,
+          "affected_entities": 0.8400000000000001
         },
         "rules": [
           {
@@ -3003,11 +3005,20 @@
             "operation": "exclude",
             "conditions": [
               {
-                "field": "orders",
-                "operator": "equals",
-                "value": "calculating revenue",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'cancelled orders'"
+              },
+              {
+                "field": "payments.status",
+                "operator": "EQUALS",
+                "value": "failed",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'failed payments'"
               }
             ],
             "time_window": null,
@@ -3018,54 +3029,54 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
         "validation": {
-          "status": "N/A",
-          "coverage": 0.0,
+          "status": "PASS",
+          "coverage": 1.0,
           "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
+          "relationship": "Modification",
+          "confidence": 0.375,
+          "matching_rule_id": "EC_R001"
         },
         "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
+          "has_conflict": true,
+          "conflict_type": "Conflict",
           "severity": null
         },
         "clarification_required": false,
         "routing": {
-          "review_status": "mandatory_manual_review",
+          "review_status": "senior_review_required",
           "priority": "urgent",
-          "reason": "Mandatory schema validation failed: route for manual review",
-          "suggested_reviewer_type": "manager",
-          "suggested_reviewer_id": "reviewer:manager:ecommerce",
+          "reason": "Sensitive business rule detected (score=0.8)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.3,
+            "confidence_score": 0.606,
             "impact_score": 0.8,
-            "complexity_score": 0.4,
-            "risk_score": 0.12,
+            "complexity_score": 0.5,
+            "risk_score": 0.55,
             "factors": [
-              "Mandatory schema validation failed: route for manual review"
+              "Sensitive business rule detected (score=0.8)"
             ]
           }
         },
-        "_routing_status": "mandatory_manual_review"
+        "_routing_status": "senior_review_required"
       }
     },
     {
       "id": 21,
       "feedback": "Order count should exclude cancelled orders.",
       "production": {
-        "time_s": 0.522,
+        "time_s": 0.262,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3073,11 +3084,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.6171770095825195,
-          "operation": 0.6171770095825195,
-          "conditions": 0.6171770095825195,
-          "scope": 0.6171770095825195,
-          "affected_entities": 0.6171770095825195
+          "business_term": 0.695992648601532,
+          "operation": 0.695992648601532,
+          "conditions": 0.695992648601532,
+          "scope": 0.695992648601532,
+          "affected_entities": 0.695992648601532
         },
         "rules": [
           {
@@ -3089,7 +3100,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.6171770095825195
+                "confidence": 0.695992648601532
               }
             ],
             "time_window": null,
@@ -3141,11 +3152,11 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.051,
+        "time_s": 0.035,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.629,
+          "confidence": 0.701,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -3165,7 +3176,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -3199,17 +3211,16 @@
         "routing": {
           "review_status": "pending_review",
           "priority": "high",
-          "reason": "Low confidence (63%); High business impact; Low risk profile",
+          "reason": "High business impact; Low risk profile",
           "suggested_reviewer_type": "domain_expert",
           "suggested_reviewer_id": "reviewer:expert:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.629,
+            "confidence_score": 0.701,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.105,
             "factors": [
-              "Low confidence (63%)",
               "High business impact",
               "Low risk profile"
             ]
@@ -3222,7 +3233,7 @@
       "id": 22,
       "feedback": "Average order value should include completed purchases only.",
       "production": {
-        "time_s": 0.558,
+        "time_s": 0.4,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3230,11 +3241,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5409237146377563,
-          "operation": 0.5409237146377563,
-          "conditions": 0.5409237146377563,
-          "scope": 0.5409237146377563,
-          "affected_entities": 0.5409237146377563
+          "business_term": 0.6765816807746887,
+          "operation": 0.6765816807746887,
+          "conditions": 0.6765816807746887,
+          "scope": 0.6765816807746887,
+          "affected_entities": 0.6765816807746887
         },
         "rules": [
           {
@@ -3242,17 +3253,20 @@
             "operation": "INCLUDE",
             "conditions": [
               {
-                "field": null,
+                "field": "orders.status",
                 "operator": "EQUALS",
                 "value": "completed",
-                "extraction_method": "value_only_needs_clarification",
-                "confidence": 0.3,
-                "needs_clarification": true
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6765816807746887
               }
             ],
             "time_window": null,
-            "affected_tables": [],
-            "affected_columns": []
+            "affected_tables": [
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.status"
+            ]
           }
         ],
         "validation": {
@@ -3271,13 +3285,13 @@
           "conflict_type": "No Conflict",
           "severity": null
         },
-        "clarification_required": true,
+        "clarification_required": false,
         "routing": {
-          "review_status": "clarification_required",
-          "priority": "high",
-          "reason": "Mandatory rule information is missing; Clarification required from submitter",
-          "suggested_reviewer_type": "qa",
-          "suggested_reviewer_id": "reviewer:qa:ecommerce",
+          "review_status": "auto_approved",
+          "priority": "auto_approve",
+          "reason": "High confidence in classification; Low complexity; No conflicts detected; No duplicates detected",
+          "suggested_reviewer_type": "automated",
+          "suggested_reviewer_id": "system:auto_approve",
           "auto_approval_eligible": true,
           "reasoning": {
             "confidence_score": 1.0,
@@ -3285,19 +3299,21 @@
             "complexity_score": 0.3,
             "risk_score": 0.09,
             "factors": [
-              "Mandatory rule information is missing",
-              "Clarification required from submitter"
+              "High confidence in classification",
+              "Low complexity",
+              "No conflicts detected",
+              "No duplicates detected"
             ]
           }
         },
-        "_routing_status": "clarification_required"
+        "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.061,
+        "time_s": 0.031,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.605,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -3315,9 +3331,10 @@
               {
                 "field": "orders.status",
                 "operator": "equals",
-                "value": "completed purchases only",
+                "value": "completed",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -3351,17 +3368,17 @@
         "routing": {
           "review_status": "pending_review",
           "priority": "high",
-          "reason": "High confidence (90%); High business impact; Low risk profile",
+          "reason": "Low confidence (60%); High business impact; Low risk profile",
           "suggested_reviewer_type": "domain_expert",
           "suggested_reviewer_id": "reviewer:expert:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.605,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.105,
             "factors": [
-              "High confidence (90%)",
+              "Low confidence (60%)",
               "High business impact",
               "Low risk profile"
             ]
@@ -3374,7 +3391,7 @@
       "id": 23,
       "feedback": "Refund amount should include all successfully processed refunds.",
       "production": {
-        "time_s": 0.576,
+        "time_s": 0.284,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3382,11 +3399,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5273949503898621,
-          "operation": 0.5273949503898621,
-          "conditions": 0.5273949503898621,
-          "scope": 0.5273949503898621,
-          "affected_entities": 0.5273949503898621
+          "business_term": 0.6844491958618164,
+          "operation": 0.6844491958618164,
+          "conditions": 0.6844491958618164,
+          "scope": 0.6844491958618164,
+          "affected_entities": 0.6844491958618164
         },
         "rules": [
           {
@@ -3396,15 +3413,18 @@
               {
                 "field": "refunds.status",
                 "operator": "EQUALS",
-                "value": "successful",
-                "type": "inferred",
-                "confidence": 0.75,
-                "source": "successfully processed pattern: 'successfully processed refunds'"
+                "value": "processed",
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6844491958618164
               }
             ],
             "time_window": null,
-            "affected_tables": [],
-            "affected_columns": []
+            "affected_tables": [
+              "refunds"
+            ],
+            "affected_columns": [
+              "refunds.status"
+            ]
           }
         ],
         "validation": {
@@ -3444,7 +3464,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.085,
+        "time_s": 0.045,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3452,11 +3472,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.8,
-          "operation": 0.8,
-          "conditions": 0.8,
-          "scope": 0.8,
-          "affected_entities": 0.8
+          "business_term": 0.7,
+          "operation": 0.7,
+          "conditions": 0.7,
+          "scope": 0.7,
+          "affected_entities": 0.7
         },
         "rules": [
           {
@@ -3464,11 +3484,12 @@
             "operation": "include",
             "conditions": [
               {
-                "field": "refunds",
-                "operator": "equals",
-                "value": "all successful processed refunds",
-                "inferred": true,
-                "source": "promoted_candidate"
+                "field": "refunds.status",
+                "operator": "EQUALS",
+                "value": "successful",
+                "type": "inferred",
+                "confidence": 0.75,
+                "source": "successfully processed pattern: 'successfully processed refunds'"
               }
             ],
             "time_window": null,
@@ -3476,18 +3497,16 @@
               "refunds"
             ],
             "affected_columns": [
+              "refunds.refund_date",
               "refunds.amount",
-              "refunds.status",
-              "refunds.refund_date"
+              "refunds.status"
             ]
           }
         ],
         "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.875,
-          "errors": [
-            "Field must be qualified: table.column (got: refunds)"
-          ]
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
@@ -3525,7 +3544,7 @@
       "id": 24,
       "feedback": "Customer revenue should exclude refunded transactions.",
       "production": {
-        "time_s": 0.608,
+        "time_s": 0.386,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -3533,28 +3552,22 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5310200452804565,
-          "operation": 0.5310200452804565,
-          "conditions": 0.5310200452804565,
-          "scope": 0.5310200452804565,
-          "affected_entities": 0.5310200452804565
+          "business_term": 0.5680650472640991,
+          "operation": 0.5680650472640991,
+          "conditions": 0.5680650472640991,
+          "scope": 0.5680650472640991,
+          "affected_entities": 0.5680650472640991
         },
         "rules": [
           {
             "business_term": "Customer",
             "operation": "EXCLUDE",
-            "conditions": [
-              {
-                "field": null,
-                "operator": "EQUALS",
-                "value": "refund",
-                "extraction_method": "value_only_needs_clarification",
-                "confidence": 0.3,
-                "needs_clarification": true
-              }
-            ],
+            "conditions": [],
             "time_window": null,
-            "affected_tables": [],
+            "affected_tables": [
+              "payments",
+              "refunds"
+            ],
             "affected_columns": []
           }
         ],
@@ -3585,8 +3598,8 @@
           "reasoning": {
             "confidence_score": 1.0,
             "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.09,
+            "complexity_score": 0.2,
+            "risk_score": 0.06,
             "factors": [
               "Mandatory rule information is missing",
               "Clarification required from submitter"
@@ -3596,7 +3609,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.061,
+        "time_s": 0.042,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3604,25 +3617,17 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
         },
         "rules": [
           {
             "business_term": "revenue",
             "operation": "exclude",
-            "conditions": [
-              {
-                "field": "revenue",
-                "operator": "equals",
-                "value": "refund transactions",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
+            "conditions": [],
             "time_window": null,
             "affected_tables": [
               "payments",
@@ -3631,24 +3636,23 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
         "validation": {
           "status": "PARTIAL",
-          "coverage": 0.818,
+          "coverage": 0.9,
           "errors": [
-            "Field must be qualified: table.column (got: revenue)",
             "Invalid scope: user-specific"
           ]
         },
         "duplicate": {
           "is_duplicate": false,
           "relationship": "Semantic Duplicate",
-          "confidence": 0.2,
+          "confidence": 0.7,
           "matching_rule_id": "EC_R001"
         },
         "conflict": {
@@ -3660,17 +3664,17 @@
         "routing": {
           "review_status": "senior_review_required",
           "priority": "urgent",
-          "reason": "Sensitive business rule detected (score=0.8)",
+          "reason": "Sensitive business rule detected (score=0.6)",
           "suggested_reviewer_type": "senior_reviewer",
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
             "confidence_score": 0.9,
             "impact_score": 0.3,
-            "complexity_score": 0.45,
-            "risk_score": 0.135,
+            "complexity_score": 0.35,
+            "risk_score": 0.105,
             "factors": [
-              "Sensitive business rule detected (score=0.8)"
+              "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
@@ -3681,7 +3685,7 @@
       "id": 25,
       "feedback": "Revenue should exclude cancelled orders.",
       "production": {
-        "time_s": 0.68,
+        "time_s": 0.304,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3689,11 +3693,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5126548409461975,
-          "operation": 0.5126548409461975,
-          "conditions": 0.5126548409461975,
-          "scope": 0.5126548409461975,
-          "affected_entities": 0.5126548409461975
+          "business_term": 0.6848810315132141,
+          "operation": 0.6848810315132141,
+          "conditions": 0.6848810315132141,
+          "scope": 0.6848810315132141,
+          "affected_entities": 0.6848810315132141
         },
         "rules": [
           {
@@ -3705,7 +3709,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5126548409461975
+                "confidence": 0.6848810315132141
               }
             ],
             "time_window": null,
@@ -3754,11 +3758,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.054,
+        "time_s": 0.026,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.653,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -3778,7 +3782,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -3815,7 +3820,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.653,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.405,
@@ -3831,7 +3836,7 @@
       "id": 26,
       "feedback": "Cancelled orders should not be included in revenue.",
       "production": {
-        "time_s": 0.66,
+        "time_s": 0.286,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3839,182 +3844,23 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5467436909675598,
-          "operation": 0.5467436909675598,
-          "conditions": 0.5467436909675598,
-          "scope": 0.5467436909675598,
-          "affected_entities": 0.5467436909675598
-        },
-        "rules": [
-          {
-            "business_term": "Orders",
-            "operation": "EXCLUDE",
-            "conditions": [
-              {
-                "field": "orders.status",
-                "operator": "EQUALS",
-                "value": "cancelled",
-                "type": "inferred",
-                "confidence": 0.8,
-                "source": "status adjective pattern: 'cancelled orders'"
-              }
-            ],
-            "time_window": null,
-            "affected_tables": [
-              "orders"
-            ],
-            "affected_columns": []
-          }
-        ],
-        "validation": {
-          "status": "PASS",
-          "coverage": 1.0,
-          "errors": []
-        },
-        "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
-        },
-        "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
-          "severity": null
-        },
-        "clarification_required": false,
-        "routing": {
-          "review_status": "auto_approved",
-          "priority": "auto_approve",
-          "reason": "High confidence in classification; Low complexity; No conflicts detected; No duplicates detected",
-          "suggested_reviewer_type": "automated",
-          "suggested_reviewer_id": "system:auto_approve",
-          "auto_approval_eligible": true,
-          "reasoning": {
-            "confidence_score": 1.0,
-            "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.09,
-            "factors": [
-              "High confidence in classification",
-              "Low complexity",
-              "No conflicts detected",
-              "No duplicates detected"
-            ]
-          }
-        },
-        "_routing_status": "auto_approved"
-      },
-      "baseline": {
-        "time_s": 0.105,
-        "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
-          "confidence": 0.65,
-          "is_actionable": true
-        },
-        "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.7314311265945435,
+          "operation": 0.7314311265945435,
+          "conditions": 0.7314311265945435,
+          "scope": 0.7314311265945435,
+          "affected_entities": 0.7314311265945435
         },
         "rules": [
           {
             "business_term": "revenue",
-            "operation": "exclude",
-            "conditions": [
-              {
-                "field": "orders",
-                "operator": "equals",
-                "value": "in revenue",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
-            "time_window": null,
-            "affected_tables": [
-              "payments",
-              "orders"
-            ],
-            "affected_columns": [
-              "orders.is_test",
-              "orders.status",
-              "orders.total_amount",
-              "payments.status",
-              "payments.amount"
-            ]
-          }
-        ],
-        "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.909,
-          "errors": [
-            "Field must be qualified: table.column (got: orders)"
-          ]
-        },
-        "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
-        },
-        "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
-          "severity": null
-        },
-        "clarification_required": false,
-        "routing": {
-          "review_status": "senior_review_required",
-          "priority": "urgent",
-          "reason": "Sensitive business rule detected (score=0.6)",
-          "suggested_reviewer_type": "senior_reviewer",
-          "suggested_reviewer_id": "reviewer:senior:ecommerce",
-          "auto_approval_eligible": false,
-          "reasoning": {
-            "confidence_score": 0.65,
-            "impact_score": 0.8,
-            "complexity_score": 0.4,
-            "risk_score": 0.12,
-            "factors": [
-              "Sensitive business rule detected (score=0.6)"
-            ]
-          }
-        },
-        "_routing_status": "senior_review_required"
-      }
-    },
-    {
-      "id": 27,
-      "feedback": "When calculating revenue, ignore cancelled orders.",
-      "production": {
-        "time_s": 0.625,
-        "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
-          "confidence": 1.0,
-          "is_actionable": true
-        },
-        "extraction_confidence": {
-          "business_term": 0.5318378806114197,
-          "operation": 0.5318378806114197,
-          "conditions": 0.5318378806114197,
-          "scope": 0.5318378806114197,
-          "affected_entities": 0.5318378806114197
-        },
-        "rules": [
-          {
-            "business_term": "revenue",
-            "operation": "EXCLUDE",
+            "operation": "INCLUDE",
             "conditions": [
               {
                 "field": "orders.status",
                 "operator": "EQUALS",
-                "value": "cancelled",
+                "value": "Cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5318378806114197
+                "confidence": 0.7314311265945435
               }
             ],
             "time_window": null,
@@ -4029,79 +3875,6 @@
         "validation": {
           "status": "PASS",
           "coverage": 1.0,
-          "errors": []
-        },
-        "duplicate": {
-          "is_duplicate": true,
-          "relationship": "Exact Duplicate",
-          "confidence": 0.99,
-          "matching_rule_id": "EC_R001"
-        },
-        "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
-          "severity": null
-        },
-        "clarification_required": false,
-        "routing": {
-          "review_status": "senior_review_required",
-          "priority": "urgent",
-          "reason": "Sensitive business rule detected (score=0.6)",
-          "suggested_reviewer_type": "senior_reviewer",
-          "suggested_reviewer_id": "reviewer:senior:ecommerce",
-          "auto_approval_eligible": false,
-          "reasoning": {
-            "confidence_score": 1.0,
-            "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.39,
-            "factors": [
-              "Sensitive business rule detected (score=0.6)"
-            ]
-          }
-        },
-        "_routing_status": "senior_review_required"
-      },
-      "baseline": {
-        "time_s": 0.064,
-        "classification": {
-          "feedback_type": "question",
-          "rule_category": "metric_definition",
-          "confidence": 0.3,
-          "is_actionable": false
-        },
-        "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
-        },
-        "rules": [
-          {
-            "business_term": "revenue",
-            "operation": "exclude",
-            "conditions": [
-              {
-                "field": "orders.status",
-                "operator": "equals",
-                "value": "calculating revenue, ignore cancelled",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
-            "time_window": null,
-            "affected_tables": [
-              "orders"
-            ],
-            "affected_columns": [
-              "orders.status"
-            ]
-          }
-        ],
-        "validation": {
-          "status": "N/A",
-          "coverage": 0.0,
           "errors": []
         },
         "duplicate": {
@@ -4117,30 +3890,109 @@
         },
         "clarification_required": false,
         "routing": {
-          "review_status": "mandatory_manual_review",
+          "review_status": "senior_review_required",
           "priority": "urgent",
-          "reason": "Mandatory schema validation failed: route for manual review",
-          "suggested_reviewer_type": "manager",
-          "suggested_reviewer_id": "reviewer:manager:ecommerce",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.3,
+            "confidence_score": 1.0,
             "impact_score": 0.8,
-            "complexity_score": 0.35,
-            "risk_score": 0.505,
+            "complexity_score": 0.3,
+            "risk_score": 0.49,
             "factors": [
-              "Mandatory schema validation failed: route for manual review"
+              "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
-        "_routing_status": "mandatory_manual_review"
+        "_routing_status": "senior_review_required"
+      },
+      "baseline": {
+        "time_s": 0.037,
+        "classification": {
+          "feedback_type": "business_rule",
+          "rule_category": "metric_definition",
+          "confidence": 0.707,
+          "is_actionable": true
+        },
+        "extraction_confidence": {
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
+        },
+        "rules": [
+          {
+            "business_term": "revenue",
+            "operation": "exclude",
+            "conditions": [
+              {
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'cancelled orders'"
+              }
+            ],
+            "time_window": null,
+            "affected_tables": [
+              "payments",
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.is_test",
+              "orders.status",
+              "payments.amount",
+              "payments.status",
+              "orders.total_amount"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
+        },
+        "duplicate": {
+          "is_duplicate": false,
+          "relationship": "Unique Rule",
+          "confidence": 0.0,
+          "matching_rule_id": null
+        },
+        "conflict": {
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
+          "severity": null
+        },
+        "clarification_required": false,
+        "routing": {
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
+          "auto_approval_eligible": false,
+          "reasoning": {
+            "confidence_score": 0.707,
+            "impact_score": 0.8,
+            "complexity_score": 0.4,
+            "risk_score": 0.12,
+            "factors": [
+              "Sensitive business rule detected (score=0.6)"
+            ]
+          }
+        },
+        "_routing_status": "senior_review_required"
       }
     },
     {
-      "id": 28,
-      "feedback": "Revenue should exclude cancelled purchases.",
+      "id": 27,
+      "feedback": "When calculating revenue, ignore cancelled orders.",
       "production": {
-        "time_s": 0.658,
+        "time_s": 0.353,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4148,15 +4000,15 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5343402028083801,
-          "operation": 0.5343402028083801,
-          "conditions": 0.5343402028083801,
-          "scope": 0.5343402028083801,
-          "affected_entities": 0.5343402028083801
+          "business_term": 0.5650831460952759,
+          "operation": 0.5650831460952759,
+          "conditions": 0.5650831460952759,
+          "scope": 0.5650831460952759,
+          "affected_entities": 0.5650831460952759
         },
         "rules": [
           {
-            "business_term": "Revenue",
+            "business_term": "revenue",
             "operation": "EXCLUDE",
             "conditions": [
               {
@@ -4164,7 +4016,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5343402028083801
+                "confidence": 0.5650831460952759
               }
             ],
             "time_window": null,
@@ -4213,7 +4065,163 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.048,
+        "time_s": 0.034,
+        "classification": {
+          "feedback_type": "question",
+          "rule_category": "metric_definition",
+          "confidence": 0.3,
+          "is_actionable": false
+        },
+        "extraction_confidence": {
+          "business_term": 0.8400000000000001,
+          "operation": 0.8400000000000001,
+          "conditions": 0.8400000000000001,
+          "scope": 0.8400000000000001,
+          "affected_entities": 0.8400000000000001
+        },
+        "rules": [
+          {
+            "business_term": "revenue",
+            "operation": "exclude",
+            "conditions": [
+              {
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'cancelled orders'"
+              }
+            ],
+            "time_window": null,
+            "affected_tables": [
+              "payments",
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.is_test",
+              "orders.status",
+              "payments.amount",
+              "payments.status",
+              "orders.total_amount"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "N/A",
+          "coverage": 0.0,
+          "errors": []
+        },
+        "duplicate": {
+          "is_duplicate": false,
+          "relationship": "Unique Rule",
+          "confidence": 0.0,
+          "matching_rule_id": null
+        },
+        "conflict": {
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
+          "severity": null
+        },
+        "clarification_required": false,
+        "routing": {
+          "review_status": "mandatory_manual_review",
+          "priority": "urgent",
+          "reason": "Mandatory schema validation failed: route for manual review",
+          "suggested_reviewer_type": "manager",
+          "suggested_reviewer_id": "reviewer:manager:ecommerce",
+          "auto_approval_eligible": false,
+          "reasoning": {
+            "confidence_score": 0.3,
+            "impact_score": 0.8,
+            "complexity_score": 0.4,
+            "risk_score": 0.12,
+            "factors": [
+              "Mandatory schema validation failed: route for manual review"
+            ]
+          }
+        },
+        "_routing_status": "mandatory_manual_review"
+      }
+    },
+    {
+      "id": 28,
+      "feedback": "Revenue should exclude cancelled purchases.",
+      "production": {
+        "time_s": 0.273,
+        "classification": {
+          "feedback_type": "business_rule",
+          "rule_category": "metric_definition",
+          "confidence": 1.0,
+          "is_actionable": true
+        },
+        "extraction_confidence": {
+          "business_term": 0.6385034322738647,
+          "operation": 0.6385034322738647,
+          "conditions": 0.6385034322738647,
+          "scope": 0.6385034322738647,
+          "affected_entities": 0.6385034322738647
+        },
+        "rules": [
+          {
+            "business_term": "Revenue",
+            "operation": "EXCLUDE",
+            "conditions": [
+              {
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.6385034322738647
+              }
+            ],
+            "time_window": null,
+            "affected_tables": [
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.status"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
+        },
+        "duplicate": {
+          "is_duplicate": true,
+          "relationship": "Exact Duplicate",
+          "confidence": 0.99,
+          "matching_rule_id": "EC_R001"
+        },
+        "conflict": {
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
+          "severity": null
+        },
+        "clarification_required": false,
+        "routing": {
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
+          "auto_approval_eligible": false,
+          "reasoning": {
+            "confidence_score": 1.0,
+            "impact_score": 0.8,
+            "complexity_score": 0.3,
+            "risk_score": 0.39,
+            "factors": [
+              "Sensitive business rule detected (score=0.6)"
+            ]
+          }
+        },
+        "_routing_status": "senior_review_required"
+      },
+      "baseline": {
+        "time_s": 0.033,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4235,9 +4243,10 @@
               {
                 "field": null,
                 "operator": "equals",
-                "value": "cancelled purchases",
+                "value": "cancelled",
                 "inferred": true,
                 "source": "promoted_candidate",
+                "value_clean": true,
                 "needs_clarification": true
               }
             ],
@@ -4287,7 +4296,7 @@
       "id": 29,
       "feedback": "Revenue should include cancelled orders.",
       "production": {
-        "time_s": 0.53,
+        "time_s": 0.294,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4295,11 +4304,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5079247951507568,
-          "operation": 0.5079247951507568,
-          "conditions": 0.5079247951507568,
-          "scope": 0.5079247951507568,
-          "affected_entities": 0.5079247951507568
+          "business_term": 0.6858863234519958,
+          "operation": 0.6858863234519958,
+          "conditions": 0.6858863234519958,
+          "scope": 0.6858863234519958,
+          "affected_entities": 0.6858863234519958
         },
         "rules": [
           {
@@ -4311,7 +4320,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5079247951507568
+                "confidence": 0.6858863234519958
               }
             ],
             "time_window": null,
@@ -4360,11 +4369,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.062,
+        "time_s": 0.03,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.663,
+          "confidence": 0.714,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -4384,7 +4393,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -4421,7 +4431,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.663,
+            "confidence_score": 0.714,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.505,
@@ -4437,7 +4447,7 @@
       "id": 30,
       "feedback": "Cancelled orders must contribute to revenue.",
       "production": {
-        "time_s": 0.68,
+        "time_s": 0.41,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4445,31 +4455,32 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5318232774734497,
-          "operation": 0.5318232774734497,
-          "conditions": 0.5318232774734497,
-          "scope": 0.5318232774734497,
-          "affected_entities": 0.5318232774734497
+          "business_term": 0.794087290763855,
+          "operation": 0.794087290763855,
+          "conditions": 0.794087290763855,
+          "scope": 0.794087290763855,
+          "affected_entities": 0.794087290763855
         },
         "rules": [
           {
-            "business_term": "Orders",
+            "business_term": "revenue",
             "operation": "EXCLUDE",
             "conditions": [
               {
                 "field": "orders.status",
                 "operator": "EQUALS",
-                "value": "cancelled",
-                "type": "inferred",
-                "confidence": 0.8,
-                "source": "status adjective pattern: 'cancelled orders'"
+                "value": "Cancelled",
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.794087290763855
               }
             ],
             "time_window": null,
             "affected_tables": [
               "orders"
             ],
-            "affected_columns": []
+            "affected_columns": [
+              "orders.status"
+            ]
           }
         ],
         "validation": {
@@ -4478,10 +4489,10 @@
           "errors": []
         },
         "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
+          "is_duplicate": true,
+          "relationship": "Exact Duplicate",
+          "confidence": 0.99,
+          "matching_rule_id": "EC_R001"
         },
         "conflict": {
           "has_conflict": false,
@@ -4490,33 +4501,30 @@
         },
         "clarification_required": false,
         "routing": {
-          "review_status": "auto_approved",
-          "priority": "auto_approve",
-          "reason": "High confidence in classification; Low complexity; No conflicts detected; No duplicates detected",
-          "suggested_reviewer_type": "automated",
-          "suggested_reviewer_id": "system:auto_approve",
-          "auto_approval_eligible": true,
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
+          "auto_approval_eligible": false,
           "reasoning": {
             "confidence_score": 1.0,
             "impact_score": 0.8,
             "complexity_score": 0.3,
-            "risk_score": 0.09,
+            "risk_score": 0.39,
             "factors": [
-              "High confidence in classification",
-              "Low complexity",
-              "No conflicts detected",
-              "No duplicates detected"
+              "Sensitive business rule detected (score=0.6)"
             ]
           }
         },
-        "_routing_status": "auto_approved"
+        "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.061,
+        "time_s": 0.032,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.614,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -4548,9 +4556,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -4579,7 +4587,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.614,
             "impact_score": 0.8,
             "complexity_score": 0.4,
             "risk_score": 0.52,
@@ -4595,7 +4603,7 @@
       "id": 31,
       "feedback": "Revenue should exclude completed orders.",
       "production": {
-        "time_s": 0.626,
+        "time_s": 0.291,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4603,11 +4611,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5062019228935242,
-          "operation": 0.5062019228935242,
-          "conditions": 0.5062019228935242,
-          "scope": 0.5062019228935242,
-          "affected_entities": 0.5062019228935242
+          "business_term": 0.6734087467193604,
+          "operation": 0.6734087467193604,
+          "conditions": 0.6734087467193604,
+          "scope": 0.6734087467193604,
+          "affected_entities": 0.6734087467193604
         },
         "rules": [
           {
@@ -4619,7 +4627,7 @@
                 "operator": "EQUALS",
                 "value": "completed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5062019228935242
+                "confidence": 0.6734087467193604
               }
             ],
             "time_window": null,
@@ -4668,7 +4676,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.048,
+        "time_s": 0.032,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4692,7 +4700,8 @@
                 "operator": "equals",
                 "value": "completed",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -4745,7 +4754,7 @@
       "id": 32,
       "feedback": "Revenue should exclude returned orders.",
       "production": {
-        "time_s": 0.695,
+        "time_s": 0.268,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4753,11 +4762,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5325214266777039,
-          "operation": 0.5325214266777039,
-          "conditions": 0.5325214266777039,
-          "scope": 0.5325214266777039,
-          "affected_entities": 0.5325214266777039
+          "business_term": 0.6252244710922241,
+          "operation": 0.6252244710922241,
+          "conditions": 0.6252244710922241,
+          "scope": 0.6252244710922241,
+          "affected_entities": 0.6252244710922241
         },
         "rules": [
           {
@@ -4769,7 +4778,7 @@
                 "operator": "EQUALS",
                 "value": "return",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5325214266777039
+                "confidence": 0.6252244710922241
               }
             ],
             "time_window": null,
@@ -4818,7 +4827,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.061,
+        "time_s": 0.031,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4826,25 +4835,17 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
         },
         "rules": [
           {
             "business_term": "revenue",
             "operation": "exclude",
-            "conditions": [
-              {
-                "field": "orders",
-                "operator": "equals",
-                "value": "return orders",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
+            "conditions": [],
             "time_window": null,
             "affected_tables": [
               "payments",
@@ -4853,31 +4854,29 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
         "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.909,
-          "errors": [
-            "Field must be qualified: table.column (got: orders)"
-          ]
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
+          "relationship": "Modification",
+          "confidence": 0.675,
+          "matching_rule_id": "EC_R001"
         },
         "conflict": {
           "has_conflict": false,
           "conflict_type": "No Conflict",
           "severity": null
         },
-        "clarification_required": false,
+        "clarification_required": true,
         "routing": {
           "review_status": "senior_review_required",
           "priority": "urgent",
@@ -4888,8 +4887,8 @@
           "reasoning": {
             "confidence_score": 0.9,
             "impact_score": 0.8,
-            "complexity_score": 0.4,
-            "risk_score": 0.12,
+            "complexity_score": 0.3,
+            "risk_score": 0.09,
             "factors": [
               "Sensitive business rule detected (score=0.6)"
             ]
@@ -4902,19 +4901,19 @@
       "id": 33,
       "feedback": "Exclude cancelled orders from revenue globally.",
       "production": {
-        "time_s": 0.499,
+        "time_s": 0.36,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
+          "rule_category": "metric_definition",
           "confidence": 1.0,
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5186561346054077,
-          "operation": 0.5186561346054077,
-          "conditions": 0.5186561346054077,
-          "scope": 0.5186561346054077,
-          "affected_entities": 0.5186561346054077
+          "business_term": 0.52937251329422,
+          "operation": 0.52937251329422,
+          "conditions": 0.52937251329422,
+          "scope": 0.52937251329422,
+          "affected_entities": 0.52937251329422
         },
         "rules": [
           {
@@ -4926,7 +4925,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5186561346054077
+                "confidence": 0.52937251329422
               }
             ],
             "time_window": null,
@@ -4975,11 +4974,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.058,
+        "time_s": 0.03,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.9,
+          "confidence": 0.663,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -4999,7 +4998,8 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -5036,7 +5036,7 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 0.663,
             "impact_score": 0.8,
             "complexity_score": 0.35,
             "risk_score": 0.405,
@@ -5052,7 +5052,7 @@
       "id": 34,
       "feedback": "For this month, revenue should exclude refunded orders.",
       "production": {
-        "time_s": 0.67,
+        "time_s": 0.335,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5060,11 +5060,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5864236950874329,
-          "operation": 0.5864236950874329,
-          "conditions": 0.5864236950874329,
-          "scope": 0.5864236950874329,
-          "affected_entities": 0.5864236950874329
+          "business_term": 0.6303406953811646,
+          "operation": 0.6303406953811646,
+          "conditions": 0.6303406953811646,
+          "scope": 0.6303406953811646,
+          "affected_entities": 0.6303406953811646
         },
         "rules": [
           {
@@ -5072,16 +5072,19 @@
             "operation": "EXCLUDE",
             "conditions": [
               {
-                "field": null,
+                "field": "orders.status",
                 "operator": "EQUALS",
-                "value": "refund",
-                "extraction_method": "value_only_needs_clarification",
-                "confidence": 0.3,
-                "needs_clarification": true
+                "value": "refunded",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'refunded orders'"
               }
             ],
             "time_window": null,
-            "affected_tables": [],
+            "affected_tables": [
+              "orders",
+              "refunds"
+            ],
             "affected_columns": []
           }
         ],
@@ -5097,88 +5100,8 @@
           "matching_rule_id": null
         },
         "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
-          "severity": null
-        },
-        "clarification_required": true,
-        "routing": {
-          "review_status": "senior_review_required",
-          "priority": "urgent",
-          "reason": "Sensitive business rule detected (score=0.6)",
-          "suggested_reviewer_type": "senior_reviewer",
-          "suggested_reviewer_id": "reviewer:senior:ecommerce",
-          "auto_approval_eligible": true,
-          "reasoning": {
-            "confidence_score": 1.0,
-            "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.09,
-            "factors": [
-              "Sensitive business rule detected (score=0.6)"
-            ]
-          }
-        },
-        "_routing_status": "senior_review_required"
-      },
-      "baseline": {
-        "time_s": 0.079,
-        "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
-          "confidence": 0.9,
-          "is_actionable": true
-        },
-        "extraction_confidence": {
-          "business_term": 0.82,
-          "operation": 0.82,
-          "conditions": 0.82,
-          "scope": 0.82,
-          "affected_entities": 0.82
-        },
-        "rules": [
-          {
-            "business_term": "revenue",
-            "operation": "exclude",
-            "conditions": [
-              {
-                "field": "orders",
-                "operator": "equals",
-                "value": "refund orders",
-                "inferred": true,
-                "source": "promoted_candidate"
-              }
-            ],
-            "time_window": null,
-            "affected_tables": [
-              "payments",
-              "orders"
-            ],
-            "affected_columns": [
-              "orders.is_test",
-              "orders.status",
-              "orders.total_amount",
-              "payments.status",
-              "payments.amount"
-            ]
-          }
-        ],
-        "validation": {
-          "status": "PARTIAL",
-          "coverage": 0.909,
-          "errors": [
-            "Field must be qualified: table.column (got: orders)"
-          ]
-        },
-        "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Unique Rule",
-          "confidence": 0.0,
-          "matching_rule_id": null
-        },
-        "conflict": {
-          "has_conflict": false,
-          "conflict_type": "No Conflict",
+          "has_conflict": true,
+          "conflict_type": "Conflict",
           "severity": null
         },
         "clarification_required": false,
@@ -5190,10 +5113,89 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.9,
+            "confidence_score": 1.0,
+            "impact_score": 0.8,
+            "complexity_score": 0.3,
+            "risk_score": 0.49,
+            "factors": [
+              "Sensitive business rule detected (score=0.6)"
+            ]
+          }
+        },
+        "_routing_status": "senior_review_required"
+      },
+      "baseline": {
+        "time_s": 0.041,
+        "classification": {
+          "feedback_type": "business_rule",
+          "rule_category": "metric_definition",
+          "confidence": 0.606,
+          "is_actionable": true
+        },
+        "extraction_confidence": {
+          "business_term": 0.7200000000000001,
+          "operation": 0.7200000000000001,
+          "conditions": 0.7200000000000001,
+          "scope": 0.7200000000000001,
+          "affected_entities": 0.7200000000000001
+        },
+        "rules": [
+          {
+            "business_term": "revenue",
+            "operation": "exclude",
+            "conditions": [
+              {
+                "field": "orders.status",
+                "operator": "EQUALS",
+                "value": "refunded",
+                "type": "inferred",
+                "confidence": 0.8,
+                "source": "status adjective pattern: 'refunded orders'"
+              }
+            ],
+            "time_window": null,
+            "affected_tables": [
+              "payments",
+              "orders"
+            ],
+            "affected_columns": [
+              "orders.is_test",
+              "orders.status",
+              "payments.amount",
+              "payments.status",
+              "orders.total_amount"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "PASS",
+          "coverage": 1.0,
+          "errors": []
+        },
+        "duplicate": {
+          "is_duplicate": false,
+          "relationship": "Unique Rule",
+          "confidence": 0.0,
+          "matching_rule_id": null
+        },
+        "conflict": {
+          "has_conflict": true,
+          "conflict_type": "Conflict",
+          "severity": null
+        },
+        "clarification_required": false,
+        "routing": {
+          "review_status": "senior_review_required",
+          "priority": "urgent",
+          "reason": "Sensitive business rule detected (score=0.6)",
+          "suggested_reviewer_type": "senior_reviewer",
+          "suggested_reviewer_id": "reviewer:senior:ecommerce",
+          "auto_approval_eligible": false,
+          "reasoning": {
+            "confidence_score": 0.606,
             "impact_score": 0.8,
             "complexity_score": 0.4,
-            "risk_score": 0.12,
+            "risk_score": 0.52,
             "factors": [
               "Sensitive business rule detected (score=0.6)"
             ]
@@ -5206,7 +5208,7 @@
       "id": 35,
       "feedback": "For the last 30 days, only completed payments should contribute to revenue.",
       "production": {
-        "time_s": 0.7,
+        "time_s": 0.493,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5214,23 +5216,23 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.4583648443222046,
-          "operation": 0.4583648443222046,
-          "conditions": 0.4583648443222046,
-          "scope": 0.4583648443222046,
-          "affected_entities": 0.4583648443222046
+          "business_term": 0.6729317903518677,
+          "operation": 0.6729317903518677,
+          "conditions": 0.6729317903518677,
+          "scope": 0.6729317903518677,
+          "affected_entities": 0.6729317903518677
         },
         "rules": [
           {
             "business_term": "revenue",
-            "operation": "INCLUDE",
+            "operation": "EXCLUDE",
             "conditions": [
               {
                 "field": "payments.status",
                 "operator": "EQUALS",
                 "value": "completed",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.4583648443222046
+                "confidence": 0.6729317903518677
               }
             ],
             "time_window": "last_30_days",
@@ -5279,7 +5281,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.106,
+        "time_s": 0.047,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5307,7 +5309,7 @@
                 "source": "time window pattern: 'last 30 days'"
               }
             ],
-            "time_window": null,
+            "time_window": "last_30_days",
             "affected_tables": [
               "payments",
               "orders"
@@ -5315,9 +5317,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -5362,7 +5364,7 @@
       "id": 36,
       "feedback": "Revenue needs fixing.",
       "production": {
-        "time_s": 0.696,
+        "time_s": 0.298,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5370,11 +5372,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.4325147867202759,
-          "operation": 0.4325147867202759,
-          "conditions": 0.4325147867202759,
-          "scope": 0.4325147867202759,
-          "affected_entities": 0.4325147867202759
+          "business_term": 0.5879555344581604,
+          "operation": 0.5879555344581604,
+          "conditions": 0.5879555344581604,
+          "scope": 0.5879555344581604,
+          "affected_entities": 0.5879555344581604
         },
         "rules": [
           {
@@ -5423,7 +5425,7 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.042,
+        "time_s": 0.02,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5479,7 +5481,7 @@
       "id": 37,
       "feedback": "Revenue shouldn't count some orders.",
       "production": {
-        "time_s": 0.663,
+        "time_s": 0.347,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5487,11 +5489,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.4614725112915039,
-          "operation": 0.4614725112915039,
-          "conditions": 0.4614725112915039,
-          "scope": 0.4614725112915039,
-          "affected_entities": 0.4614725112915039
+          "business_term": 0.6134480237960815,
+          "operation": 0.6134480237960815,
+          "conditions": 0.6134480237960815,
+          "scope": 0.6134480237960815,
+          "affected_entities": 0.6134480237960815
         },
         "rules": [
           {
@@ -5542,11 +5544,11 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.066,
+        "time_s": 0.032,
         "classification": {
           "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
-          "confidence": 0.641,
+          "rule_category": "metric_definition",
+          "confidence": 0.9,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -5569,9 +5571,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -5602,7 +5604,7 @@
           "suggested_reviewer_id": "reviewer:manager:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.641,
+            "confidence_score": 0.9,
             "impact_score": 0.8,
             "complexity_score": 0.4,
             "risk_score": 0.12,
@@ -5618,7 +5620,7 @@
       "id": 38,
       "feedback": "The cafeteria food is terrible today.",
       "production": {
-        "time_s": 0.535,
+        "time_s": 0.319,
         "classification": {
           "feedback_type": "issue_report",
           "rule_category": "none",
@@ -5626,22 +5628,13 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.3266336917877197,
-          "operation": 0.3266336917877197,
-          "conditions": 0.3266336917877197,
-          "scope": 0.3266336917877197,
-          "affected_entities": 0.3266336917877197
+          "business_term": 0.0,
+          "operation": 0.0,
+          "conditions": 0.0,
+          "scope": 0.0,
+          "affected_entities": 0.0
         },
-        "rules": [
-          {
-            "business_term": "cafeteria",
-            "operation": null,
-            "conditions": [],
-            "time_window": "today",
-            "affected_tables": [],
-            "affected_columns": []
-          }
-        ],
+        "rules": [],
         "validation": {
           "status": "N/A",
           "coverage": 0.0,
@@ -5679,7 +5672,7 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.04,
+        "time_s": 0.028,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5735,23 +5728,23 @@
       "id": 39,
       "feedback": "BUY NOW BUY NOW BUY NOW BUY NOW CLICK HERE!!! FREE FREE FREE!!!",
       "production": {
-        "time_s": 0.427,
+        "time_s": 0.186,
         "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "mapping_rule",
-          "confidence": 1.0,
-          "is_actionable": true
+          "feedback_type": "irrelevant_spam",
+          "rule_category": "none",
+          "confidence": 0.95,
+          "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.5244594812393188,
-          "operation": 0.5244594812393188,
-          "conditions": 0.5244594812393188,
-          "scope": 0.5244594812393188,
-          "affected_entities": 0.5244594812393188
+          "business_term": 0.673322856426239,
+          "operation": 0.673322856426239,
+          "conditions": 0.673322856426239,
+          "scope": 0.673322856426239,
+          "affected_entities": 0.673322856426239
         },
         "rules": [
           {
-            "business_term": "FREE",
+            "business_term": "BUY",
             "operation": null,
             "conditions": [],
             "time_window": null,
@@ -5760,13 +5753,9 @@
           }
         ],
         "validation": {
-          "status": "FAIL",
+          "status": "N/A",
           "coverage": 0.0,
-          "errors": [
-            "Schema not loaded - cannot validate",
-            "Missing mandatory field: operation",
-            "Business term 'FREE' not found in glossary"
-          ]
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
@@ -5788,7 +5777,7 @@
           "suggested_reviewer_id": "reviewer:manager:None",
           "auto_approval_eligible": true,
           "reasoning": {
-            "confidence_score": 1.0,
+            "confidence_score": 0.95,
             "impact_score": 0.8,
             "complexity_score": 0.3,
             "risk_score": 0.09,
@@ -5800,7 +5789,7 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.04,
+        "time_s": 0.023,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5856,38 +5845,43 @@
       "id": 40,
       "feedback": "xj29 revenue zzz qqq cancelled blahhh 9281 asdfgh",
       "production": {
-        "time_s": 0.463,
+        "time_s": 0.206,
         "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "filter_rule",
-          "confidence": 1.0,
-          "is_actionable": true
+          "feedback_type": "irrelevant_spam",
+          "rule_category": "none",
+          "confidence": 0.95,
+          "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.3001362085342407,
-          "operation": 0.3001362085342407,
-          "conditions": 0.3001362085342407,
-          "scope": 0.3001362085342407,
-          "affected_entities": 0.3001362085342407
+          "business_term": 0.49950647354125977,
+          "operation": 0.49950647354125977,
+          "conditions": 0.49950647354125977,
+          "scope": 0.49950647354125977,
+          "affected_entities": 0.49950647354125977
         },
         "rules": [
           {
-            "business_term": "xj29",
+            "business_term": "revenue",
             "operation": null,
-            "conditions": [],
+            "conditions": [
+              {
+                "field": null,
+                "operator": "EQUALS",
+                "value": "cancelled",
+                "extraction_method": "value_only_needs_clarification",
+                "confidence": 0.3,
+                "needs_clarification": true
+              }
+            ],
             "time_window": null,
             "affected_tables": [],
             "affected_columns": []
           }
         ],
         "validation": {
-          "status": "FAIL",
+          "status": "N/A",
           "coverage": 0.0,
-          "errors": [
-            "Schema not loaded - cannot validate",
-            "Missing mandatory field: operation",
-            "Business term 'xj29' not found in glossary"
-          ]
+          "errors": []
         },
         "duplicate": {
           "is_duplicate": false,
@@ -5909,10 +5903,10 @@
           "suggested_reviewer_id": "reviewer:manager:None",
           "auto_approval_eligible": true,
           "reasoning": {
-            "confidence_score": 1.0,
+            "confidence_score": 0.95,
             "impact_score": 0.8,
-            "complexity_score": 0.3,
-            "risk_score": 0.09,
+            "complexity_score": 0.4,
+            "risk_score": 0.12,
             "factors": [
               "Mandatory schema validation failed: route for manual review"
             ]
@@ -5921,12 +5915,12 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.047,
+        "time_s": 0.023,
         "classification": {
-          "feedback_type": "business_rule",
-          "rule_category": "metric_definition",
-          "confidence": 0.659,
-          "is_actionable": true
+          "feedback_type": "irrelevant_spam",
+          "rule_category": "unknown",
+          "confidence": 0.95,
+          "is_actionable": false
         },
         "extraction_confidence": {
           "business_term": 0.0,
@@ -5959,9 +5953,9 @@
           "reason": "Mandatory schema validation failed: route for manual review",
           "suggested_reviewer_type": "manager",
           "suggested_reviewer_id": "reviewer:manager:None",
-          "auto_approval_eligible": false,
+          "auto_approval_eligible": true,
           "reasoning": {
-            "confidence_score": 0.659,
+            "confidence_score": 0.95,
             "impact_score": 0.8,
             "complexity_score": 0.3,
             "risk_score": 0.09,
@@ -5977,11 +5971,11 @@
       "id": 41,
       "feedback": "",
       "production": {
-        "time_s": 0.005,
+        "time_s": 0.003,
         "error": "HTTP 422: {\"detail\":[{\"type\":\"string_too_short\",\"loc\":[\"body\",\"feedback_text\"],\"msg\":\"String should have at least 1 character\",\"input\":\"\",\"ctx\":{\"min_length\":1}}]}"
       },
       "baseline": {
-        "time_s": 0.004,
+        "time_s": 0.003,
         "error": "HTTP 422: {\"detail\":[{\"type\":\"string_too_short\",\"loc\":[\"body\",\"feedback_text\"],\"msg\":\"String should have at least 1 character\",\"input\":\"\",\"ctx\":{\"min_length\":1}}]}"
       }
     },
@@ -5989,19 +5983,19 @@
       "id": 42,
       "feedback": "Revenue",
       "production": {
-        "time_s": 0.506,
+        "time_s": 0.185,
         "classification": {
-          "feedback_type": "question",
+          "feedback_type": "irrelevant_spam",
           "rule_category": "none",
-          "confidence": 1.0,
+          "confidence": 0.95,
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.3674089312553406,
-          "operation": 0.3674089312553406,
-          "conditions": 0.3674089312553406,
-          "scope": 0.3674089312553406,
-          "affected_entities": 0.3674089312553406
+          "business_term": 0.49180901050567627,
+          "operation": 0.49180901050567627,
+          "conditions": 0.49180901050567627,
+          "scope": 0.49180901050567627,
+          "affected_entities": 0.49180901050567627
         },
         "rules": [
           {
@@ -6038,7 +6032,7 @@
           "suggested_reviewer_id": "reviewer:manager:None",
           "auto_approval_eligible": true,
           "reasoning": {
-            "confidence_score": 1.0,
+            "confidence_score": 0.95,
             "impact_score": 0.8,
             "complexity_score": 0.3,
             "risk_score": 0.09,
@@ -6050,7 +6044,7 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.04,
+        "time_s": 0.025,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "unknown",
@@ -6106,7 +6100,7 @@
       "id": 43,
       "feedback": "Why is revenue excluding cancelled orders?",
       "production": {
-        "time_s": 0.627,
+        "time_s": 0.539,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -6114,11 +6108,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.482271671295166,
-          "operation": 0.482271671295166,
-          "conditions": 0.482271671295166,
-          "scope": 0.482271671295166,
-          "affected_entities": 0.482271671295166
+          "business_term": 0.6169033050537109,
+          "operation": 0.6169033050537109,
+          "conditions": 0.6169033050537109,
+          "scope": 0.6169033050537109,
+          "affected_entities": 0.6169033050537109
         },
         "rules": [
           {
@@ -6130,7 +6124,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.482271671295166
+                "confidence": 0.6169033050537109
               }
             ],
             "time_window": null,
@@ -6179,11 +6173,11 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.062,
+        "time_s": 0.085,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.619,
+          "confidence": 0.688,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -6241,7 +6235,7 @@
           "suggested_reviewer_id": "reviewer:manager:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.619,
+            "confidence_score": 0.688,
             "impact_score": 0.8,
             "complexity_score": 0.45,
             "risk_score": 0.135,
@@ -6257,7 +6251,7 @@
       "id": 44,
       "feedback": "Revenue should include cancelled orders and exclude cancelled orders.",
       "production": {
-        "time_s": 0.685,
+        "time_s": 0.765,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -6265,11 +6259,11 @@
           "is_actionable": true
         },
         "extraction_confidence": {
-          "business_term": 0.5280652642250061,
-          "operation": 0.5280652642250061,
-          "conditions": 0.5280652642250061,
-          "scope": 0.5280652642250061,
-          "affected_entities": 0.5280652642250061
+          "business_term": 0.6840845346450806,
+          "operation": 0.6840845346450806,
+          "conditions": 0.6840845346450806,
+          "scope": 0.6840845346450806,
+          "affected_entities": 0.6840845346450806
         },
         "rules": [
           {
@@ -6281,7 +6275,7 @@
                 "operator": "EQUALS",
                 "value": "cancelled",
                 "extraction_method": "inferred_table_value",
-                "confidence": 0.5280652642250061
+                "confidence": 0.6840845346450806
               }
             ],
             "time_window": null,
@@ -6330,11 +6324,11 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.078,
+        "time_s": 0.102,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.603,
+          "confidence": 0.674,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -6354,14 +6348,16 @@
                 "operator": "equals",
                 "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               },
               {
                 "field": "orders.status",
                 "operator": "equals",
-                "value": "cancelled orders and exclude cancelled",
+                "value": "cancelled",
                 "inferred": true,
-                "source": "promoted_candidate"
+                "source": "promoted_candidate",
+                "value_clean": true
               }
             ],
             "time_window": null,
@@ -6379,14 +6375,14 @@
           "errors": []
         },
         "duplicate": {
-          "is_duplicate": false,
-          "relationship": "Modification",
-          "confidence": 0.375,
+          "is_duplicate": true,
+          "relationship": "Exact Duplicate",
+          "confidence": 0.99,
           "matching_rule_id": "EC_R001"
         },
         "conflict": {
-          "has_conflict": true,
-          "conflict_type": "Conflict",
+          "has_conflict": false,
+          "conflict_type": "No Conflict",
           "severity": null
         },
         "clarification_required": false,
@@ -6398,10 +6394,10 @@
           "suggested_reviewer_id": "reviewer:senior:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.603,
+            "confidence_score": 0.674,
             "impact_score": 0.8,
             "complexity_score": 0.45,
-            "risk_score": 0.535,
+            "risk_score": 0.435,
             "factors": [
               "Sensitive business rule detected (score=0.6)"
             ]
@@ -6414,7 +6410,7 @@
       "id": 45,
       "feedback": "I read an article about revenue and cancelled orders yesterday.",
       "production": {
-        "time_s": 0.726,
+        "time_s": 0.679,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -6422,11 +6418,11 @@
           "is_actionable": false
         },
         "extraction_confidence": {
-          "business_term": 0.39718759059906006,
-          "operation": 0.39718759059906006,
-          "conditions": 0.39718759059906006,
-          "scope": 0.39718759059906006,
-          "affected_entities": 0.39718759059906006
+          "business_term": 0.5051044225692749,
+          "operation": 0.5051044225692749,
+          "conditions": 0.5051044225692749,
+          "scope": 0.5051044225692749,
+          "affected_entities": 0.5051044225692749
         },
         "rules": [
           {
@@ -6437,16 +6433,17 @@
                 "field": "orders.status",
                 "operator": "EQUALS",
                 "value": "cancelled",
-                "type": "inferred",
-                "confidence": 0.8,
-                "source": "status adjective pattern: 'cancelled orders'"
+                "extraction_method": "inferred_table_value",
+                "confidence": 0.5051044225692749
               }
             ],
             "time_window": "yesterday",
             "affected_tables": [
               "orders"
             ],
-            "affected_columns": []
+            "affected_columns": [
+              "orders.status"
+            ]
           }
         ],
         "validation": {
@@ -6486,11 +6483,11 @@
         "_routing_status": "mandatory_manual_review"
       },
       "baseline": {
-        "time_s": 0.09,
+        "time_s": 0.118,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
-          "confidence": 0.619,
+          "confidence": 0.688,
           "is_actionable": true
         },
         "extraction_confidence": {
@@ -6514,7 +6511,7 @@
                 "source": "status adjective pattern: 'cancelled orders'"
               }
             ],
-            "time_window": null,
+            "time_window": "yesterday",
             "affected_tables": [
               "payments",
               "orders"
@@ -6522,9 +6519,9 @@
             "affected_columns": [
               "orders.is_test",
               "orders.status",
-              "orders.total_amount",
+              "payments.amount",
               "payments.status",
-              "payments.amount"
+              "orders.total_amount"
             ]
           }
         ],
@@ -6555,7 +6552,7 @@
           "suggested_reviewer_id": "reviewer:manager:ecommerce",
           "auto_approval_eligible": false,
           "reasoning": {
-            "confidence_score": 0.619,
+            "confidence_score": 0.688,
             "impact_score": 0.8,
             "complexity_score": 0.5,
             "risk_score": 0.55,
@@ -6571,19 +6568,18 @@
   "summary": {
     "validation": {
       "PASS": 36,
-      "N/A": 6,
-      "FAIL": 2,
+      "N/A": 8,
       "null": 1
     },
     "routing": {
-      "senior_review_required": 26,
-      "auto_approved": 8,
-      "clarification_required": 2,
+      "senior_review_required": 30,
+      "auto_approved": 5,
+      "clarification_required": 1,
       "mandatory_manual_review": 8,
       "?": 1
     },
     "has_errors": 1,
-    "avg_time_prod": 0.647,
-    "avg_time_base": 0.081
+    "avg_time_prod": 0.347,
+    "avg_time_base": 0.041
   }
 }
