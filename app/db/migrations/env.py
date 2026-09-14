@@ -34,6 +34,8 @@ from app.db.models.audit_history import AuditHistory
 from app.db.models.rule_comparison import RuleComparison
 from app.db.models.evaluation_run import EvaluationRun
 from app.db.models.evaluation_metric import EvaluationMetric
+from app.db.models.user import User
+from app.db.models.workspace_member import WorkspaceMember
 
 target_metadata = Base.metadata
 # other values from the config, defined by the needs of env.py,

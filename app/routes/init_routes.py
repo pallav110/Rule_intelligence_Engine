@@ -5,6 +5,7 @@ def register_init_endpoints(app, db_session):
     """Register initialization endpoints."""
     from fastapi import Depends
     from app.db.database import get_db
+    from app.services.security import require_role, require_workspace, Role, SecurityContext
     from app.db.migrations.seed_conflicting_rules import (
         create_conflicting_rules_table,
         seed_conflicting_rules,
@@ -16,14 +17,17 @@ def register_init_endpoints(app, db_session):
         workspace_id: str = "e8af6af9-3bbe-4117-a007-f55db418bc30",
         domain_id: str = None,
         db=Depends(get_db),
+        _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
     ):
         """
         Admin endpoint to seed conflicting_rules.json into database.
 
+        RBAC: Administrator ONLY (§10.1 manage system config); workspace-scoped (§10.2).
         Usage:
         - POST /v1/admin/init/seed-conflicting-rules?workspace_id=WS&domain_id=ecommerce
         - POST /v1/admin/init/seed-conflicting-rules?workspace_id=WS  (seeds all domains)
         """
+        require_workspace(workspace_id, _ctx)
         try:
             # Create table
             create_conflicting_rules_table(db)

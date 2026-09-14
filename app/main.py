@@ -79,6 +79,16 @@ from app.services.duplicate_detection_service import DuplicateDetectionService, 
 from app.services.baseline_duplicate_detection_service import BaselineDuplicateDetectionService
 from app.services.completeness_checker import CompletenessChecker, AmbiguityDetector
 from app.services.domain_pack_detector import detect_domain_pack
+from app.services.security import (
+    create_access_token,
+    authenticate_credentials,
+    get_security_context,
+    require_role,
+    require_workspace,
+    Role,
+    SecurityContext,
+)
+from app.schemas.auth import LoginRequest, TokenResponse
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
 
@@ -86,6 +96,46 @@ app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
+
+
+# --- Authentication & Authorization (Spec §10.1, §5.1) ---
+
+@app.post("/v1/auth/token", response_model=TokenResponse)
+def login_route(payload: LoginRequest, db=Depends(get_db)):
+    """Exchange credentials + workspace for a signed access token.
+
+    Authenticates the user against their workspace membership (§10.1 / §10.2),
+    then returns a Bearer JWT carrying the resolved role + workspace_id.
+    Wrong credentials / inactive user / non-member -> 401 (§5.1 / §5.19).
+    """
+    ctx = authenticate_credentials(db, payload.email, payload.password, payload.workspace_id)
+    if ctx is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials or no membership in this workspace")
+
+    access_token = create_access_token(
+        user_id=ctx.user_id,
+        email=ctx.email,
+        workspace_id=ctx.workspace_id,
+        role=ctx.role,
+    )
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=86400,
+        role=ctx.role,
+        workspace_id=ctx.workspace_id,
+    )
+
+
+@app.get("/v1/auth/me")
+def auth_me_route(ctx: SecurityContext = Depends(get_security_context)):
+    """Return the identity/role resolved from a valid Bearer token (401 otherwise)."""
+    return {
+        "user_id": ctx.user_id,
+        "email": ctx.email,
+        "workspace_id": ctx.workspace_id,
+        "role": ctx.role,
+    }
 
 
 # Root endpoint to serve custom UI
@@ -481,9 +531,13 @@ def approve_suggestion(
     suggestion_id: str,
     payload: dict,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     """
     Approve a suggestion and transition to APPROVED status.
+
+    RBAC: Reviewer (or Administrator). Workspace: must match the caller's
+    authenticated membership (§10.1 / §10.2); cross-workspace -> 403.
 
     Request:
     {
@@ -508,6 +562,7 @@ def approve_suggestion(
         suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
         if not suggestion:
             return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+        require_workspace(suggestion.workspace_id, _ctx)
 
         # Transition to APPROVED
         lifecycle_service = SuggestionLifecycleService()
@@ -561,9 +616,12 @@ def reject_suggestion(
     suggestion_id: str,
     payload: dict,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     """
     Reject a suggestion and transition to REJECTED status.
+
+    RBAC: Reviewer (or Administrator); workspace-scoped (§10.1 / §10.2).
 
     Request:
     {
@@ -587,6 +645,7 @@ def reject_suggestion(
         suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
         if not suggestion:
             return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+        require_workspace(suggestion.workspace_id, _ctx)
 
         # Transition to REJECTED
         lifecycle_service = SuggestionLifecycleService()
@@ -614,9 +673,12 @@ def activate_rule(
     rule_id: str,
     payload: dict,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
 ):
     """
     Activate a created rule and transition suggestion to RULE_ACTIVATED.
+
+    RBAC: Administrator ONLY (§5.9); workspace-scoped (§10.2).
 
     Request:
     {
@@ -642,6 +704,7 @@ def activate_rule(
         rule = db.query(Rule).filter_by(rule_id=rule_id).first()
         if not rule:
             return {"success": False, "error": f"Rule {rule_id} not found"}
+        require_workspace(rule.workspace_id, _ctx)
 
         # Activate rule
         rule.status = "active"
@@ -685,6 +748,7 @@ def activate_rule(
 def get_suggestion_lifecycle(
     suggestion_id: str,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     """
     Get complete lifecycle and audit history for a suggestion.
@@ -707,6 +771,13 @@ def get_suggestion_lifecycle(
     """
     try:
         from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        # Workspace scope (§10.2): confirm the suggestion belongs to the caller's workspace.
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
+        if not suggestion:
+            return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+        require_workspace(suggestion.workspace_id, _ctx)
 
         lifecycle_service = SuggestionLifecycleService()
 
@@ -2045,16 +2116,17 @@ def respond_to_clarification_route(
 def create_review_route(
     payload: ReviewCreateRequest,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     from app.db.models.review import Review
     from datetime import datetime
     from uuid import uuid4
-    
+
     review_id = str(uuid4())
     review = Review(
         review_id=review_id,
         suggestion_id=payload.suggestion_id,
-        workspace_id="default",  # Usually decoupled to workspace of suggestion
+        workspace_id=_ctx.workspace_id,  # scoped to the caller's authenticated workspace (§10.2)
         reviewer_id=payload.reviewer_id or "auto",
         status="assigned",
         priority=payload.priority or "normal",
@@ -2085,12 +2157,14 @@ def create_review_route(
 def get_review_route(
     review_id: str,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     from app.db.models.review import Review
-    
+
     review = db.query(Review).filter_by(review_id=review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
+    require_workspace(review.workspace_id, _ctx)
         
     return ReviewResponse(
         review_id=review.review_id,
@@ -2110,13 +2184,15 @@ def complete_review_route(
     review_id: str,
     payload: ReviewCompleteRequest,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     from app.db.models.review import Review
     from datetime import datetime
-    
+
     review = db.query(Review).filter_by(review_id=review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
+    require_workspace(review.workspace_id, _ctx)
         
     review.status = "completed"
     review.decision = payload.decision
@@ -2144,12 +2220,14 @@ def assign_reviewer_route(
     review_id: str,
     payload: ReviewAssignRequest,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
 ):
     from app.db.models.review import Review
-    
+
     review = db.query(Review).filter_by(review_id=review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
+    require_workspace(review.workspace_id, _ctx)
         
     review.reviewer_id = payload.reviewer_id
     review.status = "assigned"
@@ -2175,6 +2253,7 @@ def assign_reviewer_route(
 def create_evaluation_route(
     payload: EvaluationCreateRequest,
     db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
 ):
     from app.services.evaluation_service import EvaluationService
     service = EvaluationService()
@@ -2296,7 +2375,8 @@ def get_job(job_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.post("/v1/dataset-versions", response_model=dataset_schemas.DatasetVersionResponse)
-def create_dataset_version(payload: dataset_schemas.DatasetVersionCreateRequest, db=Depends(get_db)):
+def create_dataset_version(payload: dataset_schemas.DatasetVersionCreateRequest, db=Depends(get_db),
+                           _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
     service = DatasetVersionService()
     try:
         # pass dummy workspace id since CreateRequest doesn't have it
@@ -2328,7 +2408,8 @@ def get_dataset_version(dataset_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.post("/v1/model-versions", response_model=mv_schemas.ModelVersionResponse)
-def create_model_version(payload: mv_schemas.ModelVersionCreateRequest, db=Depends(get_db)):
+def create_model_version(payload: mv_schemas.ModelVersionCreateRequest, db=Depends(get_db),
+                         _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
     service = ModelVersionService()
     try:
         model = service.create_model_version(db, payload)
@@ -2354,7 +2435,8 @@ def get_model_version(model_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
 
 @app.patch("/v1/model-versions/{model_id}", response_model=mv_schemas.ModelVersionResponse)
-def update_model_version(model_id: str, payload: mv_schemas.ModelVersionUpdateRequest, db=Depends(get_db)):
+def update_model_version(model_id: str, payload: mv_schemas.ModelVersionUpdateRequest, db=Depends(get_db),
+                         _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
     service = ModelVersionService()
     try:
         model = service.update_model_version(db, model_id, payload)
@@ -2363,7 +2445,8 @@ def update_model_version(model_id: str, payload: mv_schemas.ModelVersionUpdateRe
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/v1/model-versions/{model_id}/promote", response_model=mv_schemas.ModelVersionResponse)
-def promote_model_version(model_id: str, target_status: mv_schemas.ModelVersionStatus, db=Depends(get_db)):
+def promote_model_version(model_id: str, target_status: mv_schemas.ModelVersionStatus, db=Depends(get_db),
+                          _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
     """Promote model through lifecycle: CANDIDATE -> APPROVED -> ACTIVE per spec 8.11."""
     service = ModelVersionService()
     try:
