@@ -42,13 +42,40 @@ from fastapi import Depends, Header, HTTPException, status
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SECRET_KEY: str = os.getenv("RIE_JWT_SECRET", "rie-dev-insecure-secret-change-me")
-if SECRET_KEY == "rie-dev-insecure-secret-change-me":
-    # The default is deliberately insecure so the project boots without config;
-    # production must set RIE_JWT_SECRET. Match the repo's existing no-config
-    # style (DATABASE_URL defaults the same way in app/db/database.py).
+_INSECURE_DEFAULT_SECRET = "rie-dev-insecure-secret-change-me"
+# An empty/whitespace RIE_JWT_SECRET counts as UNSET — otherwise a set-but-empty
+# var would silently become an empty signing key.
+SECRET_KEY: str = (os.getenv("RIE_JWT_SECRET") or "").strip() or _INSECURE_DEFAULT_SECRET
+
+# Which environment are we? Production MUST NOT run on the well-known default
+# secret — anyone could forge a token for any user/role/workspace (§10.1).
+# `ENV` is included because docker-compose.yml sets it to "production".
+_ENV = (
+    os.getenv("RIE_ENV") or os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development"
+).strip().lower()
+_IS_PRODUCTION = _ENV in ("production", "prod")
+
+if SECRET_KEY == _INSECURE_DEFAULT_SECRET:
+    if _IS_PRODUCTION:
+        raise RuntimeError(
+            "RIE_JWT_SECRET must be set to a strong, unique value in production "
+            f"(RIE_ENV={_ENV!r}). Refusing to start with the built-in development "
+            "secret: tokens would be forgeable, breaking §10.1 authentication."
+        )
+    # Dev/test: boot without config, but say so loudly. Matches the repo's
+    # no-config style (DATABASE_URL defaults the same way in app/db/database.py).
     import warnings
-    warnings.warn("RIE_JWT_SECRET not set; using an insecure development secret.")
+
+    warnings.warn(
+        f"RIE_JWT_SECRET not set; using an insecure development secret "
+        f"(RIE_ENV={_ENV!r}). Set RIE_JWT_SECRET before deploying."
+    )
+
+if _IS_PRODUCTION and len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        f"RIE_JWT_SECRET is too short ({len(SECRET_KEY)} chars) for production; "
+        "use at least 32 characters of random data."
+    )
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_TTL: int = int(os.getenv("RIE_TOKEN_TTL", "86400"))  # 24h
@@ -200,6 +227,23 @@ def get_security_context(authorization: Optional[str] = Header(default=None)) ->
     """Require a valid Bearer token. 401 when missing/invalid (Spec §5.1)."""
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authentication token")
+    if not authorization.upper().startswith("BEARER "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization scheme")
+    token = authorization[7:].strip()
+    return decode_token(token)
+
+
+def optional_security_context(authorization: Optional[str] = Header(default=None)) -> Optional[SecurityContext]:
+    """Return the authenticated context when a Bearer token is present.
+
+    Unlike get_security_context, a MISSING token is not an error — callers use
+    this to keep the unauthenticated (legacy dashboard/smoke) submission path
+    working while still enforcing §10.2 workspace isolation when a token IS
+    supplied. A PRESENT but invalid token is still a 401 (we never silently
+    downgrade an authenticated attempt to anonymous).
+    """
+    if not authorization:
+        return None
     if not authorization.upper().startswith("BEARER "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization scheme")
     token = authorization[7:].strip()

@@ -14,9 +14,11 @@ class AuditHistory(Base):
         primary_key=True,
     )
 
-    workspace_id: Mapped[str] = mapped_column(
+    # Nullable: tenant-less system events (auth failures naming an unknown
+    # workspace, system API access) must still be auditable per §6.6.
+    workspace_id: Mapped[str | None] = mapped_column(
         ForeignKey("workspaces.workspace_id"),
-        nullable=False,
+        nullable=True,
     )
 
     actor_id: Mapped[str | None] = mapped_column(

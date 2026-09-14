@@ -54,6 +54,10 @@ services:
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
       ENV: production
+      # JWT signing key (Spec §10.1). Required — the app refuses to start with
+      # the insecure development default when ENV=production. Set it in .env
+      # (gitignored) or export it before `docker compose up`.
+      RIE_JWT_SECRET: ${RIE_JWT_SECRET:?RIE_JWT_SECRET must be set (see .env.example)}
     volumes:
       - ./app:/app/app
       - ./app/static:/app/app/static

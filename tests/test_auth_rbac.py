@@ -131,7 +131,9 @@ if os.getenv("RIE_TEST_INTEGRATION") == "1":
     import httpx
 
     base = os.getenv("RIE_BASE_URL", "http://localhost:8001")
-    c = httpx.Client(base_url=base, timeout=30)
+    # Generous timeout: the one "own-workspace not blocked" analyze call runs the
+    # full 8-step pipeline (first call also loads DistilBERT into memory).
+    c = httpx.Client(base_url=base, timeout=180)
     ifail = []
 
     def ichk(cond, label, extra=""):
@@ -169,6 +171,44 @@ if os.getenv("RIE_TEST_INTEGRATION") == "1":
     # Wrong password
     r = c.post("/v1/auth/token", json={"email": "admin@rie.local", "password": "WRONG", "workspace_id": SEED_WS})
     ichk(r.status_code == 401, "wrong password -> 401", f"-> {r.status_code}")
+
+    # §10.2 / §5.2 submission-path isolation on /v1/feedback/analyze.
+    # These checks run BEFORE pipeline processing, so they return fast.
+    body = {"workspace_id": SEED_WS, "feedback_text": "Refund emails should go out within 24 hours"}
+    h = {"Authorization": f"Bearer {admin}"}
+
+    # Present-but-invalid token -> 401 (never downgraded to anonymous)
+    r = c.post("/v1/feedback/analyze", json=body, headers={"Authorization": "Bearer not.a.jwt"})
+    ichk(r.status_code == 401, "analyze invalid token -> 401", f"-> {r.status_code}")
+
+    # Authenticated request targeting a workspace the user is NOT a member of -> 403
+    r = c.post("/v1/feedback/analyze", json={"workspace_id": "CROSS_WORKSPACE_X", "feedback_text": "x"}, headers=h)
+    ichk(r.status_code == 403, "analyze cross-workspace -> 403", f"-> {r.status_code}")
+
+    # Legit workspace + valid token -> NOT blocked (pipeline result is out of scope here)
+    r = c.post("/v1/feedback/analyze", json=body, headers=h)
+    ichk(r.status_code not in (401, 403), "analyze own-workspace not blocked", f"-> {r.status_code}")
+
+    # §6.6 / §10.11 auditability: auth events land in audit_history.
+    # Checked via direct DB read (the audit table is not exposed over the API).
+    try:
+        import sqlalchemy as sa
+        import os as _os
+
+        _url = _os.getenv("DATABASE_URL", "postgresql://rie_user:rie_password@localhost:5432/rule_intelligence_engine")
+        _e = sa.create_engine(_url)
+        with _e.connect() as _c:
+            rows = _c.execute(sa.text(
+                "SELECT action, count(*) FROM audit_history "
+                "WHERE action IN ('auth.login.succeeded','auth.login.failed','api.access.denied') "
+                "GROUP BY action"
+            )).fetchall()
+        seen = {a: n for a, n in rows}
+        ichk(seen.get("auth.login.succeeded", 0) >= 1, "audit: login success recorded", f"-> {seen}")
+        ichk(seen.get("auth.login.failed", 0) >= 1, "audit: login failure recorded", f"-> {seen}")
+        ichk(seen.get("api.access.denied", 0) >= 1, "audit: 401/403 denial recorded", f"-> {seen}")
+    except Exception as _e:
+        ichk(False, "audit: DB check failed", f"-> {_e}")
 
     if ifail:
         print(f"FAIL: {len(ifail)} auth integration checks failed")

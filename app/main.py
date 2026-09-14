@@ -82,15 +82,52 @@ from app.services.domain_pack_detector import detect_domain_pack
 from app.services.security import (
     create_access_token,
     authenticate_credentials,
+    decode_token,
     get_security_context,
+    optional_security_context,
     require_role,
     require_workspace,
     Role,
     SecurityContext,
 )
 from app.schemas.auth import LoginRequest, TokenResponse
+from app.services.audit import write_audit, write_auth_event
 
 app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
+
+
+@app.middleware("http")
+async def audit_authorization_failures(request: Request, call_next):
+    """Record every rejected API access in `audit_history` (Spec §6.6 / §10.11).
+
+    Covers all guarded routes in one place: a 401 (unauthenticated) or 403
+    (insufficient role / cross-workspace) is a security-relevant event and the
+    spec requires API access to be auditable. Runs in its own DB session and is
+    best-effort so auditing can never alter the response.
+    """
+    response = await call_next(request)
+    if response.status_code in (401, 403):
+        try:
+            auth = request.headers.get("authorization")
+            actor, workspace = None, None
+            if auth and auth.upper().startswith("BEARER "):
+                try:
+                    _c = decode_token(auth[7:].strip())
+                    actor, workspace = _c.user_id, _c.workspace_id
+                except Exception:
+                    pass  # invalid token -> actor already unknown
+            write_auth_event(
+                action="api.access.denied",
+                path=request.url.path,
+                status_code=response.status_code,
+                workspace_id=workspace,
+                actor_id=actor,
+                details={"method": request.method},
+            )
+        except Exception:
+            pass  # auditing must never affect the response
+    return response
+
 
 # Mount static files (custom UI dashboard)
 static_dir = Path(__file__).parent / "static"
@@ -110,7 +147,30 @@ def login_route(payload: LoginRequest, db=Depends(get_db)):
     """
     ctx = authenticate_credentials(db, payload.email, payload.password, payload.workspace_id)
     if ctx is None:
+        # §6.6 / §10.11: failed authentication is a security-relevant event.
+        write_audit(
+            db,
+            workspace_id=payload.workspace_id,
+            actor_id=payload.email,
+            action="auth.login.failed",
+            entity_type="user",
+            entity_id=payload.email,
+            details={"reason": "invalid credentials or no workspace membership"},
+            commit=True,
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials or no membership in this workspace")
+
+    # §6.6: successful authentication (API access) is recorded.
+    write_audit(
+        db,
+        workspace_id=ctx.workspace_id,
+        actor_id=ctx.user_id,
+        action="auth.login.succeeded",
+        entity_type="user",
+        entity_id=ctx.user_id,
+        details={"email": ctx.email, "role": ctx.role},
+        commit=True,
+    )
 
     access_token = create_access_token(
         user_id=ctx.user_id,
@@ -1231,10 +1291,15 @@ def extract_workspace_from_context(payload_workspace: str, request_headers: dict
     """
     Extract workspace ID from multiple sources in priority order:
     1. X-Workspace-ID header (explicit override)
-    2. Authorization header (JWT token extraction)
-    3. X-User-ID header (derive workspace from user)
-    4. Payload workspace_id field (fallback)
-    5. Environment variable DEFAULT_WORKSPACE_ID
+    2. X-User-ID header (derive workspace from user)
+    3. Payload workspace_id field
+    4. Environment variable DEFAULT_WORKSPACE_ID
+
+    NOTE: the Authorization header is deliberately NOT a source here. A Bearer
+    token's workspace is resolved and VERIFIED by `optional_security_context`
+    (app/services/security.py), and the caller then asserts the supplied
+    workspace matches it (403 otherwise) — see the §5.2 check in
+    `analyze_feedback`. This function only picks the candidate workspace.
     """
     import os
 
@@ -1247,28 +1312,7 @@ def extract_workspace_from_context(payload_workspace: str, request_headers: dict
         print(f"[AUTH] Using workspace from X-Workspace-ID header: {explicit_ws}")
         return explicit_ws
 
-    # Priority 2: Extract from JWT token (if Authorization header present)
-    auth_header = request_headers.get("Authorization") or request_headers.get("authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        try:
-            import jwt
-            token = auth_header.replace("Bearer ", "").strip()
-            # Try to decode token (without verification for now)
-            decoded = jwt.decode(token, options={"verify_signature": False})
-            if "workspace_id" in decoded:
-                ws_id = decoded["workspace_id"]
-                print(f"[AUTH] Using workspace from JWT token: {ws_id}")
-                return ws_id
-            if "sub" in decoded and "workspace_id" in decoded.get("context", {}):
-                ws_id = decoded["context"]["workspace_id"]
-                print(f"[AUTH] Using workspace from JWT context: {ws_id}")
-                return ws_id
-        except ImportError:
-            print(f"[AUTH] PyJWT not installed - skipping JWT parsing")
-        except Exception as e:
-            print(f"[AUTH] Could not decode JWT token: {e}")
-
-    # Priority 3: Derive from X-User-ID header
+    # Priority 2: Derive from X-User-ID header
     user_id = request_headers.get("X-User-ID") or request_headers.get("x-user-id")
     if user_id:
         import hashlib
@@ -1277,12 +1321,12 @@ def extract_workspace_from_context(payload_workspace: str, request_headers: dict
         print(f"[AUTH] Derived workspace from X-User-ID: {ws_id}")
         return ws_id
 
-    # Priority 4: Payload fallback
+    # Priority 3: Payload fallback
     if payload_workspace:
         print(f"[AUTH] Using workspace from payload: {payload_workspace}")
         return payload_workspace
 
-    # Priority 5: Environment default
+    # Priority 4: Environment default
     default_ws = os.getenv("DEFAULT_WORKSPACE_ID", "e8af6af9-3bbe-4117-a007-f55db418bc30")
     print(f"[AUTH] Using default workspace from environment: {default_ws}")
     return default_ws
@@ -1322,6 +1366,20 @@ def analyze_feedback(
     # Extract workspace from authentication context (headers > JWT > payload > environment)
     headers_dict = dict(request.headers) if request else {}
     workspace_id = extract_workspace_from_context(payload.workspace_id, headers_dict)
+
+    # §10.2 / §5.2: the supplied workspace identifier is validated against the
+    # authenticated user's authorized workspace memberships before any business
+    # operation. Optional-token: unauthenticated (legacy dashboard/smoke) requests
+    # are still accepted, but an authenticated request must target its own workspace
+    # (cross-workspace -> 403). A present-but-invalid token is a 401, never downgraded.
+    auth_ctx = optional_security_context(headers_dict.get("authorization"))
+    if auth_ctx is not None:
+        require_workspace(workspace_id, auth_ctx)
+        input_validation_logger.info(
+            f"Workspace membership check: PASS (user={auth_ctx.user_id} workspace={workspace_id})"
+        )
+    else:
+        input_validation_logger.info("Workspace membership check: SKIPPED (unauthenticated legacy path)")
 
     input_validation_logger.info(f"Workspace ID: {workspace_id}")
 
