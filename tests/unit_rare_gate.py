@@ -100,6 +100,55 @@ POS = [
      "question"),
     ("Is the CSAT metric counted from received surveys or closed tickets?", "question"),
     ("Why is revenue excluding cancelled orders?", "question"),
+    # --- new #152 feature_request seeds (must be gated by FR frames) ---
+    # ecommerce
+    ("Please add an order export button for the reports page.", "feature_request"),
+    ("Can we get a restock alert for low inventory products?", "feature_request"),
+    ("It would be helpful to show order delivery dates on the summary page.", "feature_request"),
+    ("Please create a download link for the returns report.", "feature_request"),
+    ("Could you provide a monthly summary email for refunds?", "feature_request"),
+    ("Kindly add a currency selector to the checkout page.", "feature_request"),
+    # customer_support
+    ("Please add a bulk close option for tickets.", "feature_request"),
+    ("Can we get a priority flag on the ticket list page?", "feature_request"),
+    ("It would be helpful to show agent names on the dashboard.", "feature_request"),
+    ("Please create a reassign button for the agent queue view.", "feature_request"),
+    ("Could you provide an SLA breach export for managers?", "feature_request"),
+    # saas_subscription
+    ("Please add a usage report for active subscriptions.", "feature_request"),
+    ("Can we get a plan comparison view on the billing page?", "feature_request"),
+    ("It would be helpful to show invoice due dates on the dashboard.", "feature_request"),
+    ("Please create a proration preview for the invoice screen.", "feature_request"),
+    ("Could you provide a dunning email preview for trial expiries?", "feature_request"),
+    # --- new #152 issue_report seeds (must be gated by IR frames) ---
+    # ecommerce
+    ("The orders page is stuck on the loading spinner today.", "issue_report"),
+    ("The refund report shows the wrong amount for returned items.", "issue_report"),
+    ("The product image is missing on the checkout page.", "issue_report"),
+    ("The dashboard is loading very slowly for the sales report.", "issue_report"),
+    ("The discount banner keeps overlapping the add-to-cart button.", "issue_report"),
+    ("The payment confirmation email is going to the wrong address.", "issue_report"),
+    ("The refund figure seems off on the order report.", "issue_report"),
+    ("The order page shows the wrong phone number for shipped orders.", "issue_report"),
+    # customer_support
+    ("The agent console is stuck on a blank screen after login.", "issue_report"),
+    ("The CSAT dashboard shows the wrong score today.", "issue_report"),
+    ("The support email is going to the wrong queue.", "issue_report"),
+    ("The ticket page keeps loading slowly for large accounts.", "issue_report"),
+    ("The SLA timer seems to be stuck at zero for some tickets.", "issue_report"),
+    ("The notification banner is overlapping the reply box.", "issue_report"),
+    ("The satisfaction survey page is missing the comment field.", "issue_report"),
+    # saas_subscription
+    ("The subscription page is stuck on the payment spinner.", "issue_report"),
+    ("The invoice PDF shows the wrong amount after currency conversion.", "issue_report"),
+    ("The billing email is going to the wrong contact for the account.", "issue_report"),
+    ("The MRR dashboard keeps loading slowly on month-end.", "issue_report"),
+    ("The dunning banner is missing the upcoming renewal notice.", "issue_report"),
+    ("The trial count seems off for the current plan tier.", "issue_report"),
+    ("The payment page shows the wrong currency symbol.", "issue_report"),
+    # --- new #152 question seeds (must be gated by Q frames) ---
+    ("Does tickets.first_response_at include weekends in the SLA timing?", "question"),
+    ("Does invoices.status include voided drafts when computing outstanding balance?", "question"),
 ]
 
 failures = []
@@ -119,6 +168,28 @@ for fb, want in POS:
     r = rare_class_gate(fb)
     if (r or {}).get("feedback_type") != want:
         failures.append(f"POS expected {want!r}, got {r!r}: {fb!r}")
+
+# General feedback has no gate — it must NEVER be stolen by an FR/IR/Q frame.
+# These are the new #152 general_feedback seeds, which are deliberately phrased
+# to avoid every gate frame.
+GF_NO_GATE = [
+    "Checkout speed has improved a lot this week, nice work.",
+    "The mobile shopping experience has gotten much better lately.",
+    "I really appreciate how quickly support resolved my issue.",
+    "The new product inventory feature looks clean overall.",
+    "Support agents have been really responsive this quarter.",
+    "The new ticket layout feels more organized overall.",
+    "Thanks for the quick turnaround on my last report.",
+    "The agent experience with this tool has improved noticeably.",
+    "Billing seems more straightforward with the new dashboard.",
+    "The self-serve portal has made renewals much easier for us.",
+    "Great to see proration details now shown on invoices.",
+    "Thanks for fixing the invoice errors we reported last week.",
+]
+for fb in GF_NO_GATE:
+    r = rare_class_gate(fb)
+    if r is not None:
+        failures.append(f"GF_NO_GATE gate fired {r.get('feedback_type')!r}: {fb!r}")
 
 # Ordering: feature_request frame inside a question must win as feature_request
 # (frame checked first), but only when unambiguous.
