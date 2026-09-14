@@ -1400,7 +1400,7 @@ def analyze_feedback(
     # Log required request fields
     required_fields = {
         'workspace_id': payload.workspace_id,
-        'feedback_text': payload.feedback_text,
+        'feedback_text_length': len(payload.feedback_text) if payload.feedback_text else 0,
     }
     input_validation_logger.info(f"Required fields validation: {required_fields}")
 
