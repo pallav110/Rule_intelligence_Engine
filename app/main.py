@@ -142,11 +142,17 @@ async def audit_authorization_failures(request: Request, call_next):
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
+    print(f"[mount] Mounted /ui -> {static_dir}")
+else:
+    print(f"[mount] /ui NOT mounted - {static_dir} does not exist")
 
 # Mount results directory for file access
-results_dir = Path("/home/spxlpt133/Desktop/Rule-intelligence-Engine/results")
+results_dir = Path("/app/results")
 if results_dir.exists():
-    app.mount("/results", StaticFiles(directory=str(results_dir)), name="results")
+    app.mount("/results", StaticFiles(directory=str(results_dir), html=True), name="results")
+    print(f"[mount] Mounted /results -> {results_dir}")
+else:
+    print(f"[mount] /results NOT mounted - {results_dir} does not exist")
 
 
 # --- Authentication & Authorization (Spec §10.1, §5.1) ---
