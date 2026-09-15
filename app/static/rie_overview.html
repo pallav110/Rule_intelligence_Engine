@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rule Intelligence Engine — System Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ── tokens ── */
+:root{
+  --bg:#fcfcfd;
+  --bg-grid:rgba(15,23,42,.035);
+  --surface:#ffffff;
+  --surface-2:#f8fafc;
+  --surface-3:#f1f5f9;
+  --ink:#0b0f1e;
+  --ink-2:#334155;
+  --muted:#64748b;
+  --faint:#94a3b8;
+  --line:#e2e8f0;
+  --line-2:#eef2f7;
+  --brand:#3b5cff;
+  --brand-2:#5b8cff;
+  --brand-soft:rgba(59,92,255,.07);
+  --brand-ring:rgba(59,92,255,.12);
+  --ok:#0e9f6e;
+  --ok-soft:#ecfdf5;
+  --violet:#7c3aed;
+  --violet-soft:#f5f3ff;
+  --warn:#d97706;
+  --radius:14px;
+  --radius-lg:18px;
+  --radius-sm:10px;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scrollbar-gutter:stable}
+body{
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(var(--bg-grid) 1.1px, transparent 1.1px),
+    radial-gradient(800px 600px at 70% -10%, rgba(59,92,255,.06), transparent 60%),
+    radial-gradient(700px 500px at -10% 30%, rgba(124,58,237,.04), transparent 60%);
+  background-size:22px 22px, auto, auto;
+  background-position:0 0, 0 0, 0 0;
+  color:var(--ink);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+a{color:inherit}
+::selection{background:rgba(59,92,255,.14)}
+
+/* ── nav ── */
+.nav{
+  position:sticky;top:0;z-index:40;
+  backdrop-filter:saturate(180%) blur(14px);
+  -webkit-backdrop-filter:saturate(180%) blur(14px);
+  background:rgba(252,252,253,.82);
+  border-bottom:1px solid var(--line);
+}
+.nav-inner{
+  max-width:1160px;margin:0 auto;
+  padding:13px 24px;
+  display:flex;align-items:center;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0}
+.brand-mark{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--brand) 0%, var(--brand-2) 100%);
+  display:grid;place-items:center;color:#fff;font-size:15px;font-weight:800;
+  box-shadow:0 2px 12px rgba(59,92,255,.28), inset 0 1px 0 rgba(255,255,255,.22);
+  position:relative;
+}
+.brand-mark::after{
+  content:"";position:absolute;inset:0;border-radius:10px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);pointer-events:none;
+}
+.brand-name{font-family:Fraunces,serif;font-weight:700;font-size:15.5px;letter-spacing:-.025em;color:var(--ink);line-height:1}
+.brand-sub{font-family:JetBrains Mono,monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:2px}
+.nav-links{display:flex;gap:2px;margin-left:6px}
+.nav-links a{
+  font-size:13px;font-weight:500;color:var(--muted);text-decoration:none;
+  padding:7px 12px;border-radius:999px;transition:.15s var(--ease);
+  border:1px solid transparent;
+}
+.nav-links a:hover{color:var(--ink);background:var(--surface);border-color:var(--line);box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.nav-cta{margin-left:auto;display:flex;align-items:center;gap:10px}
+.auth-badge{
+  display:none;align-items:center;gap:8px;
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:5px 6px 5px 10px;box-shadow:0 1px 2px rgba(15,23,42,.05);
+  max-width:340px;
+}
+.auth-badge.on{display:inline-flex}
+.auth-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(14,159,110,.14);flex-shrink:0}
+.auth-badge .who{
+  font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;
+}
+.auth-badge .role{
+  font-family:JetBrains Mono,monospace;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--ink);color:#fff;padding:3px 7px;border-radius:999px;flex-shrink:0;
+}
+.auth-badge .ws{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);white-space:nowrap}
+.icon-btn{
+  width:28px;height:28px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+  display:grid;place-items:center;cursor:pointer;color:var(--muted);transition:.15s;
+}
+.icon-btn:hover{border-color:var(--ink);color:var(--ink)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;
+  padding:9px 16px;border-radius:999px;border:1px solid transparent;
+  cursor:pointer;text-decoration:none;transition:.18s var(--ease);white-space:nowrap;
+  letter-spacing:-.01em;
+}
+.btn-primary{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 1px 2px rgba(15,23,42,.08), 0 4px 14px rgba(15,23,42,.12)}
+.btn-primary:hover{background:#111a33;transform:translateY(-1px);box-shadow:0 4px 18px rgba(15,23,42,.18)}
+.btn-primary:active{transform:translateY(0)}
+.btn-ghost{background:var(--surface);border-color:var(--line);color:var(--ink);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.btn-ghost:hover{border-color:var(--ink);background:var(--surface);transform:translateY(-1px);box-shadow:0 4px 14px rgba(15,23,42,.07)}
+.btn-sm{padding:7px 13px;font-size:13px}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(14,159,110,.13)}
+.pill--brand{border-color:rgba(59,92,255,.14);background:var(--brand-soft);color:var(--brand)}
+
+/* ── login modal ── */
+.modal-backdrop{
+  position:fixed;inset:0;z-index:80;
+  background:rgba(11,15,30,.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:20px;
+  box-shadow:0 16px 48px rgba(15,23,42,.18), 0 2px 10px rgba(15,23,42,.08);
+  padding:24px;position:relative;overflow:hidden;
+}
+.modal::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(59,92,255,.22), transparent);
+}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.modal-head h3{font-family:Fraunces,serif;font-size:18px;letter-spacing:-.02em}
+.modal-head p{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.modal-close{width:32px;height:32px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.modal-close:hover{border-color:var(--ink);color:var(--ink)}
+.field{display:block;margin-bottom:12px}
+.field label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);margin-bottom:6px}
+.field input{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;
+  background:var(--surface);color:var(--ink);font-size:14px;font-family:inherit;
+  transition:border-color .15s, box-shadow .15s;outline:none;
+}
+.field input:focus{border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-ring)}
+.field input::placeholder{color:var(--faint)}
+.login-msg{font-size:12.5px;min-height:18px;margin:4px 0 10px}
+.login-msg.err{color:#be123c}
+.login-msg.ok{color:var(--ok)}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:12px;padding-top:12px;border-top:1px solid var(--line-2)}
+.hint b{color:var(--ink)}
+
+/* ── hero ── */
+.hero{
+  max-width:1160px;margin:0 auto;
+  padding:48px 24px 0;
+  display:grid;grid-template-columns:1.12fr .88fr;gap:44px;align-items:center;
+}
+.kicker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.hero h1{
+  font-family:Fraunces,serif;
+  font-size:46px;line-height:.92;letter-spacing:-.035em;font-weight:700;
+  color:var(--ink);text-wrap:balance;
+}
+.hero h1 em{font-style:italic;font-weight:700;color:var(--brand);position:relative}
+.hero h1 em::after{
+  content:"";position:absolute;left:-2px;right:-2px;bottom:.08em;height:.32em;
+  background:linear-gradient(90deg, rgba(59,92,255,.11), rgba(59,92,255,.04));
+  z-index:-1;border-radius:4px;
+}
+.hero p.lead{margin-top:14px;font-size:16px;line-height:1.68;color:var(--ink-2);max-width:560px}
+.hero-actions{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hero-actions .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+.role-hint{
+  margin-top:12px;
+  display:none;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--muted);line-height:1.5;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.role-hint.on{display:flex}
+.role-hint a{color:var(--brand);font-weight:600;text-decoration:none}
+.role-hint a:hover{text-decoration:underline}
+.trustbar{margin-top:22px;display:flex;gap:8px;flex-wrap:wrap}
+.trustbar span{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:500;color:var(--muted);
+  background:var(--surface);border:1px solid var(--line);padding:6px 10px;border-radius:999px;
+  box-shadow:0 1px 2px rgba(15,23,42,.03);
+}
+.trustbar span b{color:var(--ink);font-weight:600}
+.hero-visual{
+  position:relative;
+  background:linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:20px;
+  box-shadow:0 1px 2px rgba(15,23,42,.05), 0 16px 40px rgba(15,23,42,.08);
+  overflow:hidden;
+}
+.hero-visual::before{
+  content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
+  background:
+    radial-gradient(520px 360px at 75% -10%, rgba(59,92,255,.09), transparent 62%),
+    radial-gradient(420px 320px at -8% 115%, rgba(124,58,237,.06), transparent 62%);
+}
+.mini-flow{display:flex;align-items:center;gap:0;position:relative}
+.mini-step{
+  flex:1;text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:14px 8px 12px;position:relative;transition:.2s var(--ease);
+}
+.mini-step.active{border-color:rgba(59,92,255,.28);box-shadow:0 0 0 4px var(--brand-ring), 0 8px 20px rgba(59,92,255,.12)}
+.mini-step .k{font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.mini-step .t{font-size:13px;font-weight:700;margin-top:4px;color:var(--ink);letter-spacing:-.01em}
+.mini-step .d{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.mini-arrow{width:26px;display:grid;place-items:center;color:var(--line);font-size:15px;flex-shrink:0}
+.endpoint{
+  margin-top:14px;
+  background:#0b1226;color:#cbd5e1;
+  border-radius:12px;padding:12px 12px 12px 14px;
+  font-family:JetBrains Mono,monospace;font-size:12px;
+  display:flex;align-items:center;gap:10px;
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.endpoint .method{
+  background:#22c55e;color:#052e16;font-weight:700;
+  padding:3px 7px;border-radius:7px;font-size:10.5px;letter-spacing:.05em;flex-shrink:0;
+}
+.endpoint code{color:#e2e8f0;letter-spacing:-.01em}
+.hero-note{margin-top:10px;font-size:12px;color:var(--muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px}
+.hero-note::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(14,159,110,.12);flex-shrink:0}
+
+/* ── sections ── */
+.section{max-width:1160px;margin:0 auto;padding:64px 24px 0}
+.section-head{max-width:640px}
+.eyebrow{
+  font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.eyebrow::before{content:"";width:18px;height:1px;background:var(--brand);opacity:.5}
+.section-head h2{
+  font-family:Fraunces,serif;font-size:30px;line-height:1.02;letter-spacing:-.025em;
+  margin-top:10px;text-wrap:balance;
+}
+.section-head h2 em{font-style:italic;color:var(--brand)}
+.section-head p{margin-top:12px;font-size:15px;line-height:1.65;color:var(--ink-2)}
+
+/* ── principle cards ── */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+  padding:22px 20px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);
+  position:relative;overflow:hidden;transition:.22s var(--ease);
+}
+.card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, var(--accent, transparent), transparent);
+  opacity:.9;
+}
+.card::after{
+  content:"";position:absolute;inset:0;border-radius:var(--radius-lg);pointer-events:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(15,23,42,.08), 0 2px 8px rgba(15,23,42,.05);border-color:#dfe6f3}
+.card--blue{--accent:var(--brand)}
+.card--violet{--accent:var(--violet)}
+.card--ink{--accent:var(--ink)}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.card-icon{
+  width:36px;height:36px;border-radius:11px;
+  display:grid;place-items:center;font-size:16px;
+  background:var(--icon-bg, var(--surface-2));border:1px solid var(--line);
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.card h3{font-size:14.5px;font-weight:700;letter-spacing:-.015em}
+.card .num{margin-left:auto;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--faint);font-weight:600}
+.card p{font-size:13.5px;line-height:1.62;color:var(--ink-2)}
+.card ul{margin-top:12px;list-style:none;display:grid;gap:7px}
+.card li{font-size:12.7px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+.card li::before{content:"";width:16px;height:16px;border-radius:50%;background:var(--ok-soft);border:1px solid rgba(14,159,110,.14);flex-shrink:0;margin-top:1px;position:relative}
+.card li::after{content:"✓";position:absolute;margin-left:4px;margin-top:2px;font-size:10px;color:var(--ok);font-weight:800}
+.card li{position:relative}
+.card-foot{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:12px;color:var(--faint);font-style:italic}
+
+/* ── flow ── */
+.flow-wrap{margin-top:28px;display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:start}
+.flow-nav{
+  position:sticky;top:70px;
+  background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:var(--radius-lg);
+  padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.05);
+}
+.flow-nav h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.flow-nav h4::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 4px var(--brand-ring)}
+.flow-nav a{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:12px;text-decoration:none;
+  font-size:13px;font-weight:500;color:var(--ink-2);transition:.14s var(--ease);
+  border:1px solid transparent;
+}
+.flow-nav a:hover{background:var(--surface-2);color:var(--ink);border-color:var(--line)}
+.flow-nav a.active{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 4px 14px rgba(15,23,42,.14)}
+.flow-nav a .n{
+  width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:700;background:rgba(15,23,42,.06);flex-shrink:0;
+}
+.flow-nav a.active .n{background:rgba(255,255,255,.14);color:#fff}
+.flow-nav .sep{height:1px;background:var(--line);margin:12px 0}
+.flow-nav .hint{font-size:12px;line-height:1.55;color:var(--muted);padding:0 4px}
+.steps{display:grid;gap:14px}
+.step-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+  padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);position:relative;overflow:hidden;
+  transition:.18s var(--ease);
+}
+.step-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--line);opacity:.9;
+}
+.step-card:hover{border-color:#dfe6f3;transform:translateY(-1px);box-shadow:0 8px 28px rgba(15,23,42,.07)}
+.step-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.step-badge{
+  width:32px;height:32px;border-radius:11px;
+  display:grid;place-items:center;
+  font-family:Fraunces,serif;font-size:14px;font-weight:700;
+  background:var(--ink);color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(15,23,42,.14);
+}
+.step-card h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.step-card h3 span{font-weight:400;color:var(--muted);font-size:13px}
+.step-card p{font-size:13.5px;line-height:1.62;color:var(--ink-2);margin-top:6px}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.tag{
+  font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;letter-spacing:.01em;
+  padding:5px 9px;border-radius:999px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+}
+.tag--brand{background:var(--brand-soft);border-color:rgba(59,92,255,.18);color:var(--brand)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:13px}
+.mini-list{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.mini-list h5{font-family:JetBrains Mono,monospace;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px}
+.mini-list li{font-size:12.5px;color:var(--ink-2);margin-left:16px;margin-bottom:4px;line-height:1.5}
+
+/* ── human review ── */
+.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}
+.review-panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+  overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);
+}
+.panel-head{
+  padding:14px 16px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
+}
+.panel-head h4{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.panel-head p{font-size:12px;color:var(--muted)}
+.panel-body{padding:16px}
+.checklist{display:grid;gap:8px}
+.checklist li{
+  display:flex;gap:10px;align-items:flex-start;
+  font-size:13px;color:var(--ink-2);line-height:1.5;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+}
+.checklist li i{width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;flex-shrink:0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.act{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:999px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.act--ok{background:var(--ok);color:#fff;border-color:var(--ok);box-shadow:0 2px 10px rgba(14,159,110,.18)}
+.act--danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+
+/* ── activation strip ── */
+.activate-strip{
+  margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;overflow:hidden;
+}
+.activate-strip::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(59,92,255,.18), transparent);
+}
+.step-mini{text-align:center;padding:12px 10px;position:relative}
+.step-mini .icon{
+  width:42px;height:42px;border-radius:13px;border:1px solid var(--line);
+  display:grid;place-items:center;margin:0 auto;font-size:16px;background:var(--surface-2);
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.step-mini.active .icon{background:var(--ink);color:#fff;border-color:var(--ink);box-shadow:0 4px 14px rgba(15,23,42,.14)}
+.step-mini .t{font-size:13px;font-weight:700;margin-top:10px;letter-spacing:-.01em}
+.step-mini .d{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45}
+.step-mini::after{
+  content:"→";position:absolute;top:32px;right:-10px;width:20px;height:20px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;
+  font-size:11px;color:var(--faint);line-height:1;
+}
+.step-mini:last-child::after{display:none}
+
+/* ── lifecycle ── */
+.lifecycle{margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px 18px 16px;box-shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);overflow-x:auto}
+.timeline{display:flex;gap:0;min-width:920px;align-items:flex-start}
+.tl-item{flex:1;text-align:center;position:relative;padding:0 6px}
+.tl-item::after{content:"";position:absolute;top:18px;left:58%;right:-42%;height:2px;background:var(--line);z-index:0}
+.tl-item:last-child::after{display:none}
+.tl-dot{
+  width:36px;height:36px;border-radius:50%;
+  display:grid;place-items:center;margin:0 auto;
+  background:var(--surface);border:2px solid var(--line);
+  font-size:14px;position:relative;z-index:1;transition:.15s;
+}
+.tl-item.done .tl-dot{background:var(--ink);border-color:var(--ink);color:#fff}
+.tl-item.active .tl-dot{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 0 0 4px var(--brand-ring)}
+.tl-item h5{font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;margin-top:8px;line-height:1.3;letter-spacing:-.01em}
+.tl-item p{font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px}
+.lifecycle-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+.status-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.legend{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:600;color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--line);padding:5px 9px;border-radius:999px;
+}
+.legend i{width:8px;height:8px;border-radius:50%}
+.legend i.ok{background:var(--ok)} .legend i.warn{background:#f59e0b} .legend i.brand{background:var(--brand)} .legend i.ink{background:var(--ink)}
+
+/* ── CTA ── */
+.cta{
+  margin-top:48px;
+  background:linear-gradient(135deg,#0b1226 0%, #111e3a 55%, #1a2f5e 100%);
+  border-radius:22px;padding:32px;
+  display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center;
+  color:#e2e8f0;position:relative;overflow:hidden;
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:0 16px 40px rgba(11,18,38,.22), 0 2px 10px rgba(11,18,38,.12);
+}
+.cta::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(640px 320px at 82% 0%, rgba(91,140,255,.18), transparent 62%),
+    radial-gradient(500px 400px at 0% 100%, rgba(124,58,237,.12), transparent 60%);
+  pointer-events:none;
+}
+.cta h3{font-family:Fraunces,serif;font-size:26px;line-height:1.02;letter-spacing:-.025em;color:#fff;position:relative;text-wrap:balance}
+.cta p{margin-top:8px;font-size:14px;line-height:1.6;color:#94a3b8;position:relative;max-width:520px}
+.cta-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;position:relative}
+.cta .btn-primary{background:#fff;color:var(--ink);border-color:#fff;box-shadow:0 4px 18px rgba(0,0,0,.14)}
+.cta .btn-primary:hover{background:#f1f5f9;transform:translateY(-1px)}
+.cta .btn-ghost{background:transparent;border-color:rgba(255,255,255,.18);color:#e2e8f0}
+.cta .btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.26)}
+
+/* ── foot ── */
+.foot{max-width:1160px;margin:0 auto;padding:26px 24px 40px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:40px;color:var(--muted);font-size:12.5px}
+.foot a{color:var(--ink);font-weight:600;text-decoration:none}
+.foot a:hover{text-decoration:underline}
+
+/* ── responsive ── */
+@media (max-width: 980px){
+  .hero{grid-template-columns:1fr;gap:28px}
+  .hero h1{font-size:40px}
+  .cards{grid-template-columns:1fr}
+  .flow-wrap{grid-template-columns:1fr}
+  .flow-nav{position:static}
+  .review-grid{grid-template-columns:1fr}
+  .cta{grid-template-columns:1fr}
+  .cta-actions{justify-content:flex-start}
+  .cols2{grid-template-columns:1fr}
+  .activate-strip{grid-template-columns:1fr 1fr}
+  .step-mini::after{display:none}
+}
+@media (max-width: 640px){
+  .nav-links{display:none}
+  .nav-inner{padding:12px 16px}
+  .hero{padding-top:28px}
+  .hero h1{font-size:36px}
+  .section{padding-top:40px}
+  .activate-strip{grid-template-columns:1fr}
+  .auth-badge .ws{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;scroll-behavior:auto !important}
+}
+</style>
+</head>
+<body>
+
+<!-- login modal -->
+<div class="modal-backdrop" id="login-modal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <div class="modal-head">
+      <div>
+        <h3 id="login-title">Sign in to RIE</h3>
+        <p>Authenticate against <span style="font-family:JetBrains Mono,monospace">POST /v1/auth/token</span> — your workspace + role determine what you can do. Static docs stay public; the API enforces RBAC.</p>
+      </div>
+      <button class="modal-close" id="login-close" aria-label="Close">✕</button>
+    </div>
+    <form id="login-form">
+      <label class="field"><span>Email</span><input id="login-email" type="email" autocomplete="username" placeholder="reviewer@rie.local" required></label>
+      <label class="field"><span>Password</span><input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
+      <label class="field"><span>Workspace ID</span><input id="login-workspace" type="text" placeholder="e8af6af9-3bbe-4117-a007-f55db418bc30" required></label>
+      <div class="login-msg" id="login-msg" aria-live="polite"></div>
+      <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
+    </form>
+    <div class="hint">
+      Demo accounts: <b>reviewer@rie.local / Review123!</b> · <b>admin@rie.local / Admin123!</b> · <b>business@rie.local / Business123!</b><br>
+      Same <span style="font-family:JetBrains Mono,monospace">rie_token</span> as <a href="/ui/review_dashboard.html" style="color:var(--brand);font-weight:600;text-decoration:none">Review</a> &amp; <a href="/ui/activation_dashboard.html" style="color:var(--brand);font-weight:600;text-decoration:none">Activation</a> dashboards — single sign-on.
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#">
+      <div class="brand-mark">⚡</div>
+      <div>
+        <div class="brand-name">Rule Intelligence Engine</div>
+        <div class="brand-sub">Client overview · §3</div>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="#principle">Principle</a>
+      <a href="#analysis">Analysis</a>
+      <a href="#review">Review</a>
+      <a href="#activation">Activation</a>
+      <a href="#lifecycle">Lifecycle</a>
+    </div>
+    <div class="nav-cta">
+      <span class="pill" style="display:inline-flex"><span class="dot"></span> AI proposes · People decide</span>
+      <div class="auth-badge" id="auth-badge">
+        <span class="dot"></span>
+        <span class="who" id="auth-who">—</span>
+        <span class="role" id="auth-role">—</span>
+        <span class="ws" id="auth-ws">—</span>
+        <button class="icon-btn" id="logout-btn" title="Sign out" aria-label="Sign out">↪</button>
+      </div>
+      <button class="btn btn-primary btn-sm" id="auth-btn">Sign in</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div>
+    <div class="kicker">
+      <span class="pill">Trusted by operations teams · Workspace-scoped · Fully audited</span>
+      <span class="pill pill--brand" id="api-pill" title="GET /v1/health">● API</span>
+    </div>
+    <h1>Turn feedback <em>into rules</em> — without touching production.</h1>
+    <p class="lead">
+      RIE reads unstructured business feedback, drafts candidate business rules, and routes them through <b>human review</b> and <b>administrative activation</b>. Every suggestion is explainable, auditable, and reversible — by design.
+    </p>
+    <div class="hero-actions" id="hero-actions">
+      <a class="btn btn-primary" href="#principle">How it works</a>
+      <a class="btn btn-ghost" href="#lifecycle">View lifecycle</a>
+      <span class="sep" aria-hidden="true"></span>
+      <a class="btn btn-ghost" id="hero-secondary" href="/ui/review_dashboard.html">Open review dashboard</a>
+    </div>
+    <div class="role-hint" id="role-hint"></div>
+    <div class="trustbar">
+      <span>🔒 <b>AI never edits production</b></span>
+      <span>👁 <b>Human review at every gate</b></span>
+      <span>🧾 <b>Full audit trail</b></span>
+      <span>🏢 <b>Workspace-scoped access</b></span>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="mini-flow">
+      <div class="mini-step"><div class="k">Step 1</div><div class="t">Feedback</div><div class="d">Client submits<br>free text</div></div>
+      <div class="mini-arrow">→</div>
+      <div class="mini-step"><div class="k">Step 2</div><div class="t">Analysis</div><div class="d">7-stage<br>pipeline</div></div>
+      <div class="mini-arrow">→</div>
+      <div class="mini-step active"><div class="k">Step 3</div><div class="t">Human gate</div><div class="d">Review &amp;<br>activation</div></div>
+    </div>
+    <div class="endpoint">
+      <span class="method">POST</span>
+      <code>/v1/feedback/analyze</code>
+      <span style="margin-left:auto;font-size:11px;color:#94a3b8">→ returns Suggestion ID + status</span>
+    </div>
+    <div class="hero-note">Analysis ends after routing. No rule is created or activated automatically.</div>
+  </div>
+</section>
+
+<!-- PRINCIPLE -->
+<section class="section" id="principle">
+  <div class="section-head">
+    <div class="eyebrow">§3 — System workflow</div>
+    <h2>Three <em>independent</em> workflows.</h2>
+    <p>Automated analysis, manual review, and rule activation are deliberately separated. That separation is the product promise: a machine can suggest, only a person can approve, and only an administrator can make a rule live.</p>
+  </div>
+  <div class="cards">
+    <div class="card card--blue">
+      <div class="card-head">
+        <div class="card-icon" style="--icon-bg:#eff6ff">🔍</div>
+        <h3>Feedback Analysis</h3><span class="num">§3.1</span>
+      </div>
+      <p><b>Automated.</b> Validates, classifies, extracts, and checks every submission before a human ever sees it.</p>
+      <ul>
+        <li>Input + auth + workspace validation</li>
+        <li>7-stage pipeline (below)</li>
+        <li>Returns Suggestion ID + evidence</li>
+      </ul>
+      <div class="card-foot">Ends after review routing — no rule created.</div>
+    </div>
+    <div class="card card--violet">
+      <div class="card-head">
+        <div class="card-icon" style="--icon-bg:#f5f3ff">👁</div>
+        <h3>Human Review</h3><span class="num">§3.2</span>
+      </div>
+      <p><b>People decide.</b> Reviewers inspect the evidence and choose the outcome.</p>
+      <ul>
+        <li>Approve / Reject / Clarify / Archive</li>
+        <li>Every decision audited</li>
+        <li>Approval ≠ creation or activation</li>
+      </ul>
+      <div class="card-foot">Original feedback stays immutable.</div>
+    </div>
+    <div class="card card--ink">
+      <div class="card-head">
+        <div class="card-icon" style="--icon-bg:#f1f5f9">🚀</div>
+        <h3>Rule Creation &amp; Activation</h3><span class="num">§3.3</span>
+      </div>
+      <p><b>Administrators deploy.</b> Approved suggestions become draft rules, then — explicitly — active ones.</p>
+      <ul>
+        <li>Draft created only from APPROVED</li>
+        <li>Validated vs. rule repository</li>
+        <li>Admin activates → ACTIVE + live</li>
+      </ul>
+      <div class="card-foot">No silent promotion from AI to production.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ANALYSIS — 7 STEPS -->
+<section class="section" id="analysis">
+  <div class="section-head">
+    <div class="eyebrow">§3.1 — Feedback Analysis Flow</div>
+    <h2>From free text to <em>structured evidence.</em></h2>
+    <p>Each submission is validated, traced with a Feedback ID, and passed through a sequential pipeline. Every stage produces its own output — nothing is inferred or invented.</p>
+  </div>
+
+  <div class="flow-wrap">
+    <nav class="flow-nav" aria-label="Pipeline stages">
+      <h4>Pipeline — 7 stages</h4>
+      <a href="#s1" class="active"><span class="n">1</span> Classification</a>
+      <a href="#s2"><span class="n">2</span> Rule Extraction</a>
+      <a href="#s3"><span class="n">3</span> Duplicate Detection</a>
+      <a href="#s4"><span class="n">4</span> Conflict Detection</a>
+      <a href="#s5"><span class="n">5</span> Clarification</a>
+      <a href="#s6"><span class="n">6</span> Confidence &amp; Evidence</a>
+      <a href="#s7"><span class="n">7</span> Review Routing</a>
+      <div class="sep"></div>
+      <div class="hint">After routing the API returns a Suggestion ID, status, and all evidence. The analysis workflow ends — no rule is touched.</div>
+    </nav>
+
+    <div class="steps">
+      <div class="step-card" id="s1">
+        <div class="step-top"><div class="step-badge">1</div><h3>Feedback Classification <span>· what we understood</span></h3></div>
+        <p>Predicts the feedback type, rule category, business domain, actionability, whether clarification is needed, and the initial priority — the shared context for everything that follows.</p>
+        <div class="tagrow"><span class="tag tag--brand">feedback type</span><span class="tag">rule category</span><span class="tag">business domain</span><span class="tag">actionability</span><span class="tag">priority</span></div>
+      </div>
+
+      <div class="step-card" id="s2">
+        <div class="step-top"><div class="step-badge">2</div><h3>Rule Extraction <span>· turning words into structure</span></h3></div>
+        <p>Converts unstructured feedback into one or more <b>canonical business rules</b> — term, operation, conditions, scope, time window, threshold, affected tables/columns and schema references. One submission can yield multiple rules, each stored independently and traceable to its Feedback ID.</p>
+        <div class="cols2">
+          <div class="mini-list"><h5>Extracted</h5><ul style="list-style:disc"><li>Business term &amp; operation</li><li>Conditions (field · operator · value)</li><li>Scope · time window · threshold</li><li>Affected tables / columns</li></ul></div>
+          <div class="mini-list"><h5>Validation</h5><ul style="list-style:disc"><li>Every field checked vs. schema</li><li>Unknown tables/columns flagged</li><li>Invalid terms/operations rejected</li><li>Nothing invented, nothing assumed</li></ul></div>
+        </div>
+      </div>
+
+      <div class="step-card" id="s3">
+        <div class="step-top"><div class="step-badge">3</div><h3>Duplicate Detection <span>· have we seen this?</span></h3></div>
+        <p>Compares the suggestion to approved rules and prior suggestions. Retrieval uses <b>pgvector</b> semantic search; the decision is structured — term, operation, conditions, scope, time window, threshold, affected schema — recorded per rule.</p>
+        <div class="tagrow"><span class="tag">exact duplicate</span><span class="tag">semantic duplicate</span><span class="tag">extension</span><span class="tag">modification</span><span class="tag">unrelated</span></div>
+      </div>
+
+      <div class="step-card" id="s4">
+        <div class="step-top"><div class="step-badge">4</div><h3>Conflict Detection <span>· will it break something?</span></h3></div>
+        <p>Evaluates whether the proposal logically conflicts with active rules — same two-stage pattern: semantic retrieval, then structured comparison. Results are recorded independently and feed the routing decision.</p>
+        <div class="tagrow"><span class="tag" style="background:#fef2f2;border-color:#fecdd3;color:#be123c">direct conflict</span><span class="tag" style="background:#fffbeb;border-color:#fde68a;color:#92400e">potential conflict</span><span class="tag" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46">no conflict</span></div>
+      </div>
+
+      <div class="step-card" id="s5">
+        <div class="step-top"><div class="step-badge">5</div><h3>Clarification Handling <span>· when something's missing</span></h3></div>
+        <p>If mandatory information is missing or ambiguous, a <b>structured clarification request</b> is generated. The system never invents data. Requests are stored separately; when answered, a new Analysis Run is created from original + response — the original submission stays immutable.</p>
+      </div>
+
+      <div class="step-card" id="s6">
+        <div class="step-top"><div class="step-badge">6</div><h3>Confidence &amp; Evidence <span>· explainability first</span></h3></div>
+        <p>Each stage emits its own evidence — calibrated classification/extraction probabilities, schema validation (pass / fail + coverage, <i>not</i> a score), duplicate/conflict results — all recorded separately to support review.</p>
+      </div>
+
+      <div class="step-card" id="s7">
+        <div class="step-top"><div class="step-badge">7</div><h3>Review Routing <span>· who should look?</span></h3></div>
+        <p>Decides the review path from all prior evidence. Any of these forces <b>mandatory manual review</b>: schema failure, missing mandatory fields, sensitive rules, duplicate/conflict signals, or model confidence below threshold.</p>
+        <div class="tagrow"><span class="tag">normal review</span><span class="tag">high-priority review</span><span class="tag tag--brand">clarification required</span><span class="tag" style="background:#fef2f2;border-color:#fecdd3;color:#be123c">validation failure</span><span class="tag" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af">mandatory manual review</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HUMAN REVIEW -->
+<section class="section" id="review">
+  <div class="section-head">
+    <div class="eyebrow">§3.2 — Human Review Flow</div>
+    <h2>People decide. <em>Every time.</em></h2>
+    <p>Reviewers work from a dedicated dashboard. The original feedback, the structured suggestion, and all evidence are presented together — duplicates, conflicts, schema checks, and any clarification requests.</p>
+  </div>
+  <div class="review-grid">
+    <div class="review-panel">
+      <div class="panel-head">
+        <div style="width:28px;height:28px;border-radius:9px;background:#eff6ff;border:1px solid #dbeafe;display:grid;place-items:center">📋</div>
+        <div><h4>What reviewers see</h4><p>Everything from the pipeline, in one place</p></div>
+      </div>
+      <div class="panel-body">
+        <ul class="checklist">
+          <li><i>💬</i> Original business feedback</li>
+          <li><i>🧩</i> Structured rule suggestion + extracted entities</li>
+          <li><i>🏷</i> Classification &amp; priority</li>
+          <li><i>📐</i> Schema validation result + coverage</li>
+          <li><i>🔍</i> Duplicate &amp; conflict findings</li>
+          <li><i>📊</i> Confidence scores &amp; supporting evidence</li>
+          <li><i>❓</i> Clarification requests (if any)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="review-panel">
+      <div class="panel-head">
+        <div style="width:28px;height:28px;border-radius:9px;background:#f5f3ff;border:1px solid #ede9fe;display:grid;place-items:center">✅</div>
+        <div><h4>What reviewers do</h4><p>One explicit action — fully audited</p></div>
+      </div>
+      <div class="panel-body">
+        <p style="font-size:13.5px;color:var(--ink-2);line-height:1.62">After evaluation, a reviewer takes exactly one action. Each is logged with reviewer identity, decision, timestamp, and comments. <b>Approval only marks APPROVED</b> — it does not create or activate a rule.</p>
+        <div class="actions">
+          <span class="act act--ok">✓ Approve</span>
+          <span class="act act--danger">✕ Reject</span>
+          <span class="act">❓ Request clarification</span>
+          <span class="act">🗄 Archive</span>
+        </div>
+        <p style="margin-top:12px;font-size:12px;color:var(--muted);line-height:1.5">Clarification? The original feedback is untouched — the request/response are stored separately and a new Analysis Run is created from both, preserving a complete audit trail.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACTIVATION -->
+<section class="section" id="activation">
+  <div class="section-head">
+    <div class="eyebrow">§3.3 — Rule Creation &amp; Activation</div>
+    <h2>From approved <em>to live</em> — deliberately.</h2>
+    <p>Creation and activation are intentionally separate. Reviewer approval does not create a rule; an administrator must explicitly activate it. This two-gate design is what prevents unintended deployment of AI-generated logic.</p>
+  </div>
+
+  <div class="activate-strip">
+    <div class="step-mini">
+      <div class="icon">📝</div>
+      <div class="t">Draft created</div>
+      <div class="d">Approved suggestion →<br>formal rule(s)</div>
+    </div>
+    <div class="step-mini">
+      <div class="icon">🔍</div>
+      <div class="t">Validated</div>
+      <div class="d">Checked vs.<br>rule repository</div>
+    </div>
+    <div class="step-mini">
+      <div class="icon">📦</div>
+      <div class="t">Stored as DRAFT</div>
+      <div class="d">In repository,<br>not yet operational</div>
+    </div>
+    <div class="step-mini active">
+      <div class="icon">⚡</div>
+      <div class="t">Activated</div>
+      <div class="d">Admin invokes<br>Activation API → ACTIVE</div>
+    </div>
+  </div>
+  <p style="margin-top:12px;text-align:center;font-size:12px;color:var(--muted)">Only after <b style="color:var(--ink)">ACTIVE</b> does a rule become available to downstream systems.</p>
+</section>
+
+<!-- LIFECYCLE -->
+<section class="section" id="lifecycle">
+  <div class="section-head">
+    <div class="eyebrow">§3.4 — Suggestion lifecycle</div>
+    <h2>Every feedback has a <em>traceable path.</em></h2>
+    <p>Feedback, suggestions, extracted rules, draft rules, and active rules remain separate entities throughout. Here is the complete journey.</p>
+  </div>
+
+  <div class="lifecycle">
+    <div class="timeline">
+      <div class="tl-item done"><div class="tl-dot">📥</div><h5>RECEIVED</h5><p>Feedback<br>received</p></div>
+      <div class="tl-item done"><div class="tl-dot">✓</div><h5>VALIDATED</h5><p>Auth + schema<br>checks passed</p></div>
+      <div class="tl-item done"><div class="tl-dot">🏷</div><h5>CLASSIFIED</h5><p>Type &amp; category<br>identified</p></div>
+      <div class="tl-item done"><div class="tl-dot">🧩</div><h5>EXTRACTED</h5><p>Structured rule<br>extracted</p></div>
+      <div class="tl-item done"><div class="tl-dot">🔬</div><h5>ANALYZED</h5><p>Dup / conflict /<br>evidence done</p></div>
+      <div class="tl-item active"><div class="tl-dot">👁</div><h5>PENDING_REVIEW</h5><p>Awaiting<br>human review</p></div>
+      <div class="tl-item"><div class="tl-dot">✓</div><h5>APPROVED</h5><p>Reviewer<br>approved</p></div>
+      <div class="tl-item"><div class="tl-dot">📦</div><h5>RULE_CREATED</h5><p>Draft rule<br>in repository</p></div>
+      <div class="tl-item"><div class="tl-dot">⚡</div><h5>RULE_ACTIVATED</h5><p>Admin made<br>it live</p></div>
+    </div>
+    <div class="lifecycle-meta">
+      <span>↩ <b>REJECTED</b> → ARCHIVED</span>
+      <span>·</span>
+      <span>❓ <b>CLARIFICATION_REQUIRED</b> → new Analysis Run (original preserved)</span>
+      <span>·</span>
+      <span>📋 <b>READY_FOR_RULE_CREATION</b> = eligible after APPROVED</span>
+    </div>
+    <div class="status-legend">
+      <span class="legend"><i class="ink"></i> Completed / audited</span>
+      <span class="legend"><i class="brand"></i> Current stage</span>
+      <span class="legend"><i class="ok"></i> Production-ready (ACTIVE)</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section" style="padding-top:32px">
+  <div class="cta">
+    <div>
+      <h3>Built so AI helps — and humans stay in charge.</h3>
+      <p>Analysis never creates or activates rules. Review never silently deploys. Activation requires an explicit administrative action. That is the whole point.</p>
+    </div>
+    <div class="cta-actions" id="cta-actions">
+      <a class="btn btn-primary" href="#analysis">Explore the pipeline →</a>
+      <a class="btn btn-ghost" id="cta-secondary" href="/ui/review_dashboard.html">Open review dashboard</a>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div>© 2026 Rule Intelligence Engine · Client overview derived from §3 — System Workflow and Data Flow · All actions audited.</div>
+  <div style="display:flex;gap:16px">
+    <a href="/ui/activation_dashboard.html">Activation console →</a>
+    <a href="/ui/review_dashboard.html">Review dashboard →</a>
+  </div>
+</footer>
+
+<script>
+const API = '';
+let authToken = localStorage.getItem('rie_token') || null;
+let authUser = null;
+try { const raw = localStorage.getItem('rie_user'); if(raw) authUser = JSON.parse(raw); } catch {}
+
+/* ── helpers ── */
+function setMsg(el, text, kind){
+  el.textContent = text || '';
+  el.className = 'login-msg' + (kind ? ' ' + kind : '');
+}
+async function apiFetch(path, opts={}){
+  const h = Object.assign({}, opts.headers||{});
+  if(authToken) h['Authorization'] = 'Bearer ' + authToken;
+  if(opts.body) h['Content-Type'] = 'application/json';
+  return fetch(API + path, Object.assign({}, opts, { headers: h }));
+}
+function openLogin(prefillWorkspace){
+  if(prefillWorkspace) document.getElementById('login-workspace').value = prefillWorkspace;
+  document.getElementById('login-modal').classList.add('open');
+  document.getElementById('login-modal').setAttribute('aria-hidden','false');
+  setTimeout(()=> document.getElementById('login-email').focus(), 30);
+}
+function closeLogin(){
+  document.getElementById('login-modal').classList.remove('open');
+  document.getElementById('login-modal').setAttribute('aria-hidden','true');
+}
+function syncAuthUI(){
+  const badge = document.getElementById('auth-badge');
+  const btn = document.getElementById('auth-btn');
+  const who = document.getElementById('auth-who');
+  const roleEl = document.getElementById('auth-role');
+  const wsEl = document.getElementById('auth-ws');
+  const hint = document.getElementById('role-hint');
+  const heroSec = document.getElementById('hero-secondary');
+  const ctaSec = document.getElementById('cta-secondary');
+  if(authToken && authUser){
+    badge.classList.add('on');
+    who.textContent = authUser.email || '—';
+    roleEl.textContent = (authUser.role||'—').replace(/_/g,' ');
+    wsEl.textContent = authUser.workspace_id ? authUser.workspace_id.slice(0,8)+'…' : '';
+    wsEl.title = authUser.workspace_id || '';
+    btn.textContent = 'Signed in';
+    btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost');
+    btn.onclick = () => { document.getElementById('role-hint').scrollIntoView({behavior:'smooth', block:'center'}); };
+    // role-aware CTAs + hint (same template, different affordances per RBAC)
+    const role = (authUser.role||'').toLowerCase();
+    let hintHtml = '';
+    let heroHref = '/ui/review_dashboard.html', heroLabel = 'Open review dashboard';
+    let ctaHref = '/ui/review_dashboard.html', ctaLabel = 'Open review dashboard';
+    if(role === 'business_user'){
+      hintHtml = 'You are signed in as <b>business_user</b> — you can submit feedback via <code style="font-family:JetBrains Mono,monospace">POST /v1/feedback/analyze</code> and track your suggestions. Review &amp; activation require higher roles.';
+      heroHref = '/ui/review_dashboard.html'; heroLabel = 'View my suggestions →';
+      ctaHref = '/ui/review_dashboard.html'; ctaLabel = 'View my suggestions';
+    } else if(role === 'reviewer'){
+      hintHtml = 'You are signed in as <b>reviewer</b> — open the <a href="/ui/review_dashboard.html">Review Console (§3.2)</a> to Approve / Reject / Clarify. Activation is admin-only.';
+      heroHref = '/ui/review_dashboard.html'; heroLabel = 'Open review console →';
+      ctaHref = '/ui/review_dashboard.html'; ctaLabel = 'Open review console';
+    } else if(role === 'administrator'){
+      hintHtml = 'You are signed in as <b>administrator</b> — you have full access: review in <a href="/ui/review_dashboard.html">Review</a> and deploy via <a href="/ui/activation_dashboard.html">Activation Console (§3.3)</a> (<code style="font-family:JetBrains Mono,monospace">POST /v1/rules/{id}/activate</code>).';
+      heroHref = '/ui/activation_dashboard.html'; heroLabel = 'Open activation console →';
+      ctaHref = '/ui/activation_dashboard.html'; ctaLabel = 'Open activation console';
+    }
+    hint.innerHTML = hintHtml;
+    hint.classList.add('on');
+    if(heroSec){ heroSec.href = heroHref; heroSec.textContent = heroLabel; }
+    if(ctaSec){ ctaSec.href = ctaHref; ctaSec.textContent = ctaLabel; }
+  } else {
+    badge.classList.remove('on');
+    btn.textContent = 'Sign in';
+    btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost');
+    btn.onclick = () => openLogin();
+    hint.classList.remove('on'); hint.innerHTML = '';
+    if(heroSec){ heroSec.href = '/ui/review_dashboard.html'; heroSec.textContent = 'Open review dashboard'; }
+    if(ctaSec){ ctaSec.href = '/ui/review_dashboard.html'; ctaSec.textContent = 'Open review dashboard'; }
+  }
+}
+async function handleLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const ws = document.getElementById('login-workspace').value.trim();
+  const msg = document.getElementById('login-msg');
+  setMsg(msg,'Signing in…');
+  try{
+    const res = await fetch(API + '/v1/auth/token', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw, workspace_id: ws }) });
+    const data = await res.json().catch(()=> ({}));
+    if(!res.ok){
+      const detail = typeof data.detail === 'string' ? data.detail : (data.detail && data.detail[0] && data.detail[0].msg) ? data.detail[0].msg : 'Invalid credentials';
+      setMsg(msg, detail, 'err'); return;
+    }
+    authToken = data.access_token;
+    // prefer server-echoed identity
+    authUser = { email: data.email || email, role: data.role, workspace_id: data.workspace_id || ws };
+    localStorage.setItem('rie_token', authToken);
+    localStorage.setItem('rie_user', JSON.stringify(authUser));
+    // verify
+    try{
+      const meRes = await apiFetch('/v1/auth/me');
+      if(meRes.ok){ const me = await meRes.json(); authUser = { email: me.email, role: me.role, workspace_id: me.workspace_id }; localStorage.setItem('rie_user', JSON.stringify(authUser)); }
+    }catch{}
+    setMsg(msg,'Signed in as ' + authUser.role + ' · ' + authUser.email, 'ok');
+    setTimeout(()=>{ closeLogin(); syncAuthUI(); }, 420);
+  }catch(err){ setMsg(msg, 'Login failed: ' + err.message, 'err'); }
+}
+function logout(){
+  authToken=null; authUser=null;
+  localStorage.removeItem('rie_token'); localStorage.removeItem('rie_user');
+  syncAuthUI();
+}
+async function boot(){
+  // wire modal
+  document.getElementById('login-form').addEventListener('submit', handleLogin);
+  document.getElementById('login-close').addEventListener('click', closeLogin);
+  document.getElementById('login-modal').addEventListener('click', (e)=>{ if(e.target.id==='login-modal') closeLogin(); });
+  document.getElementById('auth-btn').addEventListener('click', ()=>{ if(authToken && authUser) return; openLogin(); });
+  document.getElementById('logout-btn').addEventListener('click', logout);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeLogin(); });
+
+  // validate existing token
+  if(authToken){
+    try{
+      const r = await apiFetch('/v1/auth/me');
+      if(!r.ok) throw new Error('expired');
+      const me = await r.json();
+      authUser = { email: me.email, role: me.role, workspace_id: me.workspace_id };
+      localStorage.setItem('rie_user', JSON.stringify(authUser));
+    }catch{
+      // keep token but mark signed-out if /auth/me fails (expired/invalid) — don't hard-logout aggressively
+      // only clear if 401
+      try{
+        const probe = await fetch(API + '/v1/auth/me', { headers:{'Authorization':'Bearer '+authToken}});
+        if(probe.status===401){ authToken=null; authUser=null; localStorage.removeItem('rie_token'); localStorage.removeItem('rie_user'); }
+      }catch{}
+    }
+  }
+  syncAuthUI();
+
+  // API health dot
+  try{
+    const h = await fetch(API + '/v1/health', { headers: authToken ? {'Authorization':'Bearer '+authToken} : {} });
+    const pill = document.getElementById('api-pill');
+    if(h.ok){ pill.textContent='● API online'; pill.style.color='var(--ok)'; pill.style.borderColor='rgba(14,159,110,.18)'; pill.style.background='var(--ok-soft)'; }
+    else { pill.textContent='● API unreachable'; pill.style.color='#be123c'; }
+  }catch{
+    const pill=document.getElementById('api-pill'); if(pill) pill.textContent='● API offline';
+  }
+
+  // pipeline sticky nav highlight
+  const links=[...document.querySelectorAll('.flow-nav a[href^="#s"]')];
+  const obs=new IntersectionObserver(ents=>{
+    const vis=ents.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+    if(!vis) return;
+    links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+vis.target.id));
+  },{rootMargin:'-40% 0px -50% 0px',threshold:[0,.2,.5]});
+  ['s1','s2','s3','s4','s5','s6','s7'].forEach(id=>{ const el=document.getElementById(id); if(el) obs.observe(el); });
+}
+boot();
+</script>
+</body>
+</html>

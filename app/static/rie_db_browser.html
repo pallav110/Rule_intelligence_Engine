@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DB Explorer · Rule Intelligence Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --bg-2:#f8fafc; --surface:#ffffff;
+    --ink:#0f172a; --muted:#64748b; --faint:#94a3b8; --line:#e2e8f0; --line-2:#f1f5f9;
+    --brand:#2563eb; --brand-soft:#eff6ff; --brand-ring:rgba(37,99,235,.14);
+    --ok:#059669; --ok-soft:#ecfdf5; --warn:#d97706; --warn-soft:#fef3c7; --danger:#dc2626; --danger-soft:#fef2f2;
+    --violet:#7c3aed; --violet-soft:#f5f3ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);
+    background-image:
+      radial-gradient(rgba(15,23,42,.035) 1px, transparent 1px);
+    background-size:22px 22px;
+    -webkit-font-smoothing:antialiased;
+    font-size:12px; line-height:1.45;
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+  [hidden]{display:none!important}
+  a{color:var(--brand);text-decoration:none}
+
+  /* Top nav */
+  .nav{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+  .brand-mark{position:relative;width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand) 0%,#1d4ed8 100%);box-shadow:0 2px 8px rgba(37,99,235,.22), inset 0 1px 0 rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-weight:700;font-size:14px}
+  .brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:13.5px;letter-spacing:-.02em;line-height:1}
+  .brand-sub{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:1px}
+  .nav-spacer{flex:1}
+  .role-pill{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 5px 4px 9px}
+  .role-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+  .pill-tag{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:#fff;padding:2px 6px;border-radius:999px}
+  .pill-tag.admin{background:var(--violet)}
+  .pill-tag.warn{background:var(--warn)}
+  .role-pill .who{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap}
+  .icon-btn{width:26px;height:26px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .icon-btn:hover{border-color:var(--ink);color:var(--ink)}
+  .readonly-bd{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);border:1px solid rgba(5,150,105,.25);background:var(--ok-soft);padding:4px 9px;border-radius:999px}
+  .editable-bd{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);border:1px solid var(--brand-ring);background:var(--brand-soft);padding:4px 9px;border-radius:999px}
+
+  /* Workspace selector (Firebase Emulator style) */
+  .ws-selector{position:relative;display:flex;align-items:center;gap:6px}
+  .ws-btn{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);font-family:Inter,sans-serif;font-size:11.5px;font-weight:500;cursor:pointer;min-width:160px;justify-content:space-between;transition:.12s}
+  .ws-btn:hover{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .ws-btn .ws-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+  .ws-btn .ws-chevron{font-size:10px;color:var(--muted);flex-shrink:0}
+  .ws-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:50;min-width:280px;max-height:360px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 32px rgba(15,23,42,.18);overflow-y:auto;display:none}
+  .ws-dropdown.show{display:block}
+  .ws-dropdown-header{padding:8px 12px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .ws-dropdown-item{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;transition:.1s;border-bottom:1px solid var(--line-2)}
+  .ws-dropdown-item:last-child{border-bottom:none}
+  .ws-dropdown-item:hover{background:var(--brand-soft)}
+  .ws-dropdown-item.current{background:var(--brand-soft);border-left:2px solid var(--brand)}
+  .ws-dropdown-item .ws-ico{width:20px;height:20px;border-radius:5px;background:var(--bg-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);flex-shrink:0}
+  .ws-dropdown-item.current .ws-ico{color:var(--brand);border-color:var(--brand-ring);background:var(--brand-soft)}
+  .ws-dropdown-item .ws-info{flex:1;min-width:0}
+  .ws-dropdown-item .ws-title{font-weight:600;font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ws-dropdown-item .ws-meta{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--faint);margin-top:1px}
+  .ws-dropdown-item .ws-badge{font-family:'JetBrains Mono',monospace;font-size:7.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--violet);color:#fff;padding:1px 5px;border-radius:999px;flex-shrink:0}
+
+  /* 3-column frame - FIXED HEIGHT, each panel scrolls independently */
+  .frame{display:grid;grid-template-columns:var(--col1,260px) var(--col2,320px) 1fr;gap:0;height:calc(100vh - 45px);border-top:1px solid var(--line);overflow:hidden;position:relative}
+  .panel{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0;background:var(--bg);overflow:hidden}
+  .panel:last-child{border-right:none}
+
+  /* Resize handles - absolutely positioned on panel borders, Excel-style */
+  .resize-handle{position:absolute;top:0;bottom:0;width:8px;cursor:col-resize;touch-action:none;z-index:20;background:transparent}
+  .resize-handle:nth-of-type(1){left:var(--col1,260px);margin-left:-4px}
+  .resize-handle:nth-of-type(2){left:calc(var(--col1,260px) + var(--col2,320px));margin-left:-4px}
+  .resize-handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:2px;background:transparent;transition:background .1s}
+  .resize-handle:hover::before,.resize-handle.dragging::before{background:var(--brand)}
+  .resize-handle::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:var(--line);opacity:0;transition:opacity .15s,background .15s;box-shadow:0 0 0 2px var(--surface)}
+  .resize-handle:hover::after,.resize-handle.dragging::after{opacity:1;background:var(--brand);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--brand-ring)}
+  .panel-title{display:flex;align-items:center;gap:7px;padding:10px 12px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+  .panel-title .spacer{flex:1}
+  .panel-title .count{font-weight:500;color:var(--faint)}
+
+  /* Left: collections */
+  .search-box{display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line);padding:9px 11px;background:var(--bg-2);flex-shrink:0}
+  .search-box input{border:none;outline:none;background:transparent;flex:1;font-family:Inter,sans-serif;font-size:12px;color:var(--ink)}
+  .col-list{overflow-y:auto;flex:1;padding:5px;min-height:0}
+  .col-item{display:flex;align-items:center;gap:7px;width:100%;text-align:left;border:none;background:transparent;padding:7px 9px;border-radius:6px;cursor:pointer;transition:.12s}
+  .col-item:hover{background:var(--brand-soft)}
+  .col-item.active{background:var(--brand-soft);box-shadow:inset 0 0 0 1px var(--brand-ring)}
+  .col-item .ic{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--faint);flex-shrink:0}
+  .col-item.active .ic{color:var(--brand);border-color:var(--brand-ring)}
+  .col-item .nm{flex:1;font-weight:600;font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .col-item .cnt{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--faint)}
+  .create-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border:none;border-top:1px solid var(--line);background:var(--surface);color:var(--brand);font-family:Inter,sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;transition:.12s;flex-shrink:0}
+  .create-btn:hover{background:var(--brand-soft)}
+  .create-btn .plus{font-size:13px;line-height:1}
+
+  /* Middle: documents */
+  .row-toolbar{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--line);background:var(--bg-2);flex-shrink:0}
+  .row-toolbar .search-box{border:none;padding:0;background:transparent;flex:1}
+  .add-row{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--brand);background:var(--surface);color:var(--brand);font-family:Inter,sans-serif;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.12s}
+  .add-row:hover{background:var(--brand-soft)}
+  .add-row .plus{font-size:12px}
+  .pager{display:flex;align-items:center;gap:4px;padding:7px 11px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted);flex-shrink:0}
+  .pager .spacer{flex:1}
+  .pg-btn{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;font-size:11px;line-height:1}
+  .pg-btn:hover:not(:disabled){border-color:var(--ink);color:var(--ink)}
+  .pg-btn:disabled{opacity:.35;cursor:not-allowed}
+  .row-list{overflow-y:auto;flex:1;padding:5px;min-height:0}
+  .doc-row{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:.12s;border:1px solid transparent}
+  .doc-row:hover{background:var(--bg-2)}
+  .doc-row.active{background:var(--brand-soft);border-color:var(--brand-ring)}
+  .doc-row .pk{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--brand);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .doc-row .pk.no-pk{color:var(--faint)}
+  .doc-row .mini{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:1px 5px;border-radius:999px;flex-shrink:0}
+  .empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:var(--faint);font-size:11px;text-align:center;padding:20px}
+
+  /* Right: inspector */
+  .insp-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--line);flex-shrink:0}
+  .insp-head .t{font-family:'Fraunces',serif;font-weight:700;font-size:13.5px;letter-spacing:-.01em;flex:1;min-width:0}
+  .insp-head .t .id{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:600;color:var(--muted);margin-top:1px;word-break:break-all}
+  .del-btn{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--danger);font-family:Inter,sans-serif;font-size:10.5px;font-weight:600;cursor:pointer;transition:.12s}
+  .del-btn:hover{background:var(--danger-soft);border-color:rgba(220,38,38,.3)}
+  .insp-body{overflow-y:auto;flex:1;background:var(--bg);min-height:0}
+  .kv{display:grid;grid-template-columns:140px 1fr;gap:0;border-bottom:1px solid var(--line-2);align-items:center;min-height:30px}
+  .kv .k{display:flex;align-items:center;gap:5px;padding:5px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);word-break:break-all;border-right:1px solid var(--line-2);align-self:stretch}
+  .kv .k.pk-key{color:var(--brand);font-weight:600}
+  .kv .k .dt{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-radius:3px;padding:0 3px;letter-spacing:.04em}
+  .kv .v{padding:5px 11px;font-size:11.5px;color:var(--ink);word-break:break-word;cursor:pointer;min-height:20px;line-height:1.45}
+  .kv .v:hover{background:var(--bg-2)}
+  .v .str{color:#0b7285}
+  .v .num{color:#7c3aed}
+  .v .bool{color:#dc2626}
+  .v .null{color:var(--faint);font-style:italic}
+  .v .obj-summary{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+  .v .vec{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--violet)}
+
+  /* Inspector key/value column resize handle */
+  .kv-resize-handle{position:absolute;top:0;bottom:0;left:140px;width:6px;cursor:col-resize;background:transparent;z-index:5;touch-action:none}
+  .kv-resize-handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:2px;background:transparent;transition:background .1s}
+  .kv-resize-handle:hover::before,.kv-resize-handle.dragging::before{background:var(--brand)}
+  .kv-resize-handle::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--line);opacity:0;transition:opacity .15s,background .15s;box-shadow:0 0 0 2px var(--surface)}
+  .kv-resize-handle:hover::after,.kv-resize-handle.dragging::after{opacity:1;background:var(--brand);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--brand-ring)}
+  .insp-body{position:relative;overflow-y:auto;flex:1;background:var(--bg);min-height:0}
+
+  /* Field editing */
+  .edit-cell{display:flex;align-items:center;gap:5px;width:100%}
+  .edit-cell input,.edit-cell textarea{flex:1;border:1px solid var(--brand);border-radius:5px;padding:4px 7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink);outline:none;box-shadow:0 0 0 3px var(--brand-ring);background:var(--surface)}
+  .edit-cell textarea{min-height:56px;resize:vertical}
+  .save-btn,.cancel-btn{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .save-btn{color:var(--ok);border-color:rgba(5,150,105,.3)}.save-btn:hover{background:var(--ok-soft)}
+  .cancel-btn{color:var(--muted)}.cancel-btn:hover{border-color:var(--ink)}
+
+  /* Flash */
+  .kv.flash{animation:flash .5s ease}
+  @keyframes flash{0%{background:var(--brand-soft)}100%{background:transparent}}
+
+  /* Modal / toasts */
+  .scrim{position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:60;display:none}
+  .scrim.show{display:block}
+  .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:70;width:min(420px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 50px rgba(15,23,42,.18);display:none}
+  .modal.show{display:block}
+  .modal-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .modal-head .t{font-family:'Fraunces',serif;font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+  .modal-head .spacer{flex:1}
+  .modal-body{padding:12px 14px;max-height:55vh;overflow-y:auto}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .field input{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;background:var(--surface);color:var(--ink);outline:none}
+  .field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .modal-foot{display:flex;justify-content:flex-end;gap:7px;padding:10px 14px;border-top:1px solid var(--line)}
+  .btn{font-family:Inter,sans-serif;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;transition:.12s}
+  .btn:hover:not(:disabled){border-color:var(--ink)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn.primary:hover{background:#1d4ed8}
+  .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .toasts{position:fixed;bottom:16px;right:16px;z-index:90;display:flex;flex-direction:column;gap:7px}
+  .toast{background:var(--ink);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;padding:9px 12px;border-radius:7px;box-shadow:0 8px 25px rgba(15,23,42,.22);animation:tin .2s ease;max-width:340px}
+  .toast.err{background:var(--danger)}
+  .toast.ok{background:var(--ok)}
+  @keyframes tin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+  /* Login gate */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
+  .login{width:380px;max-width:100%}
+  .login h1{font-family:'Fraunces',serif;font-size:22px;letter-spacing:-.02em;margin-bottom:3px}
+  .login .lead{color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:16px}
+  .login .btn{width:100%;padding:10px;margin-top:5px}
+  .err{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--danger);background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.18);padding:8px 10px;border-radius:6px;margin-bottom:11px;display:none}
+  .notice{display:flex;gap:7px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--warn);background:var(--warn-soft);border:1px solid rgba(217,119,6,.22);padding:8px 10px;border-radius:6px;margin-top:5px}
+
+  @media (max-width:1024px){.frame{grid-template-columns:220px 260px 1fr}}
+  @media (max-width:880px){.frame{grid-template-columns:1fr;height:auto}.panel{border-right:none;border-bottom:1px solid var(--line);overflow:visible}.kv{grid-template-columns:120px 1fr}}
+</style>
+</head>
+<body>
+
+<!-- Top nav -->
+<header class="nav">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="brand-mark">R</div>
+    <div>
+      <div class="brand-name">Rule Intelligence Engine</div>
+      <div class="brand-sub">Database Explorer</div>
+    </div>
+  </div>
+  <span class="editable-bd" id="modeBadge">● editable</span>
+
+  <!-- Workspace selector (Firebase Emulator style) -->
+  <div class="ws-selector" id="wsSelector" hidden>
+    <button class="ws-btn" id="wsBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+      <span class="ws-name" id="wsBtnName">—</span>
+      <span class="ws-chevron" id="wsBtnChevron">▼</span>
+    </button>
+    <div class="ws-dropdown" id="wsDropdown" role="listbox">
+      <div class="ws-dropdown-header">Workspaces</div>
+      <div class="ws-dropdown-list" id="wsDropdownList"></div>
+    </div>
+  </div>
+
+  <div class="nav-spacer"></div>
+  <div id="navAuth" class="role-pill" hidden>
+    <span class="dot"></span>
+    <span class="pill-tag admin" id="roleTag">ADMIN</span>
+    <span class="who" id="whoText">—</span>
+    <button class="icon-btn" id="logoutBtn" title="Sign out">⏻</button>
+  </div>
+</header>
+
+<!-- Login gate -->
+<section class="gate" id="gate">
+  <form class="login" id="loginForm">
+    <h1>DB Explorer</h1>
+    <p class="lead">A live, editable view of every entity the engine stores. Collections on the left, documents in the middle, a full document inspector on the right. Add rows, edit fields, and delete documents — each change is a real write to the database. Administrator access only.</p>
+    <div class="err" id="loginErr"></div>
+    <div class="field"><label>Email</label><input type="email" id="email" autocomplete="username" placeholder="admin@rie.local"></div>
+    <div class="field"><label>Password</label><input type="password" id="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <div class="field"><label>Workspace ID</label><input type="text" id="wsId" autocomplete="off" placeholder="e8af6af9-…"></div>
+    <button class="btn primary" type="submit">Enter explorer</button>
+    <div class="notice" id="roleNotice" hidden>Non-administrator. Signed in — but the DB explorer is restricted to administrators by the API.</div>
+  </form>
+</section>
+
+<!-- 3-column explorer -->
+<main id="explorer" hidden>
+  <div class="frame">
+
+    <!-- Resize handles - absolutely positioned on borders -->
+    <div class="resize-handle" id="resizeHandle1" data-target="col1" data-min="180" data-max="500" title="Drag to resize sidebar"></div>
+    <div class="resize-handle" id="resizeHandle2" data-target="col2" data-min="240" data-max="600" title="Drag to resize middle panel"></div>
+
+    <!-- LEFT: collections -->
+    <aside class="panel">
+      <div class="panel-title">Collections <span class="spacer"></span><span class="count" id="collCount">–</span></div>
+      <div class="search-box">
+        <span class="mono" style="font-size:12px;color:var(--faint)">⌕</span>
+        <input type="text" id="colSearch" placeholder="Filter collections…">
+      </div>
+      <div class="col-list" id="colList"></div>
+      <button class="create-btn" id="createTableBtn"><span class="plus">＋</span> Create Table / Collection</button>
+    </aside>
+
+    <!-- MIDDLE: documents -->
+    <section class="panel">
+      <div class="panel-title" id="collTitle">Documents <span class="spacer"></span><span class="count" id="docCount">–</span></div>
+      <div class="row-toolbar">
+        <div class="search-box">
+          <span class="mono" style="font-size:12px;color:var(--faint)">⌕</span>
+          <input type="text" id="rowSearch" placeholder="Filter documents on this page…">
+        </div>
+        <button class="add-row" id="addRowBtn"><span class="plus">＋</span> Add Document</button>
+      </div>
+      <div class="pager">
+        <span id="pageInfo">—</span>
+        <span class="spacer"></span>
+        <button class="pg-btn" id="prevBtn">‹</button>
+        <button class="pg-btn" id="nextBtn">›</button>
+      </div>
+      <div class="row-list" id="rowList">
+        <div class="empty" id="placeholder">Select a collection from the sidebar to browse its documents.</div>
+      </div>
+    </section>
+
+    <!-- RIGHT: inspector -->
+    <section class="panel">
+      <div class="insp-head">
+        <div class="t" id="inspTitle">Document
+          <span class="id" id="inspId">—</span>
+        </div>
+        <button class="del-btn" id="delRowBtn">🗑 Delete</button>
+      </div>
+      <div class="insp-body" id="inspBody">
+        <div class="empty">Select a document on the left to inspect, edit, or delete it. Click any field to edit its value.</div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Create collection modal -->
+<div class="scrim" id="scrim"></div>
+<div class="modal" id="createModal">
+  <div class="modal-head"><div class="t">Create collection</div><div class="spacer"></div><button class="icon-btn" id="createClose">✕</button></div>
+  <div class="modal-body">
+    <div class="field"><label>Collection / table name</label><input type="text" id="newCollName" placeholder="e.g. my_collection" spellcheck="false"></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--faint);line-height:1.6">Creates a real Postgres table with <b>id</b> TEXT PRIMARY KEY, <b>data</b> JSONB, and <b>created_at</b> now(). Names start with a letter and use <b>[a-z0-9_]</b>.</div>
+  </div>
+  <div class="modal-foot"><button class="btn" id="createCancel">Cancel</button><button class="btn primary" id="createConfirm">Create</button></div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal" id="delModal">
+  <div class="modal-head"><div class="t">Delete document</div><div class="spacer"></div><button class="icon-btn" id="delClose">✕</button></div>
+  <div class="modal-body">
+    <div style="font-size:13px;color:var(--ink);line-height:1.6">Permanently delete this document? This is <b>irreversible</b> — a real <span class="mono" style="font-size:11px">DELETE</span> against the database.</div>
+    <div class="mono" id="delPreview" style="font-size:11px;color:var(--danger);word-break:break-all;margin-top:10px;background:var(--danger-soft);border:1px solid rgba(220,38,38,.2);padding:8px 10px;border-radius:7px">—</div>
+  </div>
+  <div class="modal-foot"><button class="btn" id="delCancel">Cancel</button><button class="btn danger" id="delConfirm">Delete</button></div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function(){
+  const API = '';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  let authToken = localStorage.getItem('rie_token') || null;
+  let authUser = null;
+  try { const raw = localStorage.getItem('rie_user'); if(raw) authUser = JSON.parse(raw); } catch(e){}
+  let collections = [];
+  let active = null;            // {name,label,primary_key,workspace_scoped,row_count}
+  let activeDoc = null;         // selected row record
+  let docColumnTypes = {};      // current collection's column type tags
+  let offset = 0;
+  const LIMIT = 50;
+  let editingRow = null;        // record being edited
+  let dumping = null;           // {collection,id}
+
+  // ── toasts ──
+  function toast(msg, kind){
+    const t = document.createElement('div');
+    t.className = 'toast' + (kind?' '+kind:'');
+    t.textContent = msg;
+    $('toasts').appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; }, 2600);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // ── api() ──
+  async function api(path, opts={}){
+    const h = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+    if(authToken) h['Authorization'] = 'Bearer ' + authToken;
+    const res = await fetch(API + path, Object.assign({}, opts, {headers:h}));
+    if(res.status===401){ signOut(); throw new Error('Session expired — please sign in again.'); }
+    if(!res.ok){
+      let detail = res.status + ' ' + res.statusText;
+      try { const j = await res.json(); if(j.detail) detail = (typeof j.detail==='object'?JSON.stringify(j.detail):j.detail); } catch(e){}
+      throw new Error(detail);
+    }
+    return res.json();
+  }
+
+  // ── Workspace selector (Firebase Emulator style) ──
+  let workspaces = [];
+  let wsDropdownOpen = false;
+
+  async function loadWorkspaces(){
+    try{
+      const d = await api('/v1/admin/db/workspaces');
+      workspaces = d.workspaces || [];
+      renderWorkspaceSelector(d.current_workspace_id);
+    }catch(err){
+      console.error('Failed to load workspaces:', err);
+    }
+  }
+
+  function renderWorkspaceSelector(currentWsId){
+    const btnName = $('wsBtnName');
+    const list = $('wsDropdownList');
+    const current = workspaces.find(w => w.workspace_id === currentWsId);
+    if(current) btnName.textContent = current.name || current.workspace_id.slice(0,8)+'…';
+    list.innerHTML = workspaces.map(ws => {
+      const isCurrent = ws.workspace_id === currentWsId;
+      return '<div class="ws-dropdown-item '+(isCurrent?'current':'')+'" data-ws="'+esc(ws.workspace_id)+'" role="option" aria-selected="'+isCurrent+'">'+
+        '<span class="ws-ico">▤</span>'+
+        '<div class="ws-info">'+
+          '<div class="ws-title">'+esc(ws.name)+'</div>'+
+          '<div class="ws-meta">'+ws.member_count+' member'+(ws.member_count!==1?'s':'')+(ws.owner_email?' · '+esc(ws.owner_email):'')+'</div>'+
+        '</div>'+
+        (isCurrent ? '<span class="ws-badge">current</span>' : '')+
+      '</div>';
+    }).join('');
+    list.querySelectorAll('.ws-dropdown-item').forEach(el => {
+      el.onclick = () => switchWorkspace(el.dataset.ws);
+    });
+  }
+
+  function toggleWorkspaceDropdown(){
+    wsDropdownOpen = !wsDropdownOpen;
+    $('wsDropdown').classList.toggle('show', wsDropdownOpen);
+    $('wsBtn').setAttribute('aria-expanded', wsDropdownOpen);
+    $('wsBtnChevron').textContent = wsDropdownOpen ? '▲' : '▼';
+  }
+
+  async function switchWorkspace(wsId){
+    if(wsId === (authUser && authUser.workspace_id)) return; // already there
+    try{
+      const d = await api('/v1/admin/db/switch-workspace', {method:'POST', body: JSON.stringify({workspace_id: wsId})});
+      // Update token and user
+      authToken = d.access_token;
+      localStorage.setItem('rie_token', authToken);
+      authUser.workspace_id = d.workspace_id;
+      localStorage.setItem('rie_user', JSON.stringify(authUser));
+      toast('Switched to workspace ' + d.workspace_id.slice(0,8)+'…', 'ok');
+      // Reload everything
+      closeWorkspaceDropdown();
+      boot();
+    }catch(err){
+      toast(err.message, 'err');
+    }
+  }
+
+  function closeWorkspaceDropdown(){
+    wsDropdownOpen = false;
+    $('wsDropdown').classList.remove('show');
+    $('wsBtn').setAttribute('aria-expanded', 'false');
+    $('wsBtnChevron').textContent = '▼';
+  }
+
+  // ── auth ──
+  async function doLogin(e){
+    e.preventDefault();
+    $('loginErr').style.display='none';
+    const email=$('email').value.trim(), pw=$('password').value, ws=$('wsId').value.trim();
+    try{
+      const data = await fetch(API + '/v1/auth/token', {method:'POST',headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password:pw, workspace_id: ws})});
+      const body = await data.json().catch(()=>({}));
+      if(!data.ok) throw new Error(body.detail || ('Login failed ('+data.status+')'));
+      authToken = body.access_token; localStorage.setItem('rie_token', authToken);
+      let me = { email: body.email||email, role: body.role||null, workspace_id: ws };
+      try{ const meRes = await fetch(API + '/v1/auth/me', {headers:{'Authorization':'Bearer '+authToken}});
+           if(meRes.ok) me = await meRes.json(); }catch(_e){}
+      authUser = me; localStorage.setItem('rie_user', JSON.stringify(authUser));
+      boot();
+    }catch(err){ $('loginErr').textContent = err.message; $('loginErr').style.display='block'; }
+  }
+  function signOut(){
+    authToken=null; authUser=null; activeDoc=null;
+    localStorage.removeItem('rie_token'); localStorage.removeItem('rie_user');
+    $('explorer').hidden=true; $('gate').style.display='flex'; $('navAuth').hidden=true;
+  }
+
+  // ── value rendering ──
+  function typeOf(v){
+    if(v===null) return 'null';
+    if(typeof v==='object') return Array.isArray(v)?'array':'object';
+    return typeof v;
+  }
+  function renderValue(v, colType){
+    const t = typeOf(v);
+    if(v===null) return '<span class="null">null</span>';
+    if(t==='object'){
+      let s; try{ s = JSON.stringify(v); }catch(_e){ s = String(v); }
+      if((colType||'').indexOf('vector')>=0) return '<span class="vec">vector['+(Array.isArray(v)?v.length:'')+']</span>';
+      return '<span class="obj-summary">{…} '+esc(s.length>60?s.slice(0,60)+'…':s)+'</span>';
+    }
+    if(t==='number') return '<span class="num">'+esc(v)+'</span>';
+    if(t==='boolean') return '<span class="bool">'+esc(v)+'</span>';
+    let s = String(v);
+    if(s.length>160 && /^[0-9a-f-]{32,}$/.test(s)) return '<span class="str">'+esc(s.slice(0,18))+'…'+esc(s.slice(-8))+'</span>';
+    if(s.length>220) s = s.slice(0,220)+'…';
+    return '<span class="str">'+esc(s)+'</span>';
+  }
+  function dtTag(colType){ return colType ? '<span class="dt">'+esc(colType)+'</span>' : ''; }
+
+  // ── LEFT: collections ──
+  async function loadCollections(){
+    try{
+      const d = await api('/v1/admin/db/collections');
+      collections = d.collections || [];
+      $('collCount').textContent = d.count + ' · ws ' + (d.workspace_id ? d.workspace_id.slice(0,6)+'…' : '');
+      renderCollections();
+      if(collections.length && !active) openCollection(collections[0].name);
+      // Ensure placeholder exists (renderRows may have replaced it)
+      let ph = $('placeholder');
+      if(!ph){
+        ph = document.createElement('div');
+        ph.id = 'placeholder';
+        ph.className = 'empty';
+        $('rowList').appendChild(ph);
+      }
+      ph.innerHTML = collections.length ? 'Select a collection from the sidebar.' : 'No collections visible for this workspace.';
+    }catch(err){ toast(err.message, 'err'); const ph = $('placeholder'); if(ph) ph.innerHTML = '<span style="color:var(--danger)">'+esc(err.message)+'</span>'; }
+  }
+  function renderCollections(){
+    const q = ($('colSearch').value||'').toLowerCase();
+    const list = collections.filter(c => c.name.toLowerCase().includes(q));
+    $('colList').innerHTML = list.map(c =>
+      '<button class="col-item '+(active&&active.name===c.name?'active':'')+'" data-name="'+esc(c.name)+'">'+
+        '<span class="ic">▤</span>'+
+        '<span class="nm">'+esc(c.label)+'</span>'+
+        '<span class="cnt">'+(c.row_count==null?'–':c.row_count.toLocaleString())+'</span>'+
+      '</button>').join('') || '<div class="empty">No matching collections</div>';
+    $('colList').querySelectorAll('.col-item').forEach(el => el.onclick = () => openCollection(el.dataset.name));
+  }
+  async function openCollection(name){
+    active = collections.find(c=>c.name===name) || null;
+    if(!active) return;
+    activeDoc = null; editingRow = null;
+    renderCollections(); renderInspector();
+    $('collTitle').innerHTML = esc(active.label)+' <span class="spacer"></span><span class="count" id="docCount">'+ (active.row_count==null?'–':active.row_count.toLocaleString())+'</span>';
+    offset = 0;
+    await loadRows();
+  }
+
+  // ── MIDDLE: documents ──
+  async function loadRows(){
+    if(!active) return;
+    $('rowList').innerHTML = '<div class="empty">Loading '+esc(active.label)+'…</div>';
+    try{
+      const d = await api('/v1/admin/db/collections/'+encodeURIComponent(active.name)+'?limit='+LIMIT+'&offset='+offset);
+      renderRows(d);
+    }catch(err){ $('rowList').innerHTML = '<div class="empty" style="color:var(--danger)">'+esc(err.message)+'</div>'; }
+  }
+  function renderRows(d){
+    lastRowsPayload = d;   // cache for client-side page filtering
+    active.row_count = d.row_count; docColumnTypes = d.column_types || {};
+    $('docCount').textContent = d.row_count==null?'–':d.row_count.toLocaleString();
+    const rows = d.rows || [];
+    const pk = d.primary_key;
+    $('pageInfo').textContent = (d.offset||0)+'–'+(d.offset+rows.length)+' of '+d.row_count.toLocaleString();
+    $('prevBtn').disabled = (d.offset||0) <= 0;
+    $('nextBtn').disabled = (d.offset+rows.length) >= d.row_count || rows.length<LIMIT;
+
+    const q = ($('rowSearch').value||'').toLowerCase();
+    const filtered = q ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(q)) : rows;
+
+    if(!rows.length){ $('rowList').innerHTML = '<div class="empty">No documents in this collection.'+(pk?'</div>':'<br>No primary key — you can still add documents.</div>'); return; }
+    $('rowList').innerHTML = filtered.map(r => {
+      const id = pk ? r[pk] : null;
+      const isSel = activeDoc && pk && activeDoc[pk]!=null && String(activeDoc[pk])===String(id);
+      return '<div class="doc-row '+(isSel?'active':'')+'" data-id="'+esc(id==null?'':id)+'">'+
+        '<span class="pk '+(id==null?'no-pk':'')+'">'+esc(id!=null?id:'∅')+'</span>'+
+        '<span class="mini">'+ (r.status||r.feedback_type||r.role||'') +'</span>'+
+      '</div>';
+    }).join('') || '<div class="empty">No documents match your filter.</div>';
+
+    $('rowList').querySelectorAll('.doc-row').forEach(el => el.onclick = () => openDoc(el.dataset.id));
+  }
+
+  // ── RIGHT: inspector ──
+  async function openDoc(id){
+    if(!active) return;
+    try{
+      const d = await api('/v1/admin/db/collections/'+encodeURIComponent(active.name)+'/'+encodeURIComponent(id));
+      activeDoc = d.record; docColumnTypes = d.column_types || {};
+      renderInspector();
+      renderCollections();
+      Array.from($('rowList').querySelectorAll('.doc-row')).forEach(el => {
+        el.classList.toggle('active', String(el.dataset.id)===String(id));
+      });
+    }catch(err){ toast(err.message, 'err'); }
+  }
+  function renderInspector(){
+    const rec = activeDoc;
+    $('inspTitle').innerHTML = rec?
+      (esc(active?active.label:'Document')+' <span class="id" id="inspId">'+esc(rec[active&&active.primary_key]!==undefined?rec[active.primary_key]:'∅')+'</span>')
+      : 'Document <span class="id">—</span>';
+    if(!rec){ $('inspBody').innerHTML='<div class="empty">Select a document on the left to inspect, edit, or delete. Click any field to edit.</div>'; return; }
+    const pk = active && active.primary_key;
+    // Apply saved key column width
+    let kvStyle = '';
+    const savedKvWidth = localStorage.getItem('rie_db_kv_key_width');
+    if(savedKvWidth){
+      const w = parseInt(savedKvWidth, 10);
+      if(w >= 100 && w <= 400) kvStyle = ' style="grid-template-columns:'+w+'px 1fr"';
+    }
+    $('inspBody').innerHTML = Object.keys(rec).map(k => {
+      const ct = docColumnTypes[k] || '';
+      const isPk = k===pk;
+      const isEditable = !(isPk && false);
+      return '<div class="kv" data-col="'+esc(k)+'"'+kvStyle+'>'+
+        '<div class="k '+(isPk?'pk-key':'')+'">'+(isPk?'▹ ':'')+esc(k)+dtTag(ct)+'</div>'+
+        '<div class="v '+(isEditable?'editable':'')+'" data-col="'+esc(k)+'">'+renderValue(rec[k], ct)+'</div>'+
+      '</div>';
+    }).join('');
+    $('inspBody').querySelectorAll('.v.editable').forEach(el => {
+      el.onclick = () => startEdit(el.dataset.col);
+    });
+  }
+
+  // ── field editing ──
+  function startEdit(col){
+    if(!activeDoc) return;
+    // close any other active editor
+    $('inspBody').querySelectorAll('.kv.editing').forEach(nd => finishEdit(nd, null, true));
+    const kv = $('inspBody').querySelector('.kv[data-col="'+CSS.escape(col)+'"]');
+    if(!kv) return;
+    const cur = activeDoc[col];
+    const isObj = cur && typeof cur==='object';
+    const raw = isObj ? JSON.stringify(cur,null,2) : (cur===null?'':String(cur));
+    const ct = docColumnTypes[col] || '';
+    const isJson = ct==='jsonb' || isObj;
+    kv.classList.add('editing');
+    kv.querySelector('.v').innerHTML = '<div class="edit-cell">'+
+      (isJson ? '<textarea spellcheck="false">'+esc(raw)+'</textarea>'
+              : '<input value="'+esc(raw)+'" spellcheck="false">')+
+      '<button class="save-btn" title="Save">✓</button>'+
+      '<button class="cancel-btn" title="Cancel">✕</button>'+
+    '</div>';
+    const input = kv.querySelector('input,textarea');
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+    kv.querySelector('.save-btn').onclick = () => {
+      let val = input.value;
+      if(isJson){ try{ val = JSON.parse(val); }catch(_e){ toast('Invalid JSON — not saved','err'); return; } }
+      finishEdit(kv, val, false);
+    };
+    kv.querySelector('.cancel-btn').onclick = () => finishEdit(kv, null, true);
+    input.onkeydown = ev => {
+      if(ev.key==='Enter' && !isJson){ ev.preventDefault(); kv.querySelector('.save-btn').click(); }
+      if(ev.key==='Escape'){ finishEdit(kv, null, true); }
+    };
+  }
+  function finishEdit(kv, parsed, cancelled){
+    const col = kv.dataset.col;
+    kv.classList.remove('editing');
+    if(cancelled || parsed===null){ kv.querySelector('.v').innerHTML = renderValue(activeDoc[col], docColumnTypes[col]); return; }
+    persistField(col, parsed, kv);
+  }
+  async function persistField(col, val, kv){
+    if(!active || !activeDoc) return;
+    const pk = active.primary_key;
+    const id = activeDoc[pk];
+    if(!pk || id==null) return;
+    kv.querySelector('.v').innerHTML = '<span style="color:var(--muted)">saving…</span>';
+    try{
+      const d = await api('/v1/admin/db/collections/'+encodeURIComponent(active.name)+'/'+encodeURIComponent(id), {method:'PATCH', body: JSON.stringify({[col]:val})});
+      activeDoc = d.record; docColumnTypes = d.column_types || docColumnTypes;
+      kv.querySelector('.v').innerHTML = renderValue(activeDoc[col], docColumnTypes[col]);
+      kv.classList.add('flash'); setTimeout(()=>kv.classList.remove('flash'), 620);
+      toast('Saved '+col, 'ok');
+    }catch(err){
+      kv.querySelector('.v').innerHTML = renderValue(activeDoc[col], docColumnTypes[col]);
+      toast(err.message, 'err');
+    }
+  }
+
+  // ── ADD row ──
+  async function addRow(){
+    if(!active) return;
+    const pk = active.primary_key;
+    try{
+      const body = {};
+      if(pk) body[pk] = 'doc-' + Math.random().toString(36).slice(2,10);
+      const d = await api('/v1/admin/db/collections/'+encodeURIComponent(active.name), {method:'POST', body: JSON.stringify(body)});
+      toast('Added document '+(d.row_id||''), 'ok');
+      offset = 0; activeDoc = d.record;
+      await loadRows();
+      if(d.primary_key && d.row_id) openDoc(d.row_id);
+    }catch(err){ toast(err.message, 'err'); }
+  }
+
+  // ── DELETE row ──
+  function askDelete(){
+    if(!active || !activeDoc) return;
+    const pk = active.primary_key;
+    const id = activeDoc[pk];
+    $('delPreview').textContent = active.name + ' / ' + (id==null?'∅':id);
+    $('delModal').classList.add('show'); $('scrim').classList.add('show');
+    dumping = {collection:active.name, id, pk};
+  }
+  async function confirmDelete(){
+    if(!dumping) return;
+    try{
+      await api('/v1/admin/db/collections/'+encodeURIComponent(dumping.collection)+'/'+encodeURIComponent(dumping.id), {method:'DELETE'});
+      toast('Deleted document '+dumping.id, 'ok');
+      activeDoc = null; editingRow=null;
+      closeModal();
+      await loadRows(); renderInspector();
+    }catch(err){ toast(err.message, 'err'); }
+  }
+
+  // ── create collection ──
+  function openCreate(){ $('createModal').classList.add('show'); $('scrim').classList.add('show'); $('newCollName').focus(); }
+  function closeModal(){ $('createModal').classList.remove('show'); $('delModal').classList.remove('show'); $('scrim').classList.remove('show'); }
+  async function confirmCreate(){
+    const name = $('newCollName').value.trim();
+    if(!name) return;
+    try{
+      const d = await api('/v1/admin/db/tables', {method:'POST', body: JSON.stringify({name})});
+      toast(d.message, 'ok');
+      closeModal(); $('newCollName').value='';
+      await loadCollections();
+    }catch(err){ toast(err.message, 'err'); }
+  }
+
+  // ── Resize handles ──
+  function initResizeHandles(){
+    // Load saved widths
+    const saved1 = localStorage.getItem('rie_db_col1');
+    const saved2 = localStorage.getItem('rie_db_col2');
+    if(saved1) document.documentElement.style.setProperty('--col1', saved1 + 'px');
+    if(saved2) document.documentElement.style.setProperty('--col2', saved2 + 'px');
+
+    document.querySelectorAll('.resize-handle').forEach(handle => {
+      let startX = 0, startWidth = 0, targetVar = null, minW = 180, maxW = 600;
+
+      handle.addEventListener('mousedown', e => {
+        if(e.button !== 0) return;
+        targetVar = handle.dataset.target; // 'col1' or 'col2'
+        minW = parseInt(handle.dataset.min || '180', 10);
+        maxW = parseInt(handle.dataset.max || '600', 10);
+        startX = e.clientX;
+        // Get current width from CSS variable
+        startWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--' + targetVar)) || (targetVar === 'col1' ? 260 : 320);
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      function onMove(e){
+        if(!targetVar) return;
+        const dx = e.clientX - startX;
+        let newWidth = startWidth + dx;
+        newWidth = Math.max(minW, Math.min(maxW, newWidth));
+        document.documentElement.style.setProperty('--' + targetVar, newWidth + 'px');
+        localStorage.setItem('rie_db_' + targetVar, String(newWidth));
+      }
+
+      function onUp(){
+        if(!targetVar) return;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        targetVar = null;
+      }
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ── Inspector key/value column resize ──
+  function initInspectorResize(){
+    // Create the resize handle element for the kv grid
+    const inspBody = $('inspBody');
+    let kvHandle = null;
+
+    function ensureHandle(){
+      if(kvHandle) return;
+      kvHandle = document.createElement('div');
+      kvHandle.className = 'kv-resize-handle';
+      kvHandle.style.cssText = 'position:absolute;top:0;bottom:0;left:140px;width:6px;cursor:col-resize;background:transparent;z-index:5;touch-action:none';
+      kvHandle.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--line);opacity:0;transition:opacity .15s;box-shadow:0 0 0 2px var(--surface)"></div>';
+      inspBody.appendChild(kvHandle);
+
+      let startX = 0, startKWidth = 140;
+
+      kvHandle.addEventListener('mousedown', e => {
+        if(e.button !== 0) return;
+        startX = e.clientX;
+        startKWidth = 140; // default, will read from first .kv
+        const firstKV = inspBody.querySelector('.kv');
+        if(firstKV){
+          const k = firstKV.querySelector('.k');
+          if(k) startKWidth = k.getBoundingClientRect().width;
+        }
+        kvHandle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      function onMove(e){
+        if(!kvHandle.classList.contains('dragging')) return;
+        const dx = e.clientX - startX;
+        let newKWidth = startKWidth + dx;
+        newKWidth = Math.max(100, Math.min(400, newKWidth));
+        // Apply to all .kv elements
+        inspBody.querySelectorAll('.kv').forEach(kv => {
+          kv.style.gridTemplateColumns = newKWidth + 'px 1fr';
+        });
+        kvHandle.style.left = newKWidth + 'px';
+        localStorage.setItem('rie_db_kv_key_width', String(newKWidth));
+      }
+
+      function onUp(){
+        kvHandle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+
+      kvHandle.addEventListener('mouseenter', () => {
+        kvHandle.querySelector('div').style.opacity = '1';
+      });
+      kvHandle.addEventListener('mouseleave', () => {
+        if(!kvHandle.classList.contains('dragging'))
+          kvHandle.querySelector('div').style.opacity = '0';
+      });
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+
+      // Load saved width
+      const saved = localStorage.getItem('rie_db_kv_key_width');
+      if(saved){
+        const w = parseInt(saved, 10);
+        if(w >= 100 && w <= 400){
+          inspBody.querySelectorAll('.kv').forEach(kv => {
+            kv.style.gridTemplateColumns = w + 'px 1fr';
+          });
+          kvHandle.style.left = w + 'px';
+        }
+      }
+    }
+
+    // Re-create handle when inspector content changes
+    const origRenderInspector = window.renderInspector;
+    if(origRenderInspector){
+      window.renderInspector = function(...args){
+        origRenderInspector.apply(this, args);
+        // Re-ensure handle after render
+        setTimeout(ensureHandle, 0);
+      };
+    }
+    // Also call on initial load
+    setTimeout(ensureHandle, 100);
+  }
+
+  // ── boot ──
+  async function boot(){
+    initResizeHandles();
+    initInspectorResize();
+    if(!authToken){ $('gate').style.display='flex'; $('explorer').hidden=true; $('navAuth').hidden=true; $('wsSelector').hidden=true; return; }
+    try{ const me = await api('/v1/auth/me'); authUser = me; localStorage.setItem('rie_user', JSON.stringify(me)); }catch(_e){}
+    $('gate').style.display='none'; $('explorer').hidden=false; $('navAuth').hidden=false;
+    const role = (authUser && authUser.role) ? String(authUser.role) : 'unknown';
+    const isAdmin = role.toLowerCase()==='administrator' || role.toLowerCase().includes('admin');
+    $('roleTag').textContent = isAdmin ? 'ADMIN' : (role.replace(/_/g,' ').toUpperCase());
+    $('roleTag').className = 'pill-tag ' + (isAdmin?'admin':'warn');
+    $('whoText').textContent = (authUser?authUser.email:'—') + (authUser && authUser.workspace_id ? ' · '+String(authUser.workspace_id).slice(0,8)+'…' : '');
+    $('roleNotice').hidden = isAdmin;
+    if(!isAdmin){ $('modeBadge').textContent='● read-only'; $('modeBadge').className='readonly-bd'; }
+    // Workspace selector for admins
+    if(isAdmin){
+      $('wsSelector').hidden = false;
+      await loadWorkspaces();
+    }else{
+      $('wsSelector').hidden = true;
+    }
+    loadCollections();
+  }
+
+  // ── wiring ──
+  $('loginForm').addEventListener('submit', doLogin);
+  if(authUser) $('wsId').value = authUser.workspace_id || $('wsId').value;
+  $('logoutBtn').addEventListener('click', signOut);
+  $('colSearch').addEventListener('input', renderCollections);
+  $('rowSearch').addEventListener('input', () => { /* re-render from cached page */ if(active) renderRowsFromCache(); });
+  $('prevBtn').addEventListener('click', () => { offset = Math.max(0, offset-LIMIT); $('rowSearch').value=''; loadRows(); });
+  $('nextBtn').addEventListener('click', () => { offset += LIMIT; $('rowSearch').value=''; loadRows(); });
+  $('addRowBtn').addEventListener('click', addRow);
+  $('delRowBtn').addEventListener('click', askDelete);
+  $('createTableBtn').addEventListener('click', openCreate);
+  $('createClose').addEventListener('click', closeModal);
+  $('createCancel').addEventListener('click', closeModal);
+  $('createConfirm').addEventListener('click', confirmCreate);
+  $('delClose').addEventListener('click', closeModal);
+  $('delCancel').addEventListener('click', closeModal);
+  $('delConfirm').addEventListener('click', confirmDelete);
+  $('scrim').addEventListener('click', closeModal);
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+  // Workspace selector events
+  $('wsBtn').addEventListener('click', e => { e.stopPropagation(); toggleWorkspaceDropdown(); });
+  document.addEventListener('click', e => { if(wsDropdownOpen && !$('wsSelector').contains(e.target)) closeWorkspaceDropdown(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeWorkspaceDropdown(); });
+
+  let lastRowsPayload = null;
+  function renderRowsFromCache(){
+    if(lastRowsPayload) renderRows(lastRowsPayload);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

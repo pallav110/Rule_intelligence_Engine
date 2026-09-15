@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Request, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
 from uuid import uuid4
@@ -141,6 +142,11 @@ async def audit_authorization_failures(request: Request, call_next):
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(static_dir)), name="static")
+
+# Mount results directory for file access
+results_dir = Path("/home/spxlpt133/Desktop/Rule-intelligence-Engine/results")
+if results_dir.exists():
+    app.mount("/results", StaticFiles(directory=str(results_dir)), name="results")
 
 
 # --- Authentication & Authorization (Spec §10.1, §5.1) ---
@@ -737,6 +743,55 @@ def reject_suggestion(
         return {"success": False, "error": str(e)}
 
 
+@app.post("/v1/suggestions/{suggestion_id}/archive")
+def archive_suggestion(
+    suggestion_id: str,
+    payload: dict,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.REVIEWER)),
+):
+    """
+    Archive a suggestion (REJECTED or RULE_ACTIVATED -> ARCHIVED).
+
+    RBAC: Reviewer (or Administrator); workspace-scoped (§10.2). Archive is only
+    a valid lifecycle transition from ``rejected`` or ``rule_activated``; a
+    pending suggestion must first be approved or rejected.
+
+    Request:
+    {
+        "archived_by": "reviewer_email",
+        "comments": "Superseded by newer policy"
+    }
+
+    Response:
+    {success, suggestion_id, from_status, to_status, audit_entry_id}
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=suggestion_id).first()
+        if not suggestion:
+            return {"success": False, "error": f"Suggestion {suggestion_id} not found"}
+        require_workspace(suggestion.workspace_id, _ctx)
+
+        lifecycle_service = SuggestionLifecycleService()
+        return lifecycle_service.transition_status(
+            suggestion_id=suggestion_id,
+            from_status=suggestion.review_status,
+            to_status="archived",
+            transitioned_by=payload.get("archived_by", "system"),
+            reason=payload.get("comments", "Archived by reviewer"),
+            metadata={"comments": payload.get("comments")},
+            db=db,
+        )
+    except Exception as e:
+        print(f"Error archiving suggestion: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/v1/rules/{rule_id}/activate")
 def activate_rule(
     rule_id: str,
@@ -812,6 +867,162 @@ def activate_rule(
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
+
+
+@app.post("/v1/rules/activate-batch")
+def activate_rules_batch(
+    payload: dict,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+    _: None = Depends(limit_rules),
+):
+    """
+    Activate many rules in one rate-limited request.
+
+    RBAC: Administrator ONLY (§5.9); workspace-scoped per rule (§10.2).
+
+    This endpoint exists so a batch activation costs ONE rate-limit token
+    (Spec §10.3 ``rules`` bucket) rather than one token per rule — the reason
+    the frontend "Push to Production" now points here instead of looping
+    ``POST /v1/rules/{id}/activate``. Each rule commits independently, so one
+    bad/draft rule fails that rule without rolling back the rest of the batch.
+
+    Request:
+    {
+        "rule_ids": ["EC_R001", "SAAS_R010"],
+        "activated_by": "admin_email",
+        "effective_date": "2026-09-15",
+        "comments": "Batch push for release"
+    }
+
+    Response:
+    {
+        "success": true,
+        "requested": 20,
+        "activated": [{rule_id, status, suggestion_id, activated_at}, ...],
+        "skipped": [{rule_id, reason}, ...],   // already active, not found, non-draft
+        "failed": [{rule_id, error}, ...]      // workspace mismatch or DB error
+    }
+    """
+    try:
+        from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
+        from app.db.models.rule import Rule
+        from app.db.models.rule_suggestion import RuleSuggestion
+
+        rule_ids = payload.get("rule_ids") or []
+        # De-duplicate while preserving order.
+        seen = set()
+        ordered_ids = [rid for rid in rule_ids if not (rid in seen or seen.add(rid))]
+
+        activated, skipped, failed = [], [], []
+        for rule_id in ordered_ids:
+            try:
+                rule = db.query(Rule).filter_by(rule_id=rule_id).first()
+                if not rule:
+                    skipped.append({"rule_id": rule_id, "reason": "not_found"})
+                    continue
+                require_workspace(rule.workspace_id, _ctx)
+                if rule.status != "draft":
+                    skipped.append({"rule_id": rule_id, "reason": f"not_draft ({rule.status})"})
+                    continue
+
+                rule.status = "active"
+                rule.activated_by = payload.get("activated_by", "system")
+                rule.activated_at = datetime.now(timezone.utc)
+                db.commit()
+
+                suggestion_id = None
+                suggestion = db.query(RuleSuggestion).filter_by(suggestion_id=rule.suggestion_id).first()
+                if suggestion:
+                    suggestion_id = suggestion.suggestion_id
+                    SuggestionLifecycleService().transition_status(
+                        suggestion_id=suggestion_id,
+                        from_status=suggestion.review_status,
+                        to_status="rule_activated",
+                        transitioned_by=payload.get("activated_by", "system"),
+                        reason="Rule activated in production (batch)",
+                        metadata={"rule_id": rule_id, "comments": payload.get("comments")},
+                        db=db,
+                    )
+
+                activated.append({
+                    "rule_id": rule_id,
+                    "status": "active",
+                    "suggestion_id": suggestion_id,
+                    "activated_at": rule.activated_at.isoformat(),
+                })
+            except Exception as e:
+                db.rollback()
+                failed.append({"rule_id": rule_id, "error": str(e)})
+
+        return {
+            "success": True,
+            "requested": len(rule_ids),
+            "activated_count": len(activated),
+            "skipped_count": len(skipped),
+            "failed_count": len(failed),
+            "activated": activated,
+            "skipped": skipped,
+            "failed": failed,
+        }
+    except Exception as e:
+        print(f"Error in batch activation: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/v1/rules")
+def list_rules_route(
+    db=Depends(get_db),
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    _ctx: SecurityContext = Depends(get_security_context),
+):
+    """List rules in the Rule Repository (§3.3).
+
+    Used by the Rule Activation dashboard to show DRAFT rules eligible for
+    activation and already ACTIVE rules. Administrator-only activation is
+    enforced at the activate endpoint, not here — this read-only route is
+    available to any authenticated user so reviewers can see what is live.
+    """
+    from app.db.models.rule import Rule
+
+    query = db.query(Rule)
+    if workspace_id:
+        query = query.filter(Rule.workspace_id == workspace_id)
+    if status:
+        query = query.filter(Rule.status == status)
+
+    results = query.order_by(Rule.created_at.desc()).all()
+    return {
+        "success": True,
+        "count": len(results),
+        "rules": [
+            {
+                "rule_id": r.rule_id,
+                "workspace_id": r.workspace_id,
+                "suggestion_id": r.suggestion_id,
+                "rule_name": r.rule_name,
+                "business_term": r.business_term,
+                "rule_category": r.rule_category,
+                "operation": r.operation,
+                "conditions": r.conditions,
+                "scope": r.scope,
+                "threshold": r.threshold,
+                "time_window": r.time_window,
+                "affected_tables": r.affected_tables,
+                "affected_columns": r.affected_columns,
+                "affected_entities": r.affected_entities,
+                "rule_definition": r.rule_definition,
+                "status": r.status,
+                "activated_by": r.activated_by,
+                "activated_at": r.activated_at.isoformat() if r.activated_at else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in results
+        ],
+    }
 
 
 @app.get("/v1/suggestions/{suggestion_id}/lifecycle")
@@ -1816,6 +2027,25 @@ def analyze_feedback(
     # Record routing timestamp
     analysis_run.execution_timestamps["routing_completed"] = datetime.utcnow().isoformat()
 
+    # ── Back-fill reference lineage on the run (§8 traceability) ──
+    # model_version_id / domain_pack_id / dataset_version_id were hardcoded NULL
+    # at insert even though the pipeline resolves them moments later. Wire the
+    # run to what actually produced it: the ACTIVE classification model, the
+    # detected domain pack, and the training dataset that generated that model.
+    _mv_id = classification_result_dict.get("model_version_id")
+    if _mv_id:
+        analysis_run.model_version_id = _mv_id
+        from app.db.models.model_version import ModelVersion as _MV
+        from app.db.models.dataset_version import DatasetVersion as _DSV
+        _mv = db.query(_MV).filter_by(model_version_id=_mv_id).first()
+        # The run carries the dataset version the ACTIVE model was trained on.
+        if _mv and _mv.training_dataset_version_id:
+            _dsv = db.query(_DSV).filter_by(dataset_version_id=_mv.training_dataset_version_id).first()
+            if _dsv:
+                analysis_run.dataset_version_id = _dsv.dataset_version_id
+    if domain_pack_id:
+        analysis_run.domain_pack_id = domain_pack_id
+
     analysis_run.status = "completed"
     analysis_run.completed_at = datetime.utcnow()
     db.commit()
@@ -1952,6 +2182,43 @@ def analyze_feedback(
 # --- Suggestion APIs ---
 
 
+def _suggestion_payload(s_obj, db, confidence=0.0, reviewed_by=None, reviewed_at=None):
+    """Build a SuggestionResponse carrying the full §3.2 analysis context.
+
+    Reviewers need the complete pipeline results (classification, extraction,
+    schema validation, duplicate/conflict) to make an informed decision — not
+    just the suggested rule. Pulls feedback text from the Feedback model.
+    """
+    from app.db.models.feedback import Feedback
+    feedback_text = None
+    try:
+        f = db.query(Feedback).filter_by(feedback_id=s_obj.feedback_id).first()
+        if f:
+            feedback_text = f.feedback_text
+    except Exception:
+        pass
+    return SuggestionResponse(
+        suggestion_id=s_obj.suggestion_id,
+        workspace_id=s_obj.workspace_id,
+        feedback_id=s_obj.feedback_id,
+        feedback_text=feedback_text,
+        suggested_rule=s_obj.suggested_rule,
+        status=s_obj.review_status,
+        confidence_score=confidence,
+        created_at=s_obj.created_at,
+        reviewed_by=reviewed_by,
+        reviewed_at=reviewed_at,
+        feedback_type=s_obj.feedback_type,
+        rule_category=s_obj.rule_category,
+        classification_result=s_obj.classification_result,
+        extraction_result=s_obj.extraction_result,
+        schema_validation_status=s_obj.schema_validation_status,
+        duplicate_status=s_obj.duplicate_status,
+        conflict_status=s_obj.conflict_status,
+        clarification_required=s_obj.clarification_required,
+        preprocessing_result=s_obj.preprocessing_result,
+    )
+
 
 @app.post("/v1/suggestions", response_model=SuggestionResponse)
 def create_suggestion_route(
@@ -1967,17 +2234,7 @@ def create_suggestion_route(
         suggested_rule=payload.suggested_rule,
         confidence=payload.confidence,
     )
-    return SuggestionResponse(
-        suggestion_id=s_obj.suggestion_id,
-        workspace_id=s_obj.workspace_id,
-        feedback_id=s_obj.feedback_id,
-        suggested_rule=s_obj.suggested_rule,
-        status=s_obj.review_status,
-        confidence_score=payload.confidence,
-        created_at=s_obj.created_at,
-        reviewed_by=None,
-        reviewed_at=None,
-    )
+    return _suggestion_payload(s_obj, db, confidence=payload.confidence)
 
 
 @app.get("/v1/suggestions/{suggestion_id}", response_model=SuggestionResponse)
@@ -1990,18 +2247,8 @@ def get_suggestion_route(
     s_obj = service.get_suggestion(db, suggestion_id)
     if not s_obj:
         raise HTTPException(status_code=404, detail="Suggestion not found")
-        
-    return SuggestionResponse(
-        suggestion_id=s_obj.suggestion_id,
-        workspace_id=s_obj.workspace_id,
-        feedback_id=s_obj.feedback_id,
-        suggested_rule=s_obj.suggested_rule,
-        status=s_obj.review_status,
-        confidence_score=0.0,
-        created_at=s_obj.created_at,
-        reviewed_by=None,
-        reviewed_at=None,
-    )
+
+    return _suggestion_payload(s_obj, db)
 
 
 @app.post("/v1/suggestions/{suggestion_id}/approve", response_model=SuggestionResponse)
@@ -2013,18 +2260,8 @@ def approve_suggestion_route(
     from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
     service = SuggestionLifecycleService()
     s_obj = service.transition_status(db, suggestion_id, "approved", payload.reviewer_id, payload.notes)
-    
-    return SuggestionResponse(
-        suggestion_id=s_obj.suggestion_id,
-        workspace_id=s_obj.workspace_id,
-        feedback_id=s_obj.feedback_id,
-        suggested_rule=s_obj.suggested_rule,
-        status=s_obj.review_status,
-        confidence_score=0.0,
-        created_at=s_obj.created_at,
-        reviewed_by=None,
-        reviewed_at=None,
-    )
+
+    return _suggestion_payload(s_obj, db)
 
 @app.post("/v1/suggestions/{suggestion_id}/reject", response_model=SuggestionResponse)
 def reject_suggestion_route(
@@ -2035,18 +2272,8 @@ def reject_suggestion_route(
     from app.services.suggestion_lifecycle_service import SuggestionLifecycleService
     service = SuggestionLifecycleService()
     s_obj = service.transition_status(db, suggestion_id, "rejected", payload.reviewer_id, payload.notes)
-    
-    return SuggestionResponse(
-        suggestion_id=s_obj.suggestion_id,
-        workspace_id=s_obj.workspace_id,
-        feedback_id=s_obj.feedback_id,
-        suggested_rule=s_obj.suggested_rule,
-        status=s_obj.review_status,
-        confidence_score=0.0,
-        created_at=s_obj.created_at,
-        reviewed_by=None,
-        reviewed_at=None,
-    )
+
+    return _suggestion_payload(s_obj, db)
 
 
 @app.get("/v1/suggestions", response_model=List[SuggestionResponse])
@@ -2075,14 +2302,8 @@ def list_suggestions_route(
             review_by_suggestion[r.suggestion_id] = r
 
     return [
-        SuggestionResponse(
-            suggestion_id=s.suggestion_id,
-            workspace_id=s.workspace_id,
-            feedback_id=s.feedback_id,
-            suggested_rule=s.suggested_rule,
-            status=s.review_status,
-            confidence_score=0.0,
-            created_at=s.created_at,
+        _suggestion_payload(
+            s, db,
             reviewed_by=(review_by_suggestion.get(s.suggestion_id).reviewer_id
                          if s.suggestion_id in review_by_suggestion else None),
             reviewed_at=(review_by_suggestion.get(s.suggestion_id).completed_at
@@ -2931,6 +3152,597 @@ async def compare_duplicate_detection_evaluations(
     except Exception as e:
         logger.error(f"Error comparing evaluations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Spec §10 DB Explorer — Firebase-emulator-style browser (admin-only, read-only)
+#
+# Gives an administrator a live, low-level view of every entity the engine
+# stores, without SQL. Three read-only routes:
+#   GET /v1/admin/db/collections                       -> entity browser sidebar
+#   GET /v1/admin/db/collections/{collection}          -> rows of one entity
+#   GET /v1/admin/db/collections/{collection}/{row_id} -> single row / document
+#
+# RBAC: Administrator ONLY (§10.1). Workspace-scoped (§10.2): entities that
+# carry a workspace_id are filtered to the caller's workspace, so browsing one
+# workspace never leaks another's records. Read-only by design — no DELETE /
+# UPDATE / INSERT surface here; mutations live behind their own admin routes.
+# ---------------------------------------------------------------------------
+_ADMIN_DB_LIMIT = 200          # hard per-request row cap
+_ADMIN_DB_DEFAULT = 50
+
+# Friendly label per table (the sidebar group names). Keys are the real SQL
+# table names; omitted/garbled tables are deliberately excluded.
+_ADMIN_DB_GROUPS: dict[str, str] = {
+    "workspaces": "workspaces",
+    "users": "users",
+    "workspace_members": "workspace_members",
+    "feedback": "feedback",
+    "analysis_runs": "analysis_runs",
+    "clarifications": "clarifications",
+    "extracted_rules": "extracted_rules",
+    "rule_suggestions": "rule_suggestions",
+    "rules": "rules",
+    "reviews": "reviews",
+    "rule_comparisons": "rule_comparisons",
+    "rule_embeddings": "rule_embeddings",
+    "suggestion_audit": "suggestion_audit",
+    "audit_history": "audit_history",
+    "background_jobs": "background_jobs",
+    "domain_packs": "domain_packs",
+    "dataset_versions": "dataset_versions",
+    "model_versions": "model_versions",
+    "evaluation_runs": "evaluation_runs",
+    "evaluation_metrics": "evaluation_metrics",
+    "alembic_version": "schema_version",
+}
+
+
+def _admin_db_collections_info(db):
+    """Resolve the live schema into a displayable entity list.
+
+    Known engine tables get friendly labels from _ADMIN_DB_GROUPS; any other
+    user table — including ones created through the explorer — is surfaced too
+    so created collections appear immediately. alembic_version shows as schema_version.
+    """
+    from sqlalchemy import inspect
+
+    insp = inspect(db.get_bind())
+    info = []
+    for table in insp.get_table_names():
+        if table.startswith("pg_") or table.startswith("_") or table == "spatial_ref_sys":
+            continue
+        pks = list(insp.get_pk_constraint(table).get("constrained_columns") or [])
+        cols = {c["name"] for c in insp.get_columns(table)}
+        info.append({
+            "name": table,
+            "label": _ADMIN_DB_GROUPS.get(table, table),
+            "primary_key": pks[0] if pks else None,
+            "workspace_scoped": "workspace_id" in cols,
+            "row_count": None,
+            "created": table not in _ADMIN_DB_GROUPS,
+        })
+    meta = {"alembic_version"}
+    info.sort(key=lambda i: (i["name"] in meta, i["name"]))
+    return info
+
+
+def _admin_db_row_count(db, table: str, info_item=None, workspace_id: Optional[str] = None) -> int:
+    # `table` is allowlisted above (never raw client input), so f-string is safe.
+    # Workspace-scoped tables count only the caller's rows so the sidebar matches
+    # what the browser can actually display (§10.2 isolation, not global totals).
+    where = params = ""
+    if info_item and info_item.get("workspace_scoped") and workspace_id:
+        where = " WHERE workspace_id = :ws"
+        params = {"ws": workspace_id}
+    return db.execute(text(f'SELECT count(*) FROM "{table}"{where}'), params if params else None).scalar() or 0
+
+
+# Friendly PostgreSQL type label per column, shown as a tag beside each editable
+# field in the inspector (string / boolean / integer / number / jsonb / timestamp
+# / uuid / vector). Derived from the reflected SA type so it mirrors the real
+# column, not the current value.
+def _admin_db_col_types(db, table_name: str) -> Dict[str, str]:
+    import sqlalchemy as sa
+
+    if isinstance(table_name, sa.Table):
+        table = table_name
+    else:
+        table = sa.Table(table_name, sa.MetaData(), autoload_with=db.get_bind())
+    out: Dict[str, str] = {}
+    for c in table.columns:
+        out[c.name] = _friendly_pg_type(str(c.type))
+    return out
+
+
+def _friendly_pg_type(raw: str) -> str:
+    s = raw.lower()
+    if "json" in s:
+        return "jsonb"
+    if s in ("bool", "boolean"):
+        return "boolean"
+    if "timestamp" in s or "datetime" in s or "date" in s:
+        return "timestamp"
+    if "int" in s or "serial" in s or "bigint" in s or "smallint" in s:
+        return "integer"
+    if any(k in s for k in ("numeric", "decimal", "float", "real", "double")):
+        return "number"
+    if "uuid" in s:
+        return "uuid"
+    if "vector" in s:
+        return "vector"
+    return "string"
+
+
+def _admin_db_rows(db, table: str, workspace_id: Optional[str], limit: int = _ADMIN_DB_DEFAULT, offset: int = 0):
+    """SELECT * for a collection, workspace-scoped when the table carries workspace_id."""
+    from fastapi.encoders import jsonable_encoder
+
+    meta, _ = _admin_db_reflect(db, table)  # reflection also gives us columns/types
+    pk = meta["primary_key"]
+    order = pk if pk else "ctid"
+    column_types = _admin_db_col_types(db, table)
+    cols = list(column_types.keys())
+    params: Dict[str, Any] = {"lim": limit, "off": offset}
+    where = ""
+    if meta["workspace_scoped"]:
+        where = "WHERE workspace_id = :ws"
+        params["ws"] = workspace_id
+    sql = f'SELECT * FROM "{table}" {where} ORDER BY "{order}" LIMIT :lim OFFSET :off'
+    rows = db.execute(text(sql), params).fetchall()
+    return {
+        "collection": table,
+        "workspace_scoped": meta["workspace_scoped"],
+        "primary_key": pk,
+        "row_count": _admin_db_row_count(db, table, meta, workspace_id),
+        "columns": cols,
+        "column_types": column_types,
+        "rows": [dict(zip(cols, (jsonable_encoder(rows[i][j]) for j in range(len(cols))))) for i in range(len(rows))],
+    }
+
+
+@app.get("/v1/admin/db/collections", response_model=None)
+def admin_db_collections(
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """List every entity (collection) with a live row count — the browser sidebar."""
+    info = _admin_db_collections_info(db)
+    for item in info:
+        try:
+            item["row_count"] = _admin_db_row_count(db, item["name"], item, _ctx.workspace_id)
+        except Exception:
+            item["row_count"] = None
+    return {"collections": info, "count": len(info), "workspace_id": _ctx.workspace_id}
+
+
+@app.get("/v1/admin/db/collections/{collection}", response_model=None)
+def admin_db_collection_rows(
+    collection: str,
+    limit: int = _ADMIN_DB_DEFAULT,
+    offset: int = 0,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Rows of one entity, workspace-isolated, read-only."""
+    limit = max(1, min(int(limit), _ADMIN_DB_LIMIT))
+    offset = max(0, int(offset))
+    payload = _admin_db_rows(db, collection, _ctx.workspace_id, limit, offset)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"Unknown collection '{collection}'")
+    payload["offset"] = offset
+    payload["limit"] = limit
+    return payload
+
+
+@app.get("/v1/admin/db/collections/{collection}/{row_id}", response_model=None)
+def admin_db_collection_row(
+    collection: str,
+    row_id: str,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Single document (row) of a collection by its primary-key id."""
+    from fastapi.encoders import jsonable_encoder
+
+    info = _admin_db_collections_info(db)
+    meta = next((i for i in info if i["name"] == collection), None)
+    if not meta or not meta["primary_key"]:
+        raise HTTPException(status_code=404, detail=f"Unknown collection '{collection}'")
+    pk = meta["primary_key"]
+    params: Dict[str, Any] = {"rid": row_id}
+    where = f'"{pk}"::text = :rid'
+    if meta["workspace_scoped"]:
+        where += " AND workspace_id = :ws"
+        params["ws"] = _ctx.workspace_id
+    sql = f'SELECT * FROM "{collection}" WHERE {where}'
+    row = db.execute(text(sql), params).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"No row {row_id} in '{collection}'")
+    cols = list(row._fields)
+    return {
+        "collection": collection,
+        "id": row_id,
+        "primary_key": pk,
+        "workspace_scoped": meta["workspace_scoped"],
+        "record": dict(zip(cols, (jsonable_encoder(v) for v in row))),
+        "column_types": _admin_db_col_types(db, collection),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB Explorer — REAL write surface (still admin-only + workspace-isolated §10.2)
+#
+# The read routes above are the browser. These routes are the editor: create a
+# table/collection, add a row, update fields with Postgres-aware type coercion,
+# and delete a row. Nothing is mocked — every call is a genuine DML/DDL against
+# the live database. RBAC: administrator only. Guard rails:
+#   * table + column names are validated against the live reflected schema
+#     (allowlist via introspection) so raw input never reaches the identifier
+#     position of a statement;
+#   * workspace_scoped tables only ever touch the caller's workspace_id, so an
+#     admin editing one tenant can't reach another's rows (§10.2).
+# ─────────────────────────────────────────────────────────────────────────────
+_TABLE_NAME_RE = None
+
+
+def _admin_db_reflect(db, collection):
+    """Validate the collection against the live schema and return (meta, Table)."""
+    import sqlalchemy as sa
+
+    info = _admin_db_collections_info(db)
+    meta = next((i for i in info if i["name"] == collection), None)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Unknown collection '{collection}'")
+    table = sa.Table(collection, sa.MetaData(), autoload_with=db.get_bind())
+    return meta, table
+
+
+def _coerce_col_values(table, values: Dict[str, Any]):
+    """Cast provided JSON values to each column's Python type before binding.
+
+    Keeps timestamps (ISO strings -> datetime), booleans, ints/floats, and leaves
+    jsonb/arrays/unknown (e.g. pgvector) to pass through untouched. Unknown
+    column names are rejected rather than dropped, so a typo fails loudly.
+    """
+    from datetime import datetime
+    import sqlalchemy as sa
+
+    out: Dict[str, Any] = {}
+    scalar_types = (str, int, float, bool, datetime)
+    for k, v in values.items():
+        col = table.columns.get(k)
+        if col is None:
+            raise HTTPException(status_code=400, detail=f"Unknown column '{k}' in '{table.name}'")
+        ptype = getattr(col.type, "python_type", None)
+        if v is None or not isinstance(v, scalar_types):
+            out[k] = v
+        elif ptype is datetime and isinstance(v, str):
+            out[k] = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        elif ptype is bool and isinstance(v, str):
+            out[k] = v.strip().lower() in {"1", "true", "t", "yes", "y"}
+        elif ptype in (int, int) and isinstance(v, str):
+            try:
+                out[k] = int(v)
+            except (TypeError, ValueError):
+                out[k] = v
+        elif ptype is float and isinstance(v, str):
+            try:
+                out[k] = float(v)
+            except (TypeError, ValueError):
+                out[k] = v
+        else:
+            out[k] = v
+        _ = sa  # bind keeps table.columns live
+    return out
+
+
+def _admin_db_fetch_ref(db, table, pk, pk_value):
+    from fastapi.encoders import jsonable_encoder
+    import sqlalchemy as sa
+
+    if not pk:
+        return {}
+    sel = sa.select(table).where(sa.cast(table.c[pk], sa.String) == str(pk_value))
+    row = db.execute(sel).fetchone()
+    if row is None:
+        return {}
+    return dict(zip(row._fields, (jsonable_encoder(v) for v in row)))
+
+
+@app.post("/v1/admin/db/tables", response_model=None)
+def admin_db_create_table(
+    payload: Dict[str, Any] = Body(...),
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Create a real Postgres table/collection for the explorer.
+
+    Minimal, safe shape: `id TEXT PRIMARY KEY`, `data JSONB`, `created_at` defaulted
+    to now(). Names must match [a-z0-9_]; the tool refuses collisions and reserved
+    prefixes. Idempotently skip if it already exists.
+    """
+    import re
+    import sqlalchemy as sa
+    from sqlalchemy.exc import ProgrammingError
+
+    name = (payload.get("name") or "").strip().lower()
+    if not re.match(r"^[a-z][a-z0-9_]{1,63}$", name):
+        raise HTTPException(
+            status_code=400,
+            detail="Table name must start with a letter and contain only [a-z0-9_] (2-64 chars).",
+        )
+    if any(i["name"] == name for i in _admin_db_collections_info(db)):
+        return {"created": False, "collection": name, "message": "already exists"}
+    table = sa.Table(
+        name,
+        sa.MetaData(),
+        sa.Column("id", sa.Text, primary_key=True),
+        sa.Column("data", sa.JSON, nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
+    )
+    try:
+        table.create(bind=db.get_bind())
+    except ProgrammingError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Could not create table: {e.orig}")
+    return {"created": True, "collection": name, "message": f"created table '{name}'"}
+
+
+@app.post("/v1/admin/db/collections/{collection}", response_model=None)
+def admin_db_create_row(
+    collection: str,
+    payload: Dict[str, Any] = Body(...),
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Add a real row to a collection. Workspace-scoped tables default/force the
+    caller's workspace_id. A missing primary key is auto-generated (uuid)."""
+    import sqlalchemy as sa
+    from sqlalchemy.exc import IntegrityError
+
+    meta, table = _admin_db_reflect(db, collection)
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Request body must be a JSON object")
+    values = dict(payload)
+    if meta["workspace_scoped"]:
+        values.setdefault("workspace_id", _ctx.workspace_id)
+    coerced = _coerce_col_values(table, values)
+    pk = meta["primary_key"]
+    if pk and pk not in coerced:
+        coerced[pk] = str(uuid4())
+    try:
+        db.execute(table.insert().values(**coerced))
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Could not create row: {e.orig}")
+    return {
+        "collection": collection,
+        "primary_key": pk,
+        "row_id": coerced.get(pk),
+        "workspace_scoped": meta["workspace_scoped"],
+        "record": _admin_db_fetch_ref(db, table, pk, coerced.get(pk)),
+    }
+
+
+@app.patch("/v1/admin/db/collections/{collection}/{row_id}", response_model=None)
+def admin_db_update_row(
+    collection: str,
+    row_id: str,
+    payload: Dict[str, Any] = Body(...),
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Patch one or more fields on a row. Type-coerced per column. Workspace-scoped
+    rows are only writable when they belong to the caller's workspace (§10.2)."""
+    import sqlalchemy as sa
+    from sqlalchemy.exc import IntegrityError
+
+    meta, table = _admin_db_reflect(db, collection)
+    pk = meta["primary_key"]
+    if not pk:
+        raise HTTPException(status_code=400, detail=f"'{collection}' has no primary key to edit")
+    coerced = _coerce_col_values(table, payload)
+    if not coerced:
+        raise HTTPException(status_code=400, detail="No editable fields provided")
+    where = sa.cast(table.c[pk], sa.String) == str(row_id)
+    if meta["workspace_scoped"]:
+        where = sa.and_(where, table.c.workspace_id == _ctx.workspace_id)
+    try:
+        res = db.execute(table.update().where(where).values(**coerced))
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Update failed: {e.orig}")
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No row {row_id} in '{collection}' (or it belongs to another workspace)",
+        )
+    return {
+        "updated": True,
+        "collection": collection,
+        "row_id": row_id,
+        "primary_key": pk,
+        "record": _admin_db_fetch_ref(db, table, pk, row_id),
+    }
+
+
+@app.delete("/v1/admin/db/collections/{collection}/{row_id}", response_model=None)
+def admin_db_delete_row(
+    collection: str,
+    row_id: str,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Delete a row, workspace-isolated for scoped tables. Irreversible."""
+    import sqlalchemy as sa
+
+    meta, table = _admin_db_reflect(db, collection)
+    pk = meta["primary_key"]
+    if not pk:
+        raise HTTPException(status_code=400, detail=f"'{collection}' has no primary key to delete")
+    where = sa.cast(table.c[pk], sa.String) == str(row_id)
+    if meta["workspace_scoped"]:
+        where = sa.and_(where, table.c.workspace_id == _ctx.workspace_id)
+    res = db.execute(table.delete().where(where))
+    db.commit()
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No row {row_id} in '{collection}' (or it belongs to another workspace)",
+        )
+    return {"deleted": True, "collection": collection, "row_id": row_id}
+
+
+# ---------------------------------------------------------------------------
+# Workspace switching (Firebase Emulator style) — admin only
+# ---------------------------------------------------------------------------
+
+@app.get("/v1/admin/db/workspaces", response_model=None)
+def admin_db_workspaces(
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """List all workspaces for the workspace selector (global, not filtered)."""
+    from app.db.models.workspace import Workspace
+    from app.db.models.workspace_member import WorkspaceMember
+    from app.db.models.user import User
+
+    # Get all workspaces with member counts
+    workspaces = db.query(Workspace).all()
+    result = []
+    for ws in workspaces:
+        member_count = db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == ws.workspace_id).count()
+        # Get owner/admin email for display
+        owner = db.query(User).join(WorkspaceMember, User.user_id == WorkspaceMember.user_id)\
+            .filter(WorkspaceMember.workspace_id == ws.workspace_id, WorkspaceMember.role == "owner").first()
+        result.append({
+            "workspace_id": str(ws.workspace_id),
+            "name": ws.name,
+            "member_count": member_count,
+            "owner_email": owner.email if owner else None,
+            "is_current": str(ws.workspace_id) == _ctx.workspace_id,
+        })
+    return {"workspaces": result, "current_workspace_id": _ctx.workspace_id}
+
+
+class SwitchWorkspaceRequest(BaseModel):
+    workspace_id: str
+
+
+@app.post("/v1/admin/db/switch-workspace", response_model=None)
+def admin_db_switch_workspace(
+    req: SwitchWorkspaceRequest,
+    db=Depends(get_db),
+    _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR)),
+):
+    """Switch workspace context — issue new JWT for target workspace (admin only)."""
+    from app.db.models.workspace_member import WorkspaceMember
+    from app.db.models.workspace import Workspace
+    from app.services.security import create_access_token
+
+    # Verify target workspace exists
+    ws = db.query(Workspace).filter(Workspace.workspace_id == req.workspace_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # Admins can switch to any workspace — ensure membership exists for token context
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == req.workspace_id,
+        WorkspaceMember.user_id == _ctx.user_id
+    ).first()
+    if not membership:
+        # Auto-create admin membership for this workspace
+        from app.db.database import SessionLocal as _member_session
+        from uuid import uuid4
+        membership = WorkspaceMember(
+            membership_id=str(uuid4()),
+            workspace_id=req.workspace_id,
+            user_id=_ctx.user_id,
+            role="owner",
+        )
+        db.add(membership)
+        db.commit()
+
+    # Issue new token with target workspace
+    new_token = create_access_token(
+        user_id=_ctx.user_id,
+        email=_ctx.email,
+        role=_ctx.role,
+        workspace_id=req.workspace_id,
+    )
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "workspace_id": req.workspace_id,
+        "message": f"Switched to workspace {req.workspace_id}. Store this token to persist.",
+    }
+
+
+def _seed_training_dataset_versions(db) -> int:
+    """Idempotently register every model's *training* dataset as a real
+    dataset_versions row so a model's training_dataset_version_id FK actually
+    resolves.
+
+    Models store their training set as a name string in
+    model_versions.training_dataset_version_id (e.g. 'feedback-combined-v2-train-1513')
+    which is a ForeignKey to dataset_versions.dataset_version_id — but the
+    dataset_versions table only held the frozen evaluation set, so that FK dangled.
+    Registering rows keyed by the model's own ref id makes the lineage a genuine,
+    browser-visible FK. Safe to re-run on every boot (idempotent by PK and by the
+    unique dataset_name+version pair).
+    """
+    from app.db.models.model_version import ModelVersion
+    from app.db.models.dataset_version import DatasetVersion
+
+    seeded = 0
+    seen = set()  # dedupe against pending (unflushed) adds too, not just the DB
+    for mv in db.query(ModelVersion).all():
+        ref = mv.training_dataset_version_id or mv.validation_dataset_version_id
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        if db.query(DatasetVersion).filter_by(dataset_version_id=ref).first():
+            continue
+        if db.query(DatasetVersion).filter(
+            DatasetVersion.dataset_name == ref, DatasetVersion.version == "1.0"
+        ).first():
+            continue
+        db.add(
+            DatasetVersion(
+                dataset_version_id=ref,
+                dataset_name=ref,
+                version="1.0",
+                description=f"Training dataset linked to model {mv.model_version_id}",
+                num_samples=None,
+                domain_pack_id=None,
+                domain_pack_version="1.0",
+                annotation_version="1.0",
+                source="training",
+                path="",
+                status="REGISTERED",
+            )
+        )
+        seeded += 1
+    db.commit()
+    return seeded
+
+
+@app.on_event("startup")
+def seed_reference_lineage():
+    """Register each model's *training* dataset as a real dataset_versions row and
+    link it to the model (model_versions.dataset_version_id). This gives analysis
+    runs a genuine FK to the exact dataset version a model was trained on, instead
+    of a dangling string. Idempotent — safe on every boot."""
+    try:
+        from app.db.database import SessionLocal as _seed_session
+        with _seed_session() as s:
+            n = _seed_training_dataset_versions(s)
+            print(f"[seed] registered/linked {n} model training-dataset(s)")
+    except Exception as e:
+        print(f"[seed] training-dataset registration skipped: {e}")
 
 
 @app.on_event("startup")

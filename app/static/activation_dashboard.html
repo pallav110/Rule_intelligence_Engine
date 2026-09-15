@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rule Activation Console</title>
+<style>
+:root {
+    --bg-0: #0b1020;
+    --bg-1: #111a33;
+    --bg-2: #182441;
+    --bg-3: #223155;
+    --line: #2a3a63;
+    --line-strong: #36497a;
+    --txt-0: #eef2ff;
+    --txt-1: #aab6d6;
+    --txt-2: #6b7aa3;
+    --accent: #5b8cff;
+    --accent-strong: #7aa2ff;
+    --accent-soft: rgba(91, 140, 255, 0.14);
+
+    --ok: #34d399;
+    --ok-soft: rgba(52, 211, 153, 0.15);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.14);
+    --danger: #fb7185;
+    --danger-soft: rgba(251, 113, 133, 0.14);
+
+    --cat-filter: #5b8cff;
+    --cat-filter-soft: rgba(91, 140, 255, 0.16);
+    --cat-metric: #fbbf24;
+    --cat-metric-soft: rgba(251, 191, 36, 0.15);
+    --cat-access: #a78bfa;
+    --cat-access-soft: rgba(167, 139, 250, 0.16);
+    --cat-mapping: #2dd4bf;
+    --cat-mapping-soft: rgba(45, 212, 191, 0.15);
+    --cat-join: #fb7185;
+    --cat-join-soft: rgba(251, 113, 133, 0.15);
+    --cat-data: #34d399;
+    --cat-data-soft: rgba(52, 211, 153, 0.15);
+    --cat-default: #94a3b8;
+    --cat-default-soft: rgba(148, 163, 184, 0.15);
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 6px rgba(0, 0, 0, 0.18);
+    --shadow-2: 0 8px 30px rgba(0, 0, 0, 0.45);
+    --mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+    font-family: var(--sans);
+    background: var(--bg-0);
+    color: var(--txt-0);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Login ---------- */
+.login-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    background:
+        radial-gradient(1000px 500px at 20% -10%, rgba(91, 140, 255, 0.18), transparent 60%),
+        radial-gradient(800px 500px at 90% 110%, rgba(167, 139, 250, 0.12), transparent 55%),
+        var(--bg-0);
+    padding: 20px;
+}
+.login-card {
+    width: 100%; max-width: 400px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 30px 28px 24px;
+    box-shadow: var(--shadow-2);
+}
+.login-card .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.login-card .brand .logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--access, #a78bfa));
+    display: grid; place-items: center; font-size: 16px; font-weight: 800; color: #fff;
+}
+.login-card h2 { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+.login-card p.sub { color: var(--txt-1); font-size: 13px; margin: 4px 0 22px; }
+.login-field { display: block; margin-bottom: 14px; }
+.login-field label { display: block; font-size: 12px; color: var(--txt-1); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.3px; }
+.login-field input {
+    width: 100%; padding: 11px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-0); color: var(--txt-0);
+    font-size: 14px; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.login-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.login-msg { font-size: 12.5px; color: var(--danger); min-height: 18px; margin: 2px 0 12px; }
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: none; border-radius: var(--radius-sm);
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; text-decoration: none;
+    padding: 10px 16px; color: var(--txt-0);
+}
+.btn-primary { background: var(--accent); color: #fff; width: 100%; }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--txt-1); border: 1px solid var(--line); }
+.btn-ghost:hover { background: var(--bg-3); color: var(--txt-0); border-color: var(--line-strong); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-ok { background: var(--ok-soft); color: var(--ok); border: 1px solid rgba(52, 211, 153, 0.35); }
+.btn-ok:hover { background: rgba(52, 211, 153, 0.22); }
+.btn-ok:disabled { opacity: 0.45; cursor: not-allowed; }
+.login-hint { font-size: 12px; color: var(--txt-2); line-height: 1.6; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* ---------- App shell ---------- */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px 26px;
+    background: rgba(17, 26, 51, 0.75);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 40;
+    flex-wrap: wrap;
+}
+.topbar .brand { display: flex; align-items: center; gap: 10px; }
+.topbar .brand .logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    display: grid; place-items: center; font-weight: 800; font-size: 16px; color: #fff;
+}
+.topbar .brand .titles h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+.topbar .brand .titles .sub { font-size: 12px; color: var(--txt-1); }
+.topbar .spacer { flex: 1; }
+.badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-1); color: var(--txt-1); font-size: 12.5px;
+}
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.badge .role { color: var(--ok); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; }
+.badge .role.limited { color: var(--warn); }
+.icon-btn {
+    display: inline-grid; place-items: center; width: 34px; height: 34px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-1); color: var(--txt-1); cursor: pointer; font-size: 15px;
+    transition: all 0.15s;
+}
+.icon-btn:hover { background: var(--bg-3); color: var(--txt-0); border-color: var(--line-strong); }
+
+/* stepper */
+.stepper {
+    display: flex; align-items: center; gap: 0;
+    padding: 12px 26px; background: var(--bg-1); border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+}
+.step { display: flex; align-items: center; gap: 10px; }
+.step .num {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700;
+    background: var(--bg-3); color: var(--txt-2); border: 1px solid var(--line-strong);
+}
+.step .lbl { font-size: 13px; color: var(--txt-2); white-space: nowrap; }
+.step.done .num { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.step.done .lbl { color: var(--txt-0); }
+.step.active .num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step.active .lbl { color: var(--txt-0); font-weight: 600; }
+.step-link { flex: 0 0 auto; width: 34px; height: 1px; margin: 0 12px; background: var(--line-strong); }
+
+/* tabs under stepper */
+.wrap { flex: 1; padding: 22px 26px 40px; width: 100%; }
+.tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.tab {
+    padding: 9px 16px; border: none; background: transparent; color: var(--txt-1);
+    font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.tab:hover { color: var(--txt-0); }
+.tab.active { color: var(--txt-0); border-bottom-color: var(--accent); }
+.tab .count {
+    font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+    background: var(--bg-3); color: var(--txt-1);
+}
+.tab.active .count { background: var(--accent-soft); color: var(--accent-strong); }
+
+/* toolbar */
+.toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.search { position: relative; flex: 1 1 260px; min-width: 220px; }
+.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--txt-2); pointer-events: none; }
+.search input {
+    width: 100%; padding: 10px 12px 10px 36px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-1); color: var(--txt-0); font-size: 13.5px; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+    padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg-1); color: var(--txt-1);
+    font-size: 12px; font-weight: 600; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
+}
+.chip:hover { background: var(--bg-3); color: var(--txt-0); }
+.chip.active { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
+
+/* batch bar */
+.batchbar {
+    display: none; align-items: center; gap: 14px;
+    padding: 10px 16px; border-radius: var(--radius);
+    background: var(--bg-2); border: 1px solid var(--line-strong);
+    margin-bottom: 16px; flex-wrap: wrap;
+    position: sticky; top: 96px; z-index: 30;
+    box-shadow: var(--shadow-1);
+}
+.batchbar.show { display: flex; }
+.batchbar .sel { font-size: 13px; color: var(--txt-1); font-weight: 600; }
+.batchbar .btns { display: flex; gap: 8px; margin-left: auto; }
+
+/* tables */
+.panel {
+    background: var(--bg-1); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-1);
+}
+.table-scroll { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; min-width: 980px; }
+table.grid th, table.grid td { text-align: left; padding: 13px 18px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.grid thead th {
+    background: var(--bg-2); color: var(--txt-2);
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    position: sticky; top: 0; z-index: 5;
+}
+table.grid tbody tr { transition: background 0.1s; cursor: pointer; }
+table.grid tbody tr:hover { background: var(--bg-2); }
+table.grid tbody tr.selected { background: var(--accent-soft); }
+table.grid tbody tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.id-cell { color: var(--accent-strong); font-weight: 600; }
+.name-cell { color: var(--txt-0); font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--txt-2); }
+.check {
+    width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--line-strong);
+    background: var(--bg-0); appearance: none; cursor: pointer;
+    display: grid; place-items: center; transition: all 0.12s;
+}
+.check:checked { background: var(--accent); border-color: var(--accent); position: relative; }
+.check:checked::after {
+    content: ""; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0;
+    transform: rotate(45deg); margin-top: -2px;
+}
+.pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+    border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: capitalize;
+}
+.pill .k { width: 6px; height: 6px; border-radius: 50%; }
+.status-draft { color: var(--warn); background: var(--warn-soft); }
+.status-draft .k { background: var(--warn); }
+.status-active { color: var(--ok); background: var(--ok-soft); }
+.status-active .k { background: var(--ok); }
+.row-actions { display: flex; gap: 6px; }
+.mini-btn {
+    padding: 6px 11px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; border: 1px solid transparent; transition: all 0.13s;
+}
+.mini-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mini-btn.up { background: var(--bg-3); color: var(--txt-0); }
+.mini-btn.up:hover { border-color: var(--line-strong); }
+.mini-btn.act { background: var(--ok-soft); color: var(--ok); border-color: rgba(52, 211, 153, 0.35); }
+.mini-btn.act:hover { background: rgba(52, 211, 153, 0.24); }
+
+.empty { padding: 48px 20px; text-align: center; color: var(--txt-2); font-size: 14px; }
+
+/* drawer */
+.backdrop {
+    position: fixed; inset: 0; background: rgba(6, 9, 20, 0.55);
+    backdrop-filter: blur(2px); z-index: 60; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+}
+.backdrop.show { opacity: 1; pointer-events: auto; }
+.drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw);
+    background: var(--bg-1); border-left: 1px solid var(--line-strong);
+    box-shadow: -18px 0 40px rgba(0,0,0,0.5); z-index: 70;
+    transform: translateX(105%); transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+    display: flex; flex-direction: column;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+    display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px;
+    border-bottom: 1px solid var(--line);
+}
+.drawer-head .meta { flex: 1; }
+.drawer-head .meta .eyebrow { font-size: 11px; color: var(--txt-2); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+.drawer-head .meta h3 { font-size: 18px; font-weight: 700; margin: 4px 0 2px; word-break: break-word; }
+.drawer-head .meta .subline { color: var(--txt-1); font-size: 12.5px; font-family: var(--mono); }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px 28px; }
+.drawer-close {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg-2); color: var(--txt-1); cursor: pointer; font-size: 16px; line-height: 1;
+}
+
+/* wizard inside drawer */
+.wizard { display: flex; gap: 6px; margin: 6px 0 22px; }
+.wstep {
+    flex: 1; text-align: center; padding: 8px 6px; border-radius: 8px;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--txt-2);
+    font-size: 11.5px; font-weight: 600; position: relative;
+}
+.wstep .lbl { display:block; margin-top: 2px; }
+.wstep .num { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; background: var(--bg-3); }
+.wstep.done { border-color: rgba(52,211,153,0.4); color: var(--ok); }
+.wstep.done .num { background: var(--ok); color: #04110c; }
+.wstep.active { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
+.wstep.active .num { background: var(--accent); color: #fff; }
+
+.sec { margin-bottom: 22px; }
+.sec-title { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--txt-1); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; }
+.kv .item { }
+.kv .item .k { font-size: 11px; color: var(--txt-2); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+.kv .item .v { font-size: 13.5px; color: var(--txt-0); word-break: break-word; }
+.json-block {
+    background: var(--bg-0); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; font-family: var(--mono); font-size: 12.5px; color: var(--txt-1);
+    white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow-y: auto;
+    line-height: 1.55;
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.assurance {
+    display: flex; gap: 12px; align-items: center;
+    padding: 14px 16px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg-2); margin-bottom: 12px;
+}
+.assurance .ic { font-size: 22px; }
+.assurance .body { flex: 1; }
+.assurance .body .t { font-weight: 600; font-size: 13.5px; }
+.assurance .body .d { color: var(--txt-1); font-size: 12.5px; margin-top: 2px; }
+.wizard-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.wizard-actions .btn { flex: 1; min-width: 150px; }
+.form-row { margin-bottom: 14px; }
+.form-row label { display: block; font-size: 12px; color: var(--txt-1); margin-bottom: 6px; font-weight: 500; }
+.form-row input, .form-row textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-0); color: var(--txt-0); font-family: inherit; font-size: 13.5px;
+}
+.form-row input:focus, .form-row textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.form-row textarea { resize: vertical; min-height: 64px; }
+
+.divider { height: 1px; background: var(--line); margin: 20px 0; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="login-screen" id="login-screen">
+    <div class="login-card">
+        <div class="brand">
+            <div class="logo">⚡</div>
+            <h2>Rule Activation Console</h2>
+        </div>
+        <p class="sub">Sign in to manage the §3.3 Draft → Validate → Activate workflow</p>
+        <form id="login-form" autocomplete="on">
+            <div class="login-field">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" autocomplete="username" value="admin@rie.local">
+            </div>
+            <div class="login-field">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" autocomplete="current-password" value="Admin123!">
+            </div>
+            <div class="login-field">
+                <label for="login-workspace">Workspace ID</label>
+                <input type="text" id="login-workspace" value="e8af6af9-3bbe-4117-a007-f55db418bc30">
+            </div>
+            <div class="login-msg" id="login-msg"></div>
+            <button class="btn btn-primary" type="submit">Sign In</button>
+        </form>
+        <div class="login-hint">
+            Demo: <b>admin@rie.local / Admin123!</b> &nbsp;·&nbsp; <b>reviewer@rie.local / Review123!</b><br>
+            Activation requires the <b>administrator</b> role.
+        </div>
+    </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app hidden" id="app">
+    <div class="topbar">
+        <div class="brand">
+            <div class="logo">⚡</div>
+            <div class="titles">
+                <h1>Rule Activation Console</h1>
+                <div class="sub">Draft → Validate → Activate · §3.3</div>
+            </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="badge" id="auth-badge" style="display:none;">
+            <span class="dot"></span>
+            <span id="auth-email">—</span>
+            <span class="role" id="auth-role">—</span>
+        </div>
+        <button class="icon-btn" id="refresh-btn" title="Refresh rules">⟳</button>
+        <button class="btn btn-ghost" id="logout-btn" style="padding:8px 12px;font-size:12.5px;">Log out</button>
+    </div>
+
+    <div class="stepper" id="stepper">
+        <!-- steps inserted by JS: Draft / Validate / Activate -->
+    </div>
+
+    <div class="wrap">
+        <div class="tabs" id="tabs">
+            <button class="tab active" data-tab="draft">Draft Rules <span class="count" id="count-draft">0</span></button>
+            <button class="tab" data-tab="active">Active Production <span class="count" id="count-active">0</span></button>
+        </div>
+
+        <div class="toolbar">
+            <div class="search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="search-input" placeholder="Search rules, terms, operations…">
+            </div>
+            <div class="chips" id="category-chips">
+                <button class="chip active" data-cat="all">All</button>
+                <!-- category chips injected by JS -->
+            </div>
+        </div>
+
+        <div class="batchbar" id="batch-bar">
+            <span class="sel" id="batch-count">0 selected</span>
+            <div class="btns">
+                <button class="btn btn-ghost" id="btn-validate-batch" style="padding:8px 14px;font-size:12.5px;">✓ Validate Selected</button>
+                <button class="btn btn-ok" id="btn-activate-batch" style="padding:8px 14px;font-size:12.5px;">⚡ Push to Production</button>
+                <button class="icon-btn" id="btn-clear-selection" title="Clear selection">✕</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="table-scroll">
+                <table class="grid" id="rules-table">
+                    <thead>
+                        <tr id="table-head"></tr>
+                    </thead>
+                    <tbody id="rules-body">
+                        <tr><td colspan="8" class="empty">Loading rules…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+
+<!-- ============ SLIDE-OVER DRAWER ============ -->
+<div class="drawer" id="drawer">
+    <div class="drawer-head">
+        <div class="meta">
+            <div class="eyebrow" id="drawer-eyebrow">Rule Detail</div>
+            <h3 id="drawer-name">—</h3>
+            <div class="subline" id="drawer-id">—</div>
+        </div>
+        <button class="drawer-close" id="drawer-close" title="Close">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"><!-- injected --></div>
+</div>
+
+<script>
+/* ================= AUTH ================= */
+const API = '';
+let authToken = localStorage.getItem('rie_token') || null;
+let authUser = null; // {email, role, workspace_id}
+let allRules = [];
+let currentTab = 'draft';
+let categoryFilter = 'all';
+let searchQuery = '';
+let selected = new Set();
+let validatedMap = {}; // rule_id -> ISO timestamp (client-side validation gate)
+
+async function apiFetch(path, options = {}) {
+    const opts = Object.assign({}, options);
+    opts.headers = Object.assign({}, options.headers || {});
+    if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+    if (opts.body) opts.headers['Content-Type'] = 'application/json';
+    const res = await fetch(API + path, opts);
+    if (res.status === 401) { logout(); throw new Error('Session expired. Please log in again.'); }
+    return res;
+}
+
+function logout() {
+    authToken = null; authUser = null;
+    localStorage.removeItem('rie_token');
+    closeDrawer();
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const workspace = document.getElementById('login-workspace').value.trim();
+    const msg = document.getElementById('login-msg');
+    msg.textContent = '';
+    try {
+        const res = await fetch(API + '/v1/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, workspace_id: workspace })
+        });
+        const data = await res.json();
+        if (!res.ok) { msg.textContent = (typeof data.detail === 'string') ? data.detail : 'Invalid credentials'; return; }
+        authToken = data.access_token;
+        authUser = { email, role: data.role, workspace_id: data.workspace_id };
+        localStorage.setItem('rie_token', authToken);
+        enterApp();
+    } catch (err) { msg.textContent = 'Login failed: ' + err.message; }
+}
+
+function updateAuthUI() {
+    if (!authUser) return;
+    const isAdmin = authUser.role === 'administrator';
+    document.getElementById('auth-badge').style.display = '';
+    document.getElementById('auth-email').textContent = authUser.email;
+    const roleEl = document.getElementById('auth-role');
+    roleEl.textContent = authUser.role.toUpperCase();
+    roleEl.classList.toggle('limited', !isAdmin);
+    if (!isAdmin) {
+        document.getElementById('btn-validate-batch').disabled = true;
+        document.getElementById('btn-activate-batch').disabled = true;
+    }
+}
+
+function enterApp() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    updateAuthUI();
+    renderStepper();
+    loadRules();
+}
+
+async function boot() {
+    document.getElementById('app').classList.add('hidden');
+    if (!authToken) { document.getElementById('login-screen').classList.remove('hidden'); return; }
+    try {
+        const res = await apiFetch('/v1/auth/me');
+        const me = await res.json();
+        authUser = { email: me.email, role: me.role, workspace_id: me.workspace_id };
+        enterApp();
+    } catch (err) { logout(); }
+}
+
+/* ================= DATA ================= */
+async function loadRules() {
+    try {
+        const res = await apiFetch(API + '/v1/rules');
+        const data = await res.json();
+        allRules = (data.rules || []).map(r => Object.assign({}, r, {
+            workspace_id: r.workspace_id || (authUser && authUser.workspace_id)
+        }));
+        renderAll();
+    } catch (err) {
+        console.error('Failed to load rules:', err);
+        showStatus('Failed to load rules: ' + err.message, 'error');
+    }
+}
+
+/* ================= HELPERS ================= */
+function isAdmin() { return authUser && authUser.role === 'administrator'; }
+function catColor(cat) {
+    const c = String(cat || '').toLowerCase();
+    if (c.includes('filter')) return { fg: 'var(--cat-filter)', bg: 'var(--cat-filter-soft)' };
+    if (c.includes('metric') || c.includes('measure')) return { fg: 'var(--cat-metric)', bg: 'var(--cat-metric-soft)' };
+    if (c.includes('access') || c.includes('perm')) return { fg: 'var(--cat-access)', bg: 'var(--cat-access-soft)' };
+    if (c.includes('mapping') || c.includes('transform')) return { fg: 'var(--cat-mapping)', bg: 'var(--cat-mapping-soft)' };
+    if (c.includes('join')) return { fg: 'var(--cat-join)', bg: 'var(--cat-join-soft)' };
+    if (c.includes('data')) return { fg: 'var(--cat-data)', bg: 'var(--cat-data-soft)' };
+    return { fg: 'var(--cat-default)', bg: 'var(--cat-default-soft)' };
+}
+function categoryPill(cat) {
+    const { fg, bg } = catColor(cat);
+    return `<span class="pill" style="color:${fg};background:${bg};"><span class="k" style="background:${fg};"></span>${esc(cat) || '—'}</span>`;
+}
+function statusPill(status) {
+    return status === 'active'
+        ? '<span class="pill status-active"><span class="k"></span>Active</span>'
+        : '<span class="pill status-draft"><span class="k"></span>Draft</span>';
+}
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function fmtDate(s) {
+    if (!s) return '—';
+    try { return new Date(s).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch (e) { return s; }
+}
+function approxList(v) {
+    if (!v) return [];
+    let arr = v;
+    if (typeof v === 'string') { try { arr = JSON.parse(v); } catch (e) { arr = v.split(','); } }
+    return Array.isArray(arr) ? arr.slice(0, 4) : [v];
+}
+function showStatus(msg, kind) {
+    const box = document.getElementById('drawer-is-open-status'); // optional
+    alert(msg); // lightweight; keep it simple for now
+}
+
+/* ================= RENDER ================= */
+function renderStepper() {
+    const steps = [['1', 'Draft', 'draft'], ['2', 'Validate', 'validate'], ['3', 'Activate', 'activate']];
+    document.getElementById('stepper').innerHTML = steps.map((s, i) => `
+        ${i ? '<div class="step-link"></div>' : ''}
+        <div class="step done" data-step="${s[2]}"><span class="num">${s[0]}</span><span class="lbl">${s[1]}</span></div>
+    `).join('');
+}
+
+function renderChips() {
+    const cats = [];
+    allRules.forEach(r => { const c = r.rule_category; if (c && !cats.includes(c)) cats.push(c); });
+    const wrap = document.getElementById('category-chips');
+    wrap.innerHTML = '<button class="chip active" data-cat="all">All</button>' +
+        cats.map(c => `<button class="chip" data-cat="${esc(c)}">${categoryPill(c)}</button>`).join('');
+    wrap.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+        categoryFilter = ch.dataset.cat;
+        wrap.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === ch));
+        renderTable();
+    }));
+}
+
+function filteredRules() {
+    return allRules.filter(r => {
+        const inTab = currentTab === 'active' ? r.status === 'active' : r.status === 'draft';
+        if (!inTab) return false;
+        if (categoryFilter !== 'all' && r.rule_category !== categoryFilter) return false;
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            const hay = [r.rule_id, r.rule_name, r.business_term, r.operation, r.rule_category].join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+}
+
+function renderAll() {
+    renderChips();
+    updateCounts();
+    renderStepperActive();
+    renderTable();
+    renderBatchBar();
+}
+
+function renderStepperActive() {
+    // Reflect the highest reached stage: draft list open => step 1 done; any validated => step 2 done.
+    const validatedCount = Object.keys(validatedMap).length;
+    document.querySelectorAll('#stepper .step').forEach(el => {
+        const step = el.dataset.step;
+        el.classList.toggle('active', step === 'validate' && validatedCount > 0);
+        el.classList.toggle('done', step === 'draft');
+        if (step === 'activate' && validatedCount > 0) el.classList.add('done');
+    });
+}
+
+function renderTable() {
+    const head = document.getElementById('table-head');
+    const body = document.getElementById('rules-body');
+    const list = filteredRules();
+
+    if (currentTab === 'active') {
+        head.innerHTML = `
+            <th style="width:30px;"></th>
+            <th>Rule ID</th><th>Rule Name</th><th>Category</th><th>Business Term</th>
+            <th>Operation</th><th>Activated By</th><th>Activated At</th>`;
+        if (list.length === 0) { body.innerHTML = '<tr><td colspan="8" class="empty">No active rules in production.</td></tr>'; return; }
+        body.innerHTML = list.map(r => `
+            <tr data-id="${esc(r.rule_id)}">
+                <td></td>
+                <td class="mono id-cell">${esc(r.rule_id)}</td>
+                <td class="name-cell" title="${esc(r.rule_name)}">${esc(r.rule_name) || '—'}</td>
+                <td>${categoryPill(r.rule_category)}</td>
+                <td>${esc(r.business_term) || '—'}</td>
+                <td class="muted">${esc(r.operation) || '—'}</td>
+                <td>${esc(r.activated_by) || '—'}</td>
+                <td>${fmtDate(r.activated_at)}</td>
+            </tr>`).join('');
+
+        head.querySelector('th:first-child'); // keep alignment
+        bindRowClicks();
+        return;
+    }
+
+    // draft tab
+    const cols = list.length > 0 ? list.every(r => r.suggestion_id) : true;
+    head.innerHTML = `
+        <th style="width:30px;"><input type="checkbox" class="check" id="head-check" ${list.length === 0 ? 'disabled' : ''}></th>
+        <th>Rule ID</th><th>Rule Name</th><th>Category</th><th>Business Term</th>
+        <th>Operation</th><th>Validation</th><th>Actions</th>`;
+    if (list.length === 0) { body.innerHTML = '<tr><td colspan="8" class="empty">No draft rules match this view. Adjust filters or category chips.</td></tr>'; return; }
+
+    body.innerHTML = list.map(r => {
+        const isSel = selected.has(r.rule_id);
+        const isVal = !!validatedMap[r.rule_id];
+        return `
+            <tr data-id="${esc(r.rule_id)}" class="${isSel ? 'selected' : ''}">
+                <td><input type="checkbox" class="check row-check" data-id="${esc(r.rule_id)}" ${isSel ? 'checked' : ''}></td>
+                <td class="mono id-cell">${esc(r.rule_id)}</td>
+                <td class="name-cell" title="${esc(r.rule_name)}">${esc(r.rule_name) || '—'}</td>
+                <td>${categoryPill(r.rule_category)}</td>
+                <td>${esc(r.business_term) || '—'}</td>
+                <td class="muted">${esc(r.operation) || '—'}</td>
+                <td>${isVal
+                    ? '<span class="pill status-active" style="font-size:10.5px;" title="QA sign-off recorded"><span class="k"></span>Validated</span>'
+                    : '<span class="pill status-draft" style="font-size:10.5px;" title="Optional QA sign-off — not required for activation"><span class="k"></span>Unvalidated</span>'}</td>
+                <td>
+                    <div class="row-actions">
+                        <button class="mini-btn up" data-act="inspect">Inspect</button>
+                        ${isAdmin() ? `<button class="mini-btn act" data-act="activate">Activate</button>` : ''}
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+
+    const headCheck = document.getElementById('head-check');
+    if (headCheck) headCheck.addEventListener('change', () => {
+        const listNow = filteredRules();
+        listNow.forEach(r => { if (r.status === 'draft') headCheck.checked ? selected.add(r.rule_id) : selected.delete(r.rule_id); });
+        renderTable(); renderBatchBar();
+    });
+
+    bindRowClicks();
+}
+
+function bindRowClicks() {
+    // checkbox clicks
+    document.querySelectorAll('.row-check').forEach(cb => cb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = cb.dataset.id;
+        cb.checked ? selected.add(id) : selected.delete(id);
+        cb.closest('tr').classList.toggle('selected', cb.checked);
+        renderBatchBar();
+    }));
+    // action buttons
+    document.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tr = btn.closest('tr');
+        const id = tr.dataset.id;
+        if (btn.dataset.act === 'inspect') openDrawer(id);
+        else if (btn.dataset.act === 'activate') activateSingle(id);
+    }));
+    // row click -> inspect (but not when clicking a checkbox/action)
+    document.querySelectorAll('#rules-body tr[data-id]').forEach(tr => tr.addEventListener('click', (e) => {
+        if (e.target.closest('.row-check') || e.target.closest('[data-act]')) return;
+        openDrawer(tr.dataset.id);
+    }));
+}
+
+function updateCounts() {
+    const draft = allRules.filter(r => r.status === 'draft').length;
+    const active = allRules.filter(r => r.status === 'active').length;
+    document.getElementById('count-draft').textContent = draft;
+    document.getElementById('count-active').textContent = active;
+}
+
+function renderBatchBar() {
+    const bar = document.getElementById('batch-bar');
+    bar.classList.toggle('show', selected.size > 0);
+    document.getElementById('batch-count').textContent = `${selected.size} selected`;
+}
+
+/* ================= VALIDATION (client gate) ================= */
+function markValidated(ruleId) {
+    if (!validatedMap[ruleId]) validatedMap[ruleId] = new Date().toISOString();
+    renderStepperActive();
+    renderTable();
+    if (currentRuleId() === ruleId) renderDrawer();
+}
+function currentRuleId() { return document.getElementById('drawer').dataset.ruleId || null; }
+
+/* ================= ACTIVATE ================= */
+async function activateRule(ruleId) {
+    if (!isAdmin()) { alert('Only an Administrator can activate rules (§5.9).'); return; }
+    const rule = allRules.find(r => r.rule_id === ruleId);
+    if (!rule || rule.status !== 'draft') { alert('Only draft rules can be activated.'); return; }
+    const comments = (document.getElementById('act-comments') && document.getElementById('act-comments').value) || '';
+    const effective = (document.getElementById('act-date') && document.getElementById('act-date').value) || new Date().toISOString().split('T')[0];
+    try {
+        const res = await apiFetch(API + '/v1/rules/' + encodeURIComponent(ruleId) + '/activate', {
+            method: 'POST',
+            body: JSON.stringify({ activated_by: authUser.email, effective_date: effective, comments: comments })
+        });
+        let result = {};
+        try { result = await res.json(); } catch (e) {}
+        if (result && result.success === false) throw new Error(result.error || ('HTTP ' + res.status));
+        if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (result.detail || ''));
+        alert('✓ Rule ' + ruleId + ' activated for production' + (result.suggestion_id ? ' (linked suggestion ' + result.suggestion_id + ')' : ''));
+        closeDrawer();
+        await loadRules();
+    } catch (err) {
+        console.error('Activation failed:', err);
+        alert('Activation failed: ' + err.message);
+    }
+}
+
+async function activateSingle(ruleId) {
+    activateRule(ruleId);
+}
+
+async function activateBatch() {
+    if (!isAdmin()) { alert('Administrator role required.'); return; }
+    const targets = [...selected].filter(id => allRules.find(r => r.rule_id === id && r.status === 'draft'));
+    if (targets.length === 0) { alert('No draft rules selected.'); return; }
+    if (!window.confirm('Push ' + targets.length + ' draft rule(s) to production?\n\nThis is one rate-limited activation request.')) return;
+    try {
+        const res = await apiFetch(API + '/v1/rules/activate-batch', {
+            method: 'POST',
+            body: JSON.stringify({
+                rule_ids: targets,
+                activated_by: authUser.email,
+                effective_date: new Date().toISOString().split('T')[0],
+                comments: 'Batch activation'
+            })
+        });
+        let result = {};
+        try { result = await res.json(); } catch (e) {}
+        if (result && result.success === false) throw new Error(result.error || ('HTTP ' + res.status));
+        if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (result.detail || ''));
+        const parts = [];
+        if (result.activated_count != null) parts.push('✓ ' + result.activated_count + ' activated');
+        if (result.skipped_count > 0) parts.push('↷ ' + result.skipped_count + ' skipped');
+        if (result.failed_count > 0) parts.push('✕ ' + result.failed_count + ' failed');
+        alert('Batch push complete — ' + (parts.join(', ') || 'no changes'));
+        selected.clear();
+        renderBatchBar();
+        await loadRules();
+    } catch (err) {
+        console.error('Batch activation failed:', err);
+        alert('Batch activation failed: ' + err.message);
+    }
+}
+
+function validateBatch() {
+    [...selected].forEach(id => markValidated(id));
+    renderBatchBar();
+    renderStepperActive();
+    alert('Marked ' + selected.size + ' selected rule(s) as validated.');
+}
+
+/* ================= DRAWER ================= */
+function openDrawer(ruleId) {
+    const rule = allRules.find(r => r.rule_id === ruleId);
+    if (!rule) return;
+    const drawer = document.getElementById('drawer');
+    drawer.dataset.ruleId = ruleId;
+    document.getElementById('backdrop').classList.add('show');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    renderDrawer();
+}
+function closeDrawer() {
+    const drawer = document.getElementById('drawer');
+    drawer.classList.remove('open');
+    document.getElementById('backdrop').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function renderDrawer() {
+    const id = document.getElementById('drawer').dataset.ruleId;
+    const rule = allRules.find(r => r.rule_id === id);
+    if (!rule) return;
+    const isAdminUser = isAdmin();
+    const isVal = !!validatedMap[id];
+    const isActive = rule.status === 'active';
+
+    document.getElementById('drawer-name').textContent = rule.rule_name || rule.rule_id;
+    document.getElementById('drawer-id').textContent = rule.rule_id;
+    document.getElementById('drawer-eyebrow').textContent = isActive ? 'Active production rule' : 'Draft rule · awaiting release';
+
+    // wizard
+    const w = (n, lbl, state, desc) => `<div class="wstep ${state}"><span class="num">${n}</span><span class="lbl">${lbl}</span></div>`;
+    const wizard = `
+        <div class="wizard">
+            ${w('1', 'Review Draft', isActive ? 'done' : 'active', '')}
+            ${w('2', 'Validate', isVal || isActive ? 'done' : '', '')}
+            ${w('3', 'Activate', isActive ? 'done' : (isVal ? 'active' : ''), '')}
+        </div>`;
+
+    // structured fields
+    const kv = `
+        <div class="kv">
+            <div class="item"><div class="k">Category</div><div class="v">${categoryPill(rule.rule_category)}</div></div>
+            <div class="item"><div class="k">Business Term</div><div class="v">${esc(rule.business_term) || '—'}</div></div>
+            <div class="item"><div class="k">Operation</div><div class="v">${esc(rule.operation) || '—'}</div></div>
+            <div class="item"><div class="k">Scope</div><div class="v">${esc(rule.scope) || '—'}</div></div>
+            <div class="item"><div class="k">Status</div><div class="v">${statusPill(rule.status)}</div></div>
+            <div class="item"><div class="k">Threshold</div><div class="v">${esc(rule.threshold) || '—'}</div></div>
+        </div>`;
+
+    // affected entities tags
+    const tabs = approxList(rule.affected_tables);
+    const cols = approxList(rule.affected_columns);
+    const entTags = [...tabs, ...cols].filter(Boolean).map(x => `<span class="chip" style="cursor:default;">${esc(x)}</span>`).join('');
+
+    // json detail (conditions / time window / definition) — values may already be
+    // parsed objects/arrays (from /v1/rules) or JSON strings; render either.
+    let jsonParts = [];
+    if (rule.conditions) jsonParts.push(['conditions', rule.conditions]);
+    if (rule.time_window) jsonParts.push(['time_window', rule.time_window]);
+    if (rule.rule_definition) jsonParts.push(['rule_definition', rule.rule_definition]);
+    const jsonHtml = jsonParts.map(([k, v]) => {
+        let txt = v;
+        if (typeof v === 'string') { try { txt = JSON.parse(v); } catch (e) {} }
+        let rendered;
+        if (typeof txt === 'string') rendered = txt;
+        else { try { rendered = JSON.stringify(txt, null, 2); } catch (e) { rendered = String(txt); } }
+        return `<div class="sec"><div class="sec-title">${esc(k)}</div><div class="json-block">${esc(rendered)}</div></div>`;
+    }).join('');
+
+    // Assurance / validate block
+    let validateHtml = '';
+    if (!isActive) {
+        validateHtml = isVal
+            ? `<div class="assurance" style="border-color:rgba(52,211,153,0.4);">
+                    <div class="ic">✅</div>
+                    <div class="body"><div class="t">Validated</div><div class="d">Marked complete ${fmtDate(validatedMap[id])} · ready to activate.</div></div>
+                </div>`
+            : `<div class="assurance">
+                    <div class="ic">🔎</div>
+                    <div class="body"><div class="t">Validation pending</div><div class="d">Review the rule, then confirm it passes the repository checks below.</div></div>
+                    <button class="btn btn-ok" id="drawer-validate-btn">✓ Mark Validated</button>
+                </div>`;
+    }
+
+    // Activate write-block
+    let activateHtml = '';
+    if (isActive) {
+        activateHtml = `<div class="assurance" style="border-color:rgba(52,211,153,0.5);">
+            <div class="ic">🚀</div>
+            <div class="body"><div class="t">Live in production</div><div class="d">Activated by ${esc(rule.activated_by) || '—'} on ${fmtDate(rule.activated_at)}${rule.suggestion_id ? ' · from suggestion ' + rule.suggestion_id : ''}.</div></div>
+        </div>`;
+    } else if (isAdminUser) {
+        activateHtml = `
+            <div class="form-row"><label for="act-date">Effective Date</label><input type="date" id="act-date" value="${rule.activated_at ? esc(rule.activated_at.split('T')[0]) : ''}"></div>
+            <div class="form-row"><label for="act-comments">Activation Comments</label><textarea id="act-comments" placeholder="Reason for activating this rule into production…"></textarea></div>
+            <div class="wizard-actions">
+                <button class="btn btn-ok" id="drawer-activate-btn">⚡ Activate Rule</button>
+                <button class="btn btn-ghost" id="drawer-validate-2" ${isVal ? '' : 'title="Optional QA sign-off"'}  style="flex:0 0 auto;">${isVal ? '✓ Validated' : 'Mark Validated'}</button>
+            </div>`;
+    } else {
+        activateHtml = `<div class="assurance" style="border-color:var(--warn);border-color:var(--line);">
+            <div class="ic">🔒</div>
+            <div class="body"><div class="t">Administrator action</div><div class="d">Rule activation requires the administrator role. Your session is read-only.</div></div>
+        </div>`;
+    }
+
+    document.getElementById('drawer-body').innerHTML = `
+        ${wizard}
+        <div class="sec"><div class="sec-title">Identity</div>${kv}</div>
+        <div class="sec"><div class="sec-title">Affected Entities</div>${entTags ? '<div class="tags">' + entTags + '</div>' : '<div class="muted">—</div>'}</div>
+        ${jsonHtml}
+        <div class="divider"></div>
+        <div class="sec"><div class="sec-title">Stage 2 · Validation</div>${validateHtml || '<div class="muted">This rule is already live.</div>'}</div>
+        <div class="sec"><div class="sec-title">Stage 3 · Activation</div>${activateHtml}</div>`;
+
+    // wire drawer buttons
+    const vb = document.getElementById('drawer-validate-btn');
+    if (vb) vb.addEventListener('click', () => markValidated(rule.rule_id));
+    const vb2 = document.getElementById('drawer-validate-2');
+    if (vb2) vb2.addEventListener('click', () => { markValidated(rule.rule_id); });
+    const ab = document.getElementById('drawer-activate-btn');
+    if (ab) ab.addEventListener('click', () => activateRule(rule.rule_id));
+}
+
+/* ================= EVENTS ================= */
+document.getElementById('login-form').addEventListener('submit', handleLogin);
+document.getElementById('logout-btn').addEventListener('click', logout);
+document.getElementById('refresh-btn').addEventListener('click', loadRules);
+
+document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => {
+    currentTab = t.dataset.tab;
+    document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('active', x === t));
+    selected.clear(); renderBatchBar();
+    renderTable();
+}));
+
+document.getElementById('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; renderTable(); });
+
+document.getElementById('btn-validate-batch').addEventListener('click', validateBatch);
+document.getElementById('btn-activate-batch').addEventListener('click', activateBatch);
+document.getElementById('btn-clear-selection').addEventListener('click', () => { selected.clear(); renderTable(); renderBatchBar(); });
+
+document.getElementById('backdrop').addEventListener('click', closeDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+boot();
+</script>
+</body>
+</html>

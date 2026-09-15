@@ -73,6 +73,7 @@ services:
       - ./rie_ml:/app/rie_ml
       - ./logs:/app/logs
       - ./rie_ml/models:/app/rie_ml/models
+      - ./results:/app/results
     ports:
       - "8000:8000"
     depends_on:

@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rule Review Console · §3.2</title>
+<style>
+:root {
+    --bg-0: #0b1020;
+    --bg-1: #111a33;
+    --bg-2: #182441;
+    --bg-3: #223155;
+    --line: #2a3a63;
+    --line-strong: #36497a;
+    --txt-0: #eef2ff;
+    --txt-1: #aab6d6;
+    --txt-2: #6b7aa3;
+    --accent: #5b8cff;
+    --accent-strong: #7aa2ff;
+    --accent-soft: rgba(91, 140, 255, 0.14);
+
+    --ok: #34d399;
+    --ok-soft: rgba(52, 211, 153, 0.15);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.14);
+    --danger: #fb7185;
+    --danger-soft: rgba(251, 113, 133, 0.14);
+
+    --st-pending: #fbbf24;
+    --st-pending-soft: rgba(251, 191, 36, 0.15);
+    --st-approved: #34d399;
+    --st-approved-soft: rgba(52, 211, 153, 0.16);
+    --st-rejected: #fb7185;
+    --st-rejected-soft: rgba(251, 113, 133, 0.15);
+    --st-warning: #f59e0b;
+    --st-warning-soft: rgba(245, 158, 11, 0.14);
+    --st-neutral: #94a3b8;
+    --st-neutral-soft: rgba(148, 163, 184, 0.16);
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 6px rgba(0, 0, 0, 0.18);
+    --shadow-2: 0 8px 30px rgba(0, 0, 0, 0.45);
+    --mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: var(--sans);
+    background: var(--bg-0);
+    color: var(--txt-0);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+/* ============ LOGIN ============ */
+.login-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    background:
+        radial-gradient(1000px 500px at 20% -10%, rgba(91, 140, 255, 0.18), transparent 60%),
+        radial-gradient(800px 500px at 90% 110%, rgba(167, 139, 250, 0.12), transparent 55%),
+        var(--bg-0);
+    padding: 20px;
+}
+.login-card {
+    width: 100%; max-width: 400px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 30px 28px 24px;
+    box-shadow: var(--shadow-2);
+}
+.login-card .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.login-card .logo, .topbar .logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    display: grid; place-items: center; font-weight: 800; font-size: 16px; color: #fff;
+}
+.login-card h2 { font-size: 18px; font-weight: 700; margin: 0; }
+.login-card p.sub { color: var(--txt-1); font-size: 13px; margin: 4px 0 22px; }
+.login-field { display: block; margin-bottom: 14px; }
+.login-field label { display: block; font-size: 12px; color: var(--txt-1); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.3px; }
+.login-field input {
+    width: 100%; padding: 11px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-0); color: var(--txt-0); font-size: 14px; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.login-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.login-msg { font-size: 12.5px; color: var(--danger); min-height: 18px; margin: 2px 0 12px; }
+.login-hint { font-size: 12px; color: var(--txt-2); line-height: 1.6; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: none; border-radius: var(--radius-sm);
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; text-decoration: none;
+    padding: 10px 16px; color: var(--txt-0);
+}
+.btn-primary { background: var(--accent); color: #fff; width: 100%; }
+.btn-primary:hover { background: var(--accent-strong); }
+.btn-ghost { background: transparent; color: var(--txt-1); border: 1px solid var(--line); }
+.btn-ghost:hover { background: var(--bg-3); color: var(--txt-0); border-color: var(--line-strong); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ============ APP SHELL ============ */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px 26px;
+    background: rgba(17, 26, 51, 0.75);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 40;
+    flex-wrap: wrap;
+}
+.topbar .brand { display: flex; align-items: center; gap: 10px; }
+.topbar .brand .titles h1 { font-size: 15px; font-weight: 700; margin: 0; }
+.topbar .brand .titles .sub { font-size: 12px; color: var(--txt-1); }
+.topbar .spacer { flex: 1; }
+.badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-1); color: var(--txt-1); font-size: 12.5px;
+}
+.badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.badge .role { color: var(--ok); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; }
+.badge.muted .role { color: var(--warn); }
+
+.wrap { flex: 1; padding: 24px 26px 40px; width: 100%; max-width: 1500px; margin: 0 auto; }
+
+/* filter chip bar */
+.chipbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.chip {
+    padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg-1); color: var(--txt-1);
+    font-size: 12px; font-weight: 600; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 7px; transition: all 0.15s;
+}
+.chip:hover { background: var(--bg-3); color: var(--txt-0); }
+.chip.active { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
+.chip .n { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: var(--bg-3); color: var(--txt-1); }
+.chip.active .n { background: var(--accent-soft); color: var(--accent-strong); }
+
+/* two-pane */
+.main-content { display: grid; grid-template-columns: 400px 1fr; gap: 22px; align-items: start; }
+@media (max-width: 1200px) { .main-content { grid-template-columns: 1fr; } }
+
+.panel { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-1); }
+.panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 18px; border-bottom: 1px solid var(--line); background: var(--bg-2);
+}
+.panel-head h3 { font-size: 13px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; color: var(--txt-1); }
+.panel-head .count { font-size: 12px; color: var(--txt-2); font-weight: 600; }
+
+/* suggestions list */
+.suggestions-list { max-height: calc(100vh - 240px); overflow-y: auto; }
+.suggestion-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); cursor: pointer;
+    transition: background 0.13s;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background: var(--bg-2); }
+.suggestion-item.active { background: var(--accent-soft); border-left: 3px solid var(--accent); }
+.suggestion-info { flex: 1; min-width: 0; }
+.suggestion-id { font-family: var(--mono); font-size: 11.5px; color: var(--txt-2); margin-bottom: 4px; letter-spacing: 0.3px; }
+.suggestion-preview { font-size: 13.5px; font-weight: 500; color: var(--txt-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggestion-meta { display: flex; gap: 12px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.suggestion-meta .date { font-size: 11.5px; color: var(--txt-2); font-family: var(--mono); }
+
+/* status pills */
+.pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.pill .k { width: 6px; height: 6px; border-radius: 50%; }
+.pill.status-pending { color: var(--st-pending); background: var(--st-pending-soft); } .pill.status-pending .k { background: var(--st-pending); }
+.pill.status-approved { color: var(--st-approved); background: var(--st-approved-soft); } .pill.status-approved .k { background: var(--st-approved); }
+.pill.status-rejected { color: var(--st-rejected); background: var(--st-rejected-soft); } .pill.status-rejected .k { background: var(--st-rejected); }
+.pill.status-warning { color: var(--st-warning); background: var(--st-warning-soft); } .pill.status-warning .k { background: var(--st-warning); }
+.pill.status-neutral { color: var(--st-neutral); background: var(--st-neutral-soft); } .pill.status-neutral .k { background: var(--st-neutral); }
+
+/* detail */
+.detail-card { overflow: hidden; }
+.detail-panel { display: none; }
+.detail-panel.active { display: block; }
+.detail-empty {
+    padding: 72px 24px; text-align: center; color: var(--txt-2); font-size: 14px;
+}
+.detail-taskbar {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line); background: var(--bg-2);
+}
+.detail-taskbar .t { font-size: 12px; color: var(--txt-2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-taskbar .id { font-family: var(--mono); font-size: 13px; color: var(--accent-strong); font-weight: 600; }
+.detail-taskbar .spacer { flex: 1; }
+.sec { padding: 20px; border-bottom: 1px solid var(--line); }
+.sec:last-child { border-bottom: none; }
+.sec-title { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--txt-1); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 13px; }
+
+.feedback-text {
+    background: var(--bg-0); border: 1px solid var(--line); border-radius: 10px;
+    padding: 15px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    color: var(--txt-0); white-space: pre-wrap; word-wrap: break-word;
+    max-height: 150px; overflow-y: auto;
+}
+.rule-suggestion {
+    background: var(--bg-0); border: 1px solid var(--line-strong); border-radius: 10px;
+    padding: 15px 16px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    color: var(--accent-strong); white-space: pre-wrap; word-wrap: break-word;
+    max-height: 170px; overflow-y: auto;
+}
+
+.analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.analysis-card {
+    background: var(--bg-0); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+}
+.analysis-card h5 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--txt-2); margin-bottom: 8px; }
+.analysis-content {
+    font-family: var(--mono); font-size: 11.5px; color: var(--txt-1);
+    white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;
+    max-height: 130px; overflow-y: auto;
+}
+
+.clarification-section { border: 1px solid rgba(251, 191, 36, 0.35); background: var(--warn-soft); }
+.clarification-content {
+    font-family: var(--mono); font-size: 12px; color: var(--txt-0);
+    white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;
+}
+
+/* review actions */
+.attr-note { font-size: 12px; color: var(--txt-2); margin-bottom: 12px; line-height: 1.6; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-approve { background: var(--ok); color: #04110c; }
+.btn-approve:hover { background: #45dcab; }
+.btn-approve:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-reject { background: var(--danger); color: #2a060d; }
+.btn-reject:hover { background: #fc8b9b; }
+.btn-reject:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-clarify { background: var(--warn); color: #2a1f04; }
+.btn-clarify:hover { background: #fcc745; }
+.btn-clarify:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-archive { background: transparent; color: var(--txt-1); border: 1px solid var(--line); }
+.btn-archive:hover { background: var(--bg-3); color: var(--txt-0); }
+.btn-archive:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.comment-box {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg-0); color: var(--txt-0); font-family: inherit; font-size: 14px;
+    resize: vertical; min-height: 64px; margin-top: 14px;
+}
+.comment-box:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.hint { font-size: 11.5px; color: var(--txt-2); margin-top: 8px; }
+
+/* audit table */
+.table-scroll { overflow-x: auto; }
+.audit-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.audit-table th, .audit-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.audit-table th {
+    background: var(--bg-2); color: var(--txt-2);
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.audit-table td { font-size: 12.5px; color: var(--txt-1); font-family: var(--mono); }
+.audit-table tr:hover { background: var(--bg-2); }
+.audit-empty { text-align: center; color: var(--txt-2); font-family: var(--sans); font-size: 13px; }
+.tcode-arrow { color: var(--accent-strong); }
+
+.footer-note {
+    margin-top: 28px; padding: 16px 20px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--bg-1);
+    font-size: 12.5px; color: var(--txt-1); line-height: 1.65;
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="login-screen" id="login-screen">
+    <div class="login-card">
+        <div class="brand">
+            <div class="logo">🔍</div>
+            <h2>Rule Review Console</h2>
+        </div>
+        <p class="sub">Sign in to the §3.2 Human Review flow</p>
+        <form id="login-form">
+            <div class="login-field">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" autocomplete="username" value="reviewer@rie.local">
+            </div>
+            <div class="login-field">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" autocomplete="current-password" value="Review123!">
+            </div>
+            <div class="login-field">
+                <label for="login-workspace">Workspace ID</label>
+                <input type="text" id="login-workspace" value="e8af6af9-3bbe-4117-a007-f55db418bc30">
+            </div>
+            <div class="login-msg" id="login-msg"></div>
+            <button class="btn btn-primary" type="submit">Sign In</button>
+        </form>
+        <div class="login-hint">Demo: <b>reviewer@rie.local / Review123!</b> · <b>admin@rie.local / Admin123!</b></div>
+    </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app hidden" id="app">
+    <div class="topbar">
+        <div class="brand">
+            <div class="logo">🔍</div>
+            <div class="titles">
+                <h1>Rule Review Console</h1>
+                <div class="sub">§3.2 Human Review Flow · Examine suggestions with full context</div>
+            </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="badge" id="auth-badge">
+            <span class="dot"></span>
+            <span id="auth-email">—</span>
+            <span class="role" id="auth-role">—</span>
+        </div>
+        <button class="btn btn-ghost" id="logout-btn" style="padding:8px 12px;font-size:12.5px;">Log out</button>
+    </div>
+
+    <div class="wrap">
+        <div class="chipbar" id="status-chipbar">
+            <!-- chips injected by JS to stay in sync with live counts -->
+        </div>
+
+        <div class="main-content">
+            <aside class="panel suggestions-card">
+                <div class="panel-head">
+                    <h3>Suggestions</h3>
+                    <div class="count" id="suggestion-count">0 suggestions</div>
+                </div>
+                <div class="suggestions-list" id="suggestions-list">
+                    <div class="placeholder" style="text-align:center;padding:40px;color:var(--txt-2);">No suggestions found</div>
+                </div>
+            </aside>
+
+            <main class="panel detail-card">
+                <div class="detail-empty" id="detail-empty">Select a suggestion to review its full context</div>
+                <div class="detail-panel" id="detail-panel">
+                    <div class="detail-taskbar">
+                        <span class="t">Reviewing</span>
+                        <span class="id" id="current-suggestion-id">—</span>
+                        <span class="spacer"></span>
+                    </div>
+
+                    <div class="sec">
+                        <div class="sec-title">📝 Original Business Feedback</div>
+                        <div class="feedback-text" id="feedback-text">Select a suggestion to view details</div>
+                    </div>
+
+                    <div class="sec">
+                        <div class="sec-title">📋 Structured Rule Suggestion</div>
+                        <div class="rule-suggestion" id="rule-suggestion">-</div>
+                    </div>
+
+                    <div class="sec">
+                        <div class="sec-title">🔍 Full Analysis Context</div>
+                        <div class="analysis-grid" id="analysis-grid">
+                            <div class="analysis-card">
+                                <h5>Classification</h5>
+                                <div class="analysis-content" id="classification-result">-</div>
+                            </div>
+                            <div class="analysis-card">
+                                <h5>Extraction</h5>
+                                <div class="analysis-content" id="extraction-result">-</div>
+                            </div>
+                            <div class="analysis-card">
+                                <h5>Schema Validation</h5>
+                                <div class="analysis-content" id="schema-validation-result">-</div>
+                            </div>
+                            <div class="analysis-card">
+                                <h5>Duplicate Detection</h5>
+                                <div class="analysis-content" id="duplicate-detection-result">-</div>
+                            </div>
+                            <div class="analysis-card">
+                                <h5>Conflict Detection</h5>
+                                <div class="analysis-content" id="conflict-detection-result">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sec clarification-section" id="clarification-section" style="display:none;">
+                        <div class="sec-title">❓ Clarification Requests</div>
+                        <div class="clarification-content" id="clarification-content">No clarification requested</div>
+                    </div>
+
+                    <div class="sec">
+                        <div class="sec-title">✅ Review Action</div>
+                        <div class="attr-note">Action is recorded with your reviewer id, the decision, a timestamp, and any comment. Escalated / senior-review suggestions are reviewable here. Approval sets APPROVED — drafting a production rule is a separate §3.3 step.</div>
+                        <div class="actions" id="review-actions">
+                            <button class="btn btn-approve" id="approve-btn">✅ Approve</button>
+                            <button class="btn btn-reject" id="reject-btn">❌ Reject</button>
+                            <button class="btn btn-clarify" id="clarify-btn">❓ Clarify</button>
+                            <button class="btn btn-archive" id="archive-btn">📦 Archive</button>
+                        </div>
+                        <textarea class="comment-box" id="comment-box" placeholder="Add review comments (recorded in audit history)…"></textarea>
+                        <div class="hint">Press <kbd>Enter</kbd> in the box (no Shift) to Approve quickly.</div>
+                    </div>
+
+                    <div class="sec">
+                        <div class="sec-title">📜 Audit History · §5.19 / §6.6</div>
+                        <div class="table-scroll">
+                            <table class="audit-table" id="audit-table">
+                                <thead>
+                                    <tr>
+                                        <th>Transition</th>
+                                        <th>By</th>
+                                        <th>Timestamp</th>
+                                        <th>Comments / Reason</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-table-body">
+                                    <tr><td colspan="4" class="audit-empty">No audit history</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div class="footer-note">
+            <strong>§3.2:</strong> Reviewer examines original feedback + structured rule + full pipeline results. Clarification keeps the original feedback immutable and stores the Q&amp;A for a fresh Analysis Run. Approval → APPROVED (eligible for draft-rule creation via the separate §3.3 workflow).
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '';
+let currentSuggestionId = null;
+let allSuggestions = [];
+let authToken = localStorage.getItem('rie_token') || null;
+let authUser = null; // {email, role, workspace_id}
+
+// Statuses a reviewer can still decide on.
+const REVIEWABLE = ['pending_review', 'mandatory_manual_review', 'senior_review_required'];
+
+// Status badge mapping
+const statusBadgeMap = {
+    pending_review: 'status-pending',
+    mandatory_manual_review: 'status-pending',
+    senior_review_required: 'status-warning',
+    auto_approved: 'status-approved',
+    clarification_required: 'status-warning',
+    approved: 'status-approved',
+    rejected: 'status-rejected',
+    archived: 'status-neutral',
+    rule_created: 'status-approved',
+    rule_activated: 'status-approved'
+};
+
+async function apiFetch(path, options = {}) {
+    const opts = Object.assign({}, options);
+    opts.headers = Object.assign({}, options.headers || {});
+    if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+    if (opts.body) opts.headers['Content-Type'] = 'application/json';
+    const res = await fetch(API + path, opts);
+    if (res.status === 401) {
+        logout();
+        throw new Error('Session expired. Please log in again.');
+    }
+    return res;
+}
+
+function logout() {
+    authToken = null;
+    authUser = null;
+    localStorage.removeItem('rie_token');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const workspace = document.getElementById('login-workspace').value.trim();
+    const msg = document.getElementById('login-msg');
+    msg.textContent = '';
+    try {
+        const res = await fetch(`${API}/v1/auth/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, workspace_id: workspace })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            msg.textContent = typeof data.detail === 'string' ? data.detail : 'Invalid credentials';
+            return;
+        }
+        authToken = data.access_token;
+        authUser = { email, role: data.role, workspace_id: data.workspace_id };
+        localStorage.setItem('rie_token', authToken);
+        enterApp();
+    } catch (err) {
+        msg.textContent = 'Login failed: ' + err.message;
+    }
+}
+
+function updateAuthUI() {
+    if (!authUser) return;
+    document.getElementById('auth-email').textContent = authUser.email;
+    const role = document.getElementById('auth-role');
+    role.textContent = authUser.role.toUpperCase();
+    document.getElementById('auth-badge').classList.toggle('muted', authUser.role !== 'reviewer');
+}
+
+function enterApp() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    updateAuthUI();
+    loadSuggestions();
+}
+
+async function boot() {
+    document.getElementById('app').classList.add('hidden');
+    if (!authToken) {
+        document.getElementById('login-screen').classList.remove('hidden');
+        return;
+    }
+    try {
+        const res = await apiFetch('/v1/auth/me');
+        const me = await res.json();
+        authUser = { email: me.email, role: me.role, workspace_id: me.workspace_id };
+        enterApp();
+    } catch (err) {
+        logout();
+    }
+}
+
+document.getElementById('login-form').addEventListener('submit', handleLogin);
+document.getElementById('logout-btn').addEventListener('click', logout);
+
+async function loadSuggestions() {
+    try {
+        // Always list the authenticated user's workspace so actions can succeed.
+        const ws = (authUser && authUser.workspace_id) ? `workspace_id=${encodeURIComponent(authUser.workspace_id)}&` : '';
+        const response = await apiFetch(`/v1/suggestions?${ws}limit=500`);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('Unexpected response shape');
+        allSuggestions = data;
+        renderChips();
+        renderSuggestions();
+        updateSuggestionCount();
+    } catch (error) {
+        console.error('Failed to load suggestions:', error);
+        showError('Failed to load suggestions: ' + error.message);
+    }
+}
+
+/* Dynamic status chips (live counts) replacing the old <select>. */
+function renderChips() {
+    const bar = document.getElementById('status-chipbar');
+    const counts = {};
+    allSuggestions.forEach(s => { counts[s.status] = (counts[s.status] || 0) + 1; });
+    const reviewCount = allSuggestions.filter(s => REVIEWABLE.includes(s.status)).length;
+    const groups = [
+        ['review', 'Review Queue', reviewCount],
+    ];
+    // statuses present in data, plus every known one (so a zero-count filter stays reachable)
+    const order = ['pending_review', 'mandatory_manual_review', 'senior_review_required', 'auto_approved', 'clarification_required', 'approved', 'rejected', 'archived', 'rule_activated'];
+    order.forEach(st => { if (counts[st] || allSuggestions.length === 0) groups.push([st, st.replace(/_/g, ' '), counts[st] || 0]); });
+    if (allSuggestions.length) groups.push(['all', 'All Statuses', allSuggestions.length]);
+    else if (!groups.some(g => g[0] === 'all')) groups.push(['all', 'All Statuses', 0]);
+
+    const current = selectedFilter;
+    let chipsHtml = groups.map(([val, label, n]) =>
+        `<button class="chip ${val === current ? 'active' : ''}" data-f="${esc(val)}"><span>${label}</span><span class="n">${n}</span></button>`
+    ).join('');
+    bar.innerHTML = chipsHtml;
+    bar.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+        const val = ch.dataset.f;
+        selectedFilter = val;
+        bar.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x === ch));
+        renderSuggestions();
+        updateSuggestionCount();
+    }));
+}
+let selectedFilter = 'review';
+
+function renderSuggestions() {
+    const suggestionsList = document.getElementById('suggestions-list');
+    const placeholderEl = suggestionsList.querySelector('.placeholder');
+
+    let list = allSuggestions;
+    if (selectedFilter !== 'all') {
+        list = selectedFilter === 'review'
+            ? allSuggestions.filter(s => REVIEWABLE.includes(s.status))
+            : allSuggestions.filter(s => s.status === selectedFilter);
+    }
+
+    if (placeholderEl) placeholderEl.remove();
+
+    if (list.length === 0) {
+        suggestionsList.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;color:var(--txt-2);">No suggestions in this view</div>';
+        return;
+    }
+
+    suggestionsList.innerHTML = list.map(suggestion => {
+        const isActive = suggestion.suggestion_id === currentSuggestionId;
+        return `
+            <div class="suggestion-item ${isActive ? 'active' : ''}" data-id="${suggestion.suggestion_id}">
+                <div class="suggestion-info">
+                    <div class="suggestion-id">${suggestion.suggestion_id.substring(0, 8)}…</div>
+                    <div class="suggestion-preview">${truncateText(suggestion.feedback_text || 'No feedback text', 100)}</div>
+                    <div class="suggestion-meta">
+                        <span class="pill ${statusBadgeMap[suggestion.status] || 'status-neutral'}"><span class="k"></span>${suggestion.status.replace(/_/g, ' ')}</span>
+                        <span class="date">${formatDate(suggestion.created_at)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    document.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', () => {
+            selectSuggestion(item.dataset.id);
+        });
+    });
+}
+
+function selectSuggestion(id) {
+    currentSuggestionId = id;
+    const suggestion = allSuggestions.find(s => s.suggestion_id === id);
+    if (!suggestion) return;
+
+    document.querySelectorAll('.suggestion-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.id === id);
+    });
+
+    document.getElementById('detail-empty').style.display = 'none';
+    document.getElementById('current-suggestion-id').textContent = suggestion.suggestion_id;
+    document.getElementById('detail-panel').classList.add('active');
+
+    populateSuggestionDetails(suggestion);
+    loadAuditHistory(id);
+}
+
+function populateSuggestionDetails(suggestion) {
+    document.getElementById('feedback-text').textContent = suggestion.feedback_text || 'No feedback text available';
+
+    const rulePreview = suggestion.suggested_rule ?
+        JSON.stringify(suggestion.suggested_rule, null, 2) :
+        'No rule suggestion available';
+    document.getElementById('rule-suggestion').textContent = rulePreview;
+
+    document.getElementById('classification-result').textContent = suggestion.classification_result ?
+        JSON.stringify(suggestion.classification_result, null, 2) :
+        'Classification not available';
+
+    document.getElementById('extraction-result').textContent = suggestion.extraction_result ||
+        'Extraction not available';
+
+    document.getElementById('schema-validation-result').textContent = suggestion.schema_validation_status ||
+        'Schema validation not available';
+
+    document.getElementById('duplicate-detection-result').textContent = suggestion.duplicate_status ||
+        'Duplicate detection not available';
+
+    document.getElementById('conflict-detection-result').textContent = suggestion.conflict_status ||
+        'Conflict detection not available';
+
+    const clarificationSection = document.getElementById('clarification-section');
+    const needsClarification = suggestion.clarification_required === true ||
+        suggestion.status === 'clarification_required';
+    if (needsClarification) {
+        clarificationSection.style.display = 'block';
+        document.getElementById('clarification-content').textContent =
+            'Expert review requested for this feedback — supply any missing information via Request Clarification.';
+    } else {
+        clarificationSection.style.display = 'none';
+    }
+
+    const reviewable = REVIEWABLE.includes(suggestion.status);
+    const rejectable = reviewable || suggestion.status === 'pending_review';
+    const archivable = suggestion.status === 'rejected' || suggestion.status === 'rule_activated';
+    document.getElementById('approve-btn').disabled = !reviewable;
+    document.getElementById('reject-btn').disabled = !rejectable;
+    document.getElementById('clarify-btn').disabled = !(reviewable || suggestion.status === 'clarification_required');
+    document.getElementById('archive-btn').disabled = !archivable;
+
+    document.getElementById('archive-btn').title = archivable
+        ? 'Archive this suggestion'
+        : 'Archive is only available after a suggestion is rejected or rule_activated';
+}
+
+async function loadAuditHistory(suggestionId) {
+    try {
+        const response = await apiFetch(`${API}/v1/suggestions/${encodeURIComponent(suggestionId)}/lifecycle`);
+        const lifecycleData = await response.json();
+        renderAuditHistory(lifecycleData.history || []);
+    } catch (error) {
+        console.error('Failed to load audit history:', error);
+        renderAuditHistory([]);
+    }
+}
+
+function renderAuditHistory(history) {
+    const tbody = document.getElementById('audit-table-body');
+    if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="audit-empty">No audit history</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = history.map(entry => `
+        <tr>
+            <td>${esc(entry.from_status)} <span class="tcode-arrow">→</span> ${esc(entry.to_status)}</td>
+            <td>${esc(entry.transitioned_by) || 'System'}</td>
+            <td>${formatDate(entry.created_at)}</td>
+            <td>${esc(entry.reason || entry.metadata?.comments || '')}</td>
+        </tr>
+    `).join('');
+}
+
+async function performAction(action) {
+    if (!currentSuggestionId) {
+        showError('Please select a suggestion first');
+        return;
+    }
+
+    const suggestion = allSuggestions.find(s => s.suggestion_id === currentSuggestionId);
+    const comment = document.getElementById('comment-box').value.trim();
+    if (!authUser) {
+        showError('You must be logged in to perform actions');
+        return;
+    }
+
+    if (action === 'approve' && !REVIEWABLE.includes(suggestion.status)) {
+        showError('This suggestion is not in a reviewable state (approve not allowed).');
+        return;
+    }
+    if (action === 'archive' && !(suggestion.status === 'rejected' || suggestion.status === 'rule_activated')) {
+        showError('Archive is only available for rejected or rule_activated suggestions.');
+        return;
+    }
+
+    const id = encodeURIComponent(currentSuggestionId);
+    let endpoint = '';
+    let body = {};
+
+    switch (action) {
+        case 'approve':
+            endpoint = `/v1/suggestions/${id}/approve`;
+            body = {
+                approved_by: authUser.email,
+                comments: comment,
+                create_rule: false // §3.2/§3.3 separation — approval must NOT auto-deploy
+            };
+            break;
+        case 'reject':
+            endpoint = `/v1/suggestions/${id}/reject`;
+            body = {
+                rejected_by: authUser.email,
+                reason: comment || 'Rejected by reviewer',
+                comments: comment
+            };
+            break;
+        case 'archive':
+            endpoint = `/v1/suggestions/${id}/archive`;
+            body = {
+                archived_by: authUser.email,
+                comments: comment
+            };
+            break;
+        case 'clarify':
+            return requestClarification(suggestion);
+        default:
+            showError('Unknown action');
+            return;
+    }
+
+    try {
+        const response = await apiFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
+        const result = await response.json();
+        if (result && result.success === false) {
+            showError(`Action failed: ${result.error || 'unknown error'}`);
+            return;
+        }
+        showSuccess(`Suggestion ${action}d successfully (${result.new_status || result.to_status || action})`);
+        document.getElementById('comment-box').value = '';
+        loadSuggestions();
+        loadAuditHistory(currentSuggestionId);
+    } catch (error) {
+        console.error(`Failed to ${action}:`, error);
+        showError(`${action} failed: ` + error.message);
+    }
+}
+
+async function requestClarification(suggestion) {
+    if (!suggestion.feedback_id) {
+        showError('This suggestion has no feedback_id to clarify against.');
+        return;
+    }
+    const payload = {
+        feedback_id: suggestion.feedback_id,
+        classification: suggestion.classification_result || {},
+        // extraction_result is a status string ("completed"); coerce to a dict
+        extraction: typeof suggestion.extraction_result === 'string'
+            ? { status: suggestion.extraction_result || 'n/a' }
+            : (suggestion.extraction_result || {})
+    };
+    try {
+        const response = await apiFetch('/v1/clarifications', { method: 'POST', body: JSON.stringify(payload) });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.detail || ('HTTP ' + response.status));
+        }
+        const q = (result.questions && result.questions.length) ? ` — ${result.questions.length} question(s) generated` : '';
+        showSuccess(`Clarification requested for ${suggestion.feedback_id} (${result.status || 'created'})${q}`);
+        document.getElementById('comment-box').value = '';
+    } catch (error) {
+        console.error('Clarification failed:', error);
+        showError('Clarification request failed: ' + error.message);
+    }
+}
+
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function showError(message) { alert(`Error: ${message}`); }
+function showSuccess(message) { alert(`Success: ${message}`); }
+
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    return text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString();
+}
+
+function updateSuggestionCount() {
+    let list = allSuggestions;
+    if (selectedFilter !== 'all') {
+        list = selectedFilter === 'review'
+            ? allSuggestions.filter(s => REVIEWABLE.includes(s.status))
+            : allSuggestions.filter(s => s.status === selectedFilter);
+    }
+    document.getElementById('suggestion-count').textContent = `${list.length} suggestion${list.length === 1 ? '' : 's'}`;
+}
+
+// Event listeners
+document.getElementById('approve-btn').addEventListener('click', () => performAction('approve'));
+document.getElementById('reject-btn').addEventListener('click', () => performAction('reject'));
+document.getElementById('clarify-btn').addEventListener('click', () => performAction('clarify'));
+document.getElementById('archive-btn').addEventListener('click', () => performAction('archive'));
+
+document.getElementById('comment-box').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        performAction('approve');
+    }
+});
+
+boot();
+</script>
+</body>
+</html>

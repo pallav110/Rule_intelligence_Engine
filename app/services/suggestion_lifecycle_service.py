@@ -177,7 +177,7 @@ class SuggestionLifecycleService:
                     "to_status": audit.to_status,
                     "transitioned_by": audit.transitioned_by,
                     "transition_reason": audit.transition_reason,
-                    "metadata": audit.metadata,
+                    "metadata": audit.audit_metadata or {},
                     "created_at": audit.created_at.isoformat(),
                 }
                 for audit in audits
@@ -197,13 +197,30 @@ class SuggestionLifecycleService:
             }
 
     def _is_valid_transition(self, from_status: str, to_status: str) -> bool:
-        """Check if status transition is valid."""
+        """Check if status transition is valid.
+
+        The stored ``review_status`` may be a review-routing result
+        (``mandatory_manual_review``, ``senior_review_required``) rather than a
+        lifecycle enum value. Those semantically mean "awaiting human review",
+        so they are normalized to ``PENDING_REVIEW`` for reviewer transitions
+        (approve / reject).
+        """
         try:
             from_enum = SuggestionStatus(from_status)
+        except ValueError:
+            # Review-routing status -> treat as awaiting human review.
+            if from_status not in {
+                "pending_review",
+                "mandatory_manual_review",
+                "senior_review_required",
+            }:
+                return False
+            from_enum = SuggestionStatus.PENDING_REVIEW
+        try:
             to_enum = SuggestionStatus(to_status)
-            return to_enum in self.VALID_TRANSITIONS.get(from_enum, [])
         except ValueError:
             return False
+        return to_enum in self.VALID_TRANSITIONS.get(from_enum, [])
 
     def get_current_status(
         self,
@@ -230,13 +247,18 @@ class SuggestionLifecycleService:
             current_status = suggestion.review_status
             valid_next_statuses = self.VALID_TRANSITIONS.get(SuggestionStatus(current_status), [])
 
+            # The RuleSuggestion model maps only ``created_at`` (no ``updated_at``
+            # column), so fall back to the created timestamp rather than raising
+            # AttributeError and killing the whole lifecycle read.
+            updated_at = getattr(suggestion, "updated_at", None) or suggestion.created_at
+
             return {
                 "success": True,
                 "suggestion_id": suggestion_id,
                 "current_status": current_status,
                 "valid_next_statuses": [status.value for status in valid_next_statuses],
                 "created_at": suggestion.created_at.isoformat() if suggestion.created_at else None,
-                "updated_at": suggestion.updated_at.isoformat() if suggestion.updated_at else None,
+                "updated_at": updated_at.isoformat() if updated_at else None,
             }
 
         except Exception as e:

@@ -17,12 +17,23 @@ class SuggestionResponse(BaseModel):
     suggestion_id: str
     workspace_id: str
     feedback_id: str
+    feedback_text: Optional[str] = None
     suggested_rule: dict
     status: str
     confidence_score: float
     created_at: datetime
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+    # Full analysis context (§3.2 review dashboard)
+    feedback_type: Optional[str] = None
+    rule_category: Optional[str] = None
+    classification_result: Optional[dict] = None
+    extraction_result: Optional[str] = None
+    schema_validation_status: Optional[str] = None
+    duplicate_status: Optional[str] = None
+    conflict_status: Optional[str] = None
+    clarification_required: Optional[bool] = None
+    preprocessing_result: Optional[dict] = None
 
 
 class SuggestionApproveRequest(BaseModel):
