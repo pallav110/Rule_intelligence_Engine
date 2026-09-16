@@ -4009,7 +4009,15 @@ def seed_reference_lineage():
                     continue
                 # Only seed if the baseline output dir actually has data
                 baseline_path = repo_root / "rie_ml" / "dataset_generation" / "output" / pid
-                # Fall back to generation output even if not yet generated — still register
+                # Count on-disk samples so num_samples/path/domain aren't null in the browser
+                _ns = 0
+                for _fname in ("train.jsonl", "val.jsonl", "test.jsonl"):
+                    _p = baseline_path / _fname
+                    if _p.exists():
+                        try:
+                            _ns += sum(1 for _l in _p.open() if _l.strip())
+                        except Exception:
+                            pass
                 s.add(DatasetVersion(
                     dataset_version_id=f"dsv-baseline-{pid}",
                     dataset_name=f"{pid}__baseline",
@@ -4019,6 +4027,7 @@ def seed_reference_lineage():
                     annotation_version="ann_v0.1.0",
                     source="seed",
                     path=str(baseline_path),
+                    num_samples=_ns if _ns else None,
                     status="ACTIVE",
                     workspace_id=None,
                     description="Baseline seed dataset (pre-generated output/<domain>)",
