@@ -2709,23 +2709,158 @@ from app.services.model_version_service import ModelVersionService
 import app.schemas.dataset as dataset_schemas
 from app.services.dataset_version_service import DatasetVersionService
 from app.services.background_job_service import BackgroundJobService
-from app.schemas.jobs import JobResponse
+from app.schemas.jobs import (
+    JobResponse,
+    TrainModelJobRequest,
+    GenerateDatasetJobRequest,
+    RunEvaluationJobRequest,
+    UpdateEmbeddingIndexJobRequest,
+    BatchFeedbackJobRequest,
+    JobCreateResponse,
+)
 
 @app.get("/v1/jobs/{job_id}", response_model=JobResponse)
-def get_job(job_id: str, db=Depends(get_db)):
+def get_job(job_id: str, db=Depends(get_db), _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
     service = BackgroundJobService()
     try:
-        job = service.get_job(db, job_id)
+        job = service.get_job(db, _ctx.workspace_id, job_id)
         return JobResponse(
             job_id=job.job_id,
+            workspace_id=job.workspace_id,
+            job_type=job.job_type,
             status=job.status,
-            result=job.result,
-            error=job.error,
-            created_at=job.created_at,
-            updated_at=job.updated_at
+            idempotency_key=job.idempotency_key,
+            progress=job.progress,
+            completed_at=job.completed_at
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+def _create_background_job(db, workspace_id: str, job_type: str, idempotency_key: str):
+    """Create a background job record in the database."""
+    from app.db.models.background_job import BackgroundJob
+    from datetime import datetime
+
+    job_id = str(uuid4())
+    job = BackgroundJob(
+        job_id=job_id,
+        workspace_id=workspace_id,
+        job_type=job_type,
+        status="QUEUED",
+        progress=0,
+        idempotency_key=idempotency_key,
+        created_at=datetime.utcnow(),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+@app.post("/v1/jobs/train-model", response_model=JobCreateResponse)
+def create_train_model_job(payload: TrainModelJobRequest, db=Depends(get_db),
+                           _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
+    """Create a background job for model training."""
+    job = _create_background_job(db, payload.workspace_id, "train_model", payload.idempotency_key)
+
+    # Queue the Celery task
+    from app.tasks import process_background_job
+    process_background_job.delay(
+        job_id=job.job_id,
+        feedback_rows=None,
+        domain_pack_id=None,
+    )
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        workspace_id=job.workspace_id,
+        job_type=job.job_type,
+        status=job.status,
+        idempotency_key=job.idempotency_key,
+        progress=job.progress,
+        message="Model training job queued"
+    )
+
+
+@app.post("/v1/jobs/generate-dataset", response_model=JobCreateResponse)
+def create_generate_dataset_job(payload: GenerateDatasetJobRequest, db=Depends(get_db),
+                                _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
+    """Create a background job for dataset generation."""
+    job = _create_background_job(db, payload.workspace_id, "generate_dataset", payload.idempotency_key)
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        workspace_id=job.workspace_id,
+        job_type=job.job_type,
+        status=job.status,
+        idempotency_key=job.idempotency_key,
+        progress=job.progress,
+        message="Dataset generation job queued"
+    )
+
+
+@app.post("/v1/jobs/run-evaluation", response_model=JobCreateResponse)
+def create_run_evaluation_job(payload: RunEvaluationJobRequest, db=Depends(get_db),
+                              _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
+    """Create a background job for evaluation run."""
+    job = _create_background_job(db, payload.workspace_id, "run_evaluation", payload.idempotency_key)
+
+    # Queue the Celery task
+    from app.tasks import run_evaluation_task
+    run_evaluation_task.delay(evaluation_run_id=job.job_id)
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        workspace_id=job.workspace_id,
+        job_type=job.job_type,
+        status=job.status,
+        idempotency_key=job.idempotency_key,
+        progress=job.progress,
+        message="Evaluation job queued"
+    )
+
+
+@app.post("/v1/jobs/update-embedding-index", response_model=JobCreateResponse)
+def create_update_embedding_index_job(payload: UpdateEmbeddingIndexJobRequest, db=Depends(get_db),
+                                      _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
+    """Create a background job for embedding index update."""
+    job = _create_background_job(db, payload.workspace_id, "update_embedding_index", payload.idempotency_key)
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        workspace_id=job.workspace_id,
+        job_type=job.job_type,
+        status=job.status,
+        idempotency_key=job.idempotency_key,
+        progress=job.progress,
+        message="Embedding index update job queued"
+    )
+
+
+@app.post("/v1/jobs/batch-feedback", response_model=JobCreateResponse)
+def create_batch_feedback_job(payload: BatchFeedbackJobRequest, db=Depends(get_db),
+                              _ctx: SecurityContext = Depends(require_role(Role.ADMINISTRATOR))):
+    """Create a background job for batch feedback processing."""
+    job = _create_background_job(db, payload.workspace_id, "batch_feedback", payload.idempotency_key)
+
+    # Queue the Celery task
+    from app.tasks import process_background_job
+    process_background_job.delay(
+        job_id=job.job_id,
+        feedback_rows=payload.feedback_items,
+        domain_pack_id=payload.domain_pack_id,
+    )
+
+    return JobCreateResponse(
+        job_id=job.job_id,
+        workspace_id=job.workspace_id,
+        job_type=job.job_type,
+        status=job.status,
+        idempotency_key=job.idempotency_key,
+        progress=job.progress,
+        message=f"Batch feedback processing job queued ({len(payload.feedback_items)} items)"
+    )
 
 @app.post("/v1/dataset-versions", response_model=dataset_schemas.DatasetVersionResponse)
 def create_dataset_version(payload: dataset_schemas.DatasetVersionCreateRequest, db=Depends(get_db),
