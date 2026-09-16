@@ -58,16 +58,16 @@ class SuggestionService:
         # Extract rules from feedback
         extraction_result = self.extractor.extract(
             feedback,
-            classification_result,
             schema_context
         )
 
         # Build suggested rule from extraction
         suggested_rule = None
-        confidence = extraction_result.confidence
+        confidence = extraction_result.get("extraction_confidence", 0.0)
+        extracted_rules = extraction_result.get("extraction", {}).get("extracted_rules", [])
 
-        if extraction_result.rules:
-            rule = extraction_result.rules[0]  # Take first rule
+        if extracted_rules:
+            rule = extracted_rules[0]  # Take first rule
             suggested_rule = {
                 "business_term": rule.get("business_term"),
                 "operation": rule.get("operation"),
@@ -76,23 +76,23 @@ class SuggestionService:
                 "time_window": rule.get("time_window"),
                 "threshold": rule.get("threshold"),
                 "affected_entities": rule.get("affected_entities", {}),
-                "feedback_type": classification_result.feedback_type,
-                "rule_category": classification_result.rule_category,
+                "feedback_type": classification_result.get("feedback_type"),
+                "rule_category": classification_result.get("rule_category"),
             }
 
         return {
             "suggested_rule": suggested_rule,
             "confidence": confidence,
             "classification": {
-                "feedback_type": classification_result.feedback_type,
-                "rule_category": classification_result.rule_category,
-                "is_actionable": classification_result.is_actionable,
-                "requires_clarification": classification_result.requires_clarification,
-                "confidence": classification_result.confidence,
+                "feedback_type": classification_result.get("feedback_type"),
+                "rule_category": classification_result.get("rule_category"),
+                "is_actionable": classification_result.get("is_actionable"),
+                "requires_clarification": classification_result.get("requires_clarification"),
+                "confidence": classification_result.get("confidence"),
             },
             "extraction": {
-                "rules": extraction_result.rules,
-                "confidence": extraction_result.confidence,
+                "rules": extracted_rules,
+                "confidence": confidence,
             }
         }
 

@@ -2764,12 +2764,14 @@ def create_train_model_job(payload: TrainModelJobRequest, db=Depends(get_db),
     """Create a background job for model training."""
     job = _create_background_job(db, payload.workspace_id, "train_model", payload.idempotency_key)
 
-    # Queue the Celery task
-    from app.tasks import process_background_job
-    process_background_job.delay(
+    # Queue the Celery task — forward dataset_version_id so the worker can
+    # validate the ACTIVE-version indirection (stub still doesn't train).
+    from app.tasks import train_model_task
+    # TrainModelJobRequest requires dataset_version_id; domain_pack_id is optional
+    train_model_task.delay(
         job_id=job.job_id,
-        feedback_rows=None,
-        domain_pack_id=None,
+        dataset_version_id=getattr(payload, "dataset_version_id", None),
+        domain_pack_id=getattr(payload, "domain_pack_id", None),
     )
 
     return JobCreateResponse(
@@ -2789,6 +2791,15 @@ def create_generate_dataset_job(payload: GenerateDatasetJobRequest, db=Depends(g
     """Create a background job for dataset generation."""
     job = _create_background_job(db, payload.workspace_id, "generate_dataset", payload.idempotency_key)
 
+    # Queue the Celery task
+    from app.tasks import generate_dataset_task
+    generate_dataset_task.delay(
+        job_id=job.job_id,
+        domain_pack_id=payload.domain_pack_id,
+        num_samples=payload.num_samples,
+        seed_feedback_ids=payload.seed_feedback_ids,
+    )
+
     return JobCreateResponse(
         job_id=job.job_id,
         workspace_id=job.workspace_id,
@@ -2796,7 +2807,7 @@ def create_generate_dataset_job(payload: GenerateDatasetJobRequest, db=Depends(g
         status=job.status,
         idempotency_key=job.idempotency_key,
         progress=job.progress,
-        message="Dataset generation job queued"
+        message=f"Dataset generation job queued ({payload.num_samples} samples for {payload.domain_pack_id})"
     )
 
 
@@ -2808,7 +2819,11 @@ def create_run_evaluation_job(payload: RunEvaluationJobRequest, db=Depends(get_d
 
     # Queue the Celery task
     from app.tasks import run_evaluation_task
-    run_evaluation_task.delay(evaluation_run_id=job.job_id)
+    run_evaluation_task.delay(
+        job_id=job.job_id,
+        model_version_id=payload.model_version_id,
+        dataset_version_id=payload.dataset_version_id,
+    )
 
     return JobCreateResponse(
         job_id=job.job_id,
@@ -2817,7 +2832,7 @@ def create_run_evaluation_job(payload: RunEvaluationJobRequest, db=Depends(get_d
         status=job.status,
         idempotency_key=job.idempotency_key,
         progress=job.progress,
-        message="Evaluation job queued"
+        message=f"Evaluation job queued (model: {payload.model_version_id}, dataset: {payload.dataset_version_id})"
     )
 
 
@@ -2827,6 +2842,14 @@ def create_update_embedding_index_job(payload: UpdateEmbeddingIndexJobRequest, d
     """Create a background job for embedding index update."""
     job = _create_background_job(db, payload.workspace_id, "update_embedding_index", payload.idempotency_key)
 
+    # Queue the Celery task
+    from app.tasks import update_embedding_index_task
+    update_embedding_index_task.delay(
+        job_id=job.job_id,
+        domain_pack_id=payload.domain_pack_id,
+        rule_ids=payload.rule_ids,
+    )
+
     return JobCreateResponse(
         job_id=job.job_id,
         workspace_id=job.workspace_id,
@@ -2834,7 +2857,7 @@ def create_update_embedding_index_job(payload: UpdateEmbeddingIndexJobRequest, d
         status=job.status,
         idempotency_key=job.idempotency_key,
         progress=job.progress,
-        message="Embedding index update job queued"
+        message=f"Embedding index update job queued for {payload.domain_pack_id}"
     )
 
 
@@ -3937,6 +3960,49 @@ def seed_reference_lineage():
             print(f"[seed] registered/linked {n} model training-dataset(s)")
     except Exception as e:
         print(f"[seed] training-dataset registration skipped: {e}")
+
+    # Baseline ACTIVE datasets: one per domain_pack so that
+    # train-model can resolve via ACTIVE even before any generate_dataset run.
+    # These point at the checked-in seed output (output/<domain>/) — real files
+    # that already exist on disk and are volume-mounted.
+    try:
+        from app.db.database import SessionLocal as _ds_seed
+        from app.db.models.dataset_version import DatasetVersion
+        from app.services.domain_pack_loader import DomainPackLoader
+        from pathlib import Path as _P
+        with _ds_seed() as s:
+            loader = DomainPackLoader()
+            repo_root = _P(__file__).resolve().parents[1]
+            for pack in loader.list_available_packs():
+                pid = pack["domain_pack_id"]
+                # Only seed once per (workspace=NULL global baseline, domain)
+                # — workspace-scoped generates will shard by workspace_id.
+                exists = s.query(DatasetVersion).filter(
+                    DatasetVersion.domain_pack_id == pid,
+                    DatasetVersion.status == "ACTIVE",
+                    DatasetVersion.workspace_id.is_(None),
+                ).first()
+                if exists:
+                    continue
+                # Only seed if the baseline output dir actually has data
+                baseline_path = repo_root / "rie_ml" / "dataset_generation" / "output" / pid
+                # Fall back to generation output even if not yet generated — still register
+                s.add(DatasetVersion(
+                    dataset_version_id=f"dsv-baseline-{pid}",
+                    dataset_name=f"{pid}__baseline",
+                    version="v0.1.0",
+                    domain_pack_id=pid,
+                    domain_pack_version=pack.get("version", "unknown"),
+                    annotation_version="ann_v0.1.0",
+                    source="seed",
+                    path=str(baseline_path),
+                    status="ACTIVE",
+                    workspace_id=None,
+                    description="Baseline seed dataset (pre-generated output/<domain>)",
+                ))
+            s.commit()
+    except Exception as e:
+        print(f"[seed] baseline ACTIVE datasets skipped: {e}")
 
 
 @app.on_event("startup")

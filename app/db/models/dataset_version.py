@@ -5,6 +5,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models.workspace import Base
 
+# NOTE: for Alembic autogenerate purposes this model now carries workspace_id.
+# DB already has the column via a manual migration (kept lightweight to avoid
+# branching alembic heads); a formal revision will codify it when heads are merged.
+
 
 class DatasetVersion(Base):
     __tablename__ = "dataset_versions"
@@ -71,6 +75,11 @@ class DatasetVersion(Base):
         String(20),
         nullable=False,
         default="PENDING",
+    )
+
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.workspace_id"),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

@@ -67,3 +67,7 @@ class DomainPackLoader:
             raise DomainPackNotFoundError(f"Domain pack file not found: {file_path}")
         with file_path.open("r", encoding="utf-8") as file_handle:
             return json.load(file_handle)
+
+    def load(self, pack_id: str) -> dict[str, Any]:
+        """Load domain pack configuration (alias for load_domain_config for backwards compatibility)."""
+        return self.load_domain_config(pack_id)

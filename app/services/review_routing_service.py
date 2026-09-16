@@ -348,7 +348,7 @@ class RealReviewRoutingService:
                         "review_status": "mandatory_manual_review",
                         "priority": ReviewPriority.URGENT.value,
                         "suggested_reviewer_type": ReviewerType.MANAGER.value,
-                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.MANAGER, domain_id),
+                        "suggested_reviewer_id": self.router._select_reviewer(ReviewerType.MANAGER, domain_id),
                         "reason": reason,
                     }
                 elif action == "clarification":
@@ -356,7 +356,7 @@ class RealReviewRoutingService:
                         "review_status": "clarification_required",
                         "priority": ReviewPriority.HIGH.value,
                         "suggested_reviewer_type": ReviewerType.QA.value,
-                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.QA, domain_id),
+                        "suggested_reviewer_id": self.router._select_reviewer(ReviewerType.QA, domain_id),
                         "reason": reason,
                     }
                 elif action == "reviewer_verification":
@@ -364,7 +364,7 @@ class RealReviewRoutingService:
                         "review_status": "reviewer_verification",
                         "priority": ReviewPriority.HIGH.value,
                         "suggested_reviewer_type": ReviewerType.QA.value,
-                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.QA, domain_id),
+                        "suggested_reviewer_id": self.router._select_reviewer(ReviewerType.QA, domain_id),
                         "reason": reason,
                     }
                 elif action == "senior_review":
@@ -372,7 +372,7 @@ class RealReviewRoutingService:
                         "review_status": "senior_review_required",
                         "priority": ReviewPriority.URGENT.value,
                         "suggested_reviewer_type": ReviewerType.SENIOR_REVIEWER.value,
-                        "suggested_reviewer_id": self._select_reviewer(ReviewerType.SENIOR_REVIEWER, domain_id),
+                        "suggested_reviewer_id": self.router._select_reviewer(ReviewerType.SENIOR_REVIEWER, domain_id),
                         "reason": reason,
                     }
                 else:

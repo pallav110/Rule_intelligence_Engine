@@ -39,3 +39,7 @@ LICENSE
 .gitlab-ci.yml
 .github/
 Makefile
+rie_ml/models/**/checkpoints
+rie_ml/models/**/*.pt
+rie_ml/models/**/*.bin
+rie_ml/models/**/*.safetensors
