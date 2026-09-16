@@ -553,6 +553,18 @@ class ConflictDetectionService:
                 conflict_result = self.detector._check_conflict(suggested_rule, active_rule)
                 conflict_type, confidence, details = conflict_result
 
+                # Persist comparison to rule_comparisons table
+                self._persist_comparison(
+                    db=db,
+                    workspace_id=workspace_id,
+                    suggested_rule=suggested_rule,
+                    existing_rule=active_rule,
+                    comparison_type=self.engine,
+                    relationship=conflict_type,
+                    confidence=confidence,
+                    details=details,
+                )
+
                 if conflict_type != ConflictDetector.NO_CONFLICT and confidence > self.detector.confidence_threshold:
                     conflicting_ids.append(active_rule.get("rule_id"))
                     conflicts_found.append({
@@ -598,6 +610,40 @@ class ConflictDetectionService:
                 "retrieval_stage": 0,
                 "details": {"error": str(exc)},
             }
+
+    def _persist_comparison(
+        self,
+        db,
+        workspace_id: str,
+        suggested_rule: Dict[str, Any],
+        existing_rule: Dict[str, Any],
+        comparison_type: str,
+        relationship: str,
+        confidence: float,
+        details: Dict[str, Any],
+    ) -> None:
+        """Persist a rule comparison to the rule_comparisons table."""
+        try:
+            from app.db.models.rule_comparison import RuleComparison
+            from uuid import uuid4
+
+            comparison = RuleComparison(
+                comparison_id=str(uuid4()),
+                workspace_id=workspace_id,
+                extracted_rule_id=suggested_rule.get("extracted_rule_id"),
+                suggestion_id=suggested_rule.get("suggestion_id"),
+                comparison_type=comparison_type,
+                relationship=relationship,
+                compared_rule_id=existing_rule.get("rule_id"),
+                matching_rule_id=existing_rule.get("rule_id") if relationship == "related_compatible" else None,
+                conflicting_rule_id=existing_rule.get("rule_id") if relationship in ("direct_conflict", "potential_conflict") else None,
+                confidence=round(confidence, 4),
+                details=details,
+            )
+            db.add(comparison)
+            db.flush()
+        except Exception as exc:
+            logger.warning("Failed to persist rule comparison: %s", exc)
 
     # ------------------------------------------------------------------
     # Retrieval — shared domain-pack loader
