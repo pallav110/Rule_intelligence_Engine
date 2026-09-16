@@ -196,24 +196,34 @@ class SuggestionLifecycleService:
                 "error": str(e),
             }
 
+    # Review-routing / clarification statuses that are not part of the enum
+    # but are written by analysis_orchestrator / review_routing_service.
+    REVIEW_AWAITING_STATUSES = {
+        "pending_review",
+        "mandatory_manual_review",
+        "senior_review_required",
+        "reviewer_verification",
+        "clarification_required",
+        "REVIEWER_VERIFICATION",
+        "PENDING_REVIEW",
+        "CLARIFICATION_REQUIRED",
+    }
+
     def _is_valid_transition(self, from_status: str, to_status: str) -> bool:
         """Check if status transition is valid.
 
         The stored ``review_status`` may be a review-routing result
-        (``mandatory_manual_review``, ``senior_review_required``) rather than a
-        lifecycle enum value. Those semantically mean "awaiting human review",
-        so they are normalized to ``PENDING_REVIEW`` for reviewer transitions
-        (approve / reject).
+        (``mandatory_manual_review``, ``senior_review_required``, etc.) rather
+        than a lifecycle enum value. Those semantically mean "awaiting human
+        review", so they are normalized to ``PENDING_REVIEW`` for reviewer
+        transitions (approve / reject).
         """
         try:
             from_enum = SuggestionStatus(from_status)
         except ValueError:
-            # Review-routing status -> treat as awaiting human review.
-            if from_status not in {
-                "pending_review",
-                "mandatory_manual_review",
-                "senior_review_required",
-            }:
+            # Normalize routing/clarification statuses -> PENDING_REVIEW.
+            key = (from_status or "").strip().lower()
+            if key not in {s.lower() for s in self.REVIEW_AWAITING_STATUSES}:
                 return False
             from_enum = SuggestionStatus.PENDING_REVIEW
         try:
@@ -245,7 +255,16 @@ class SuggestionLifecycleService:
                 }
 
             current_status = suggestion.review_status
-            valid_next_statuses = self.VALID_TRANSITIONS.get(SuggestionStatus(current_status), [])
+            # Normalize routing statuses for the read path too.
+            try:
+                cur_enum = SuggestionStatus(current_status)
+            except ValueError:
+                key = (current_status or "").strip().lower()
+                if key in {s.lower() for s in self.REVIEW_AWAITING_STATUSES}:
+                    cur_enum = SuggestionStatus.PENDING_REVIEW
+                else:
+                    raise
+            valid_next_statuses = self.VALID_TRANSITIONS.get(cur_enum, [])
 
             # The RuleSuggestion model maps only ``created_at`` (no ``updated_at``
             # column), so fall back to the created timestamp rather than raising

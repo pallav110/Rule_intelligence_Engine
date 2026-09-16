@@ -97,6 +97,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: rie_celery_worker
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.tasks inspect ping | grep -q pong || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     environment:
       DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rule_intelligence_engine
       REDIS_URL: redis://redis:6379/0

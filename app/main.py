@@ -1108,10 +1108,15 @@ def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict
         rule_id = f"RULE_{str(uuid4())[:8].upper()}"
         suggested_rule = suggestion.suggested_rule or {}
 
-        # Generate a human-readable rule name from business_term and operation
-        business_term = suggested_rule.get("business_term", "unknown")
-        operation = suggested_rule.get("operation", "unknown")
-        rule_name = f"{operation.capitalize()} {business_term.replace('_', ' ')}".strip()
+        # Human-readable rule name from business_term/operation (resilient to None/"" and casing)
+        business_term = (suggested_rule.get("business_term") or suggested_rule.get("businessTerm") or "unknown").strip() or "unknown"
+        operation = (suggested_rule.get("operation") or "unknown").strip() or "unknown"
+        # Title-case operation but keep known tokens readable (e.g. EXCLUDE -> Exclude)
+        op_label = operation.replace("_", " ").strip().title() if operation.lower() != "unknown" else "Rule"
+        bt_label = business_term.replace("_", " ").strip().title() if business_term.lower() != "unknown" else "General"
+        rule_name = f"{op_label} {bt_label}".strip()
+        if not rule_name or rule_name.lower() == "rule general":
+            rule_name = f"Rule {rule_id[-8:]}" 
 
         rule = Rule(
             rule_id=rule_id,
