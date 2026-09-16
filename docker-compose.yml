@@ -119,7 +119,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: rie_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@rie.local
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin_password
     ports:
       - "5050:80"
