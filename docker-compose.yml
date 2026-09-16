@@ -67,6 +67,13 @@ services:
       RIE_RATE_BATCH: ${RIE_RATE_BATCH:-10}
       RIE_RATE_RULES: ${RIE_RATE_RULES:-20}
       RIE_RATE_REVIEWS: ${RIE_RATE_REVIEWS:-200}
+      # Spec §10.10 Error Tracking: Sentry is opt-in — set RIE_SENTRY_DSN (or
+      # SENTRY_DSN) to forward unhandled exceptions. No DSN -> disabled.
+      RIE_SENTRY_DSN: ${RIE_SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      # Structured JSON logging (Spec §10.10): RIE_LOG_FORMAT=json rewrites the
+      # root logger formatters to emit one JSON object per line.
+      RIE_LOG_FORMAT: ${RIE_LOG_FORMAT:-}
     volumes:
       - ./app:/app/app
       - ./app/static:/app/app/static
@@ -153,9 +160,10 @@ services:
       - rie_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
     restart: unless-stopped
 
   # Grafana dashboards (Spec §10.10 Monitoring). Optional companion to
@@ -171,6 +179,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards/dashboard.yaml:/etc/grafana/provisioning/dashboards/dashboard.yaml:ro
     ports:
       - "3000:3000"
     depends_on:
@@ -208,4 +217,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
