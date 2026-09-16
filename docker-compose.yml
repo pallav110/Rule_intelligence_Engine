@@ -108,6 +108,13 @@ services:
       REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1
       RIE_ENABLE_REAL_TRAINING: ${RIE_ENABLE_REAL_TRAINING:-false}
+      # Spec §10.10 Error Tracking: Sentry is opt-in — set RIE_SENTRY_DSN (or
+      # SENTRY_DSN) to forward unhandled exceptions. No DSN -> disabled.
+      RIE_SENTRY_DSN: ${RIE_SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      # Structured JSON logging (Spec §10.10): RIE_LOG_FORMAT=json rewrites the
+      # root logger formatters to emit one JSON object per line.
+      RIE_LOG_FORMAT: ${RIE_LOG_FORMAT:-}
     volumes:
       - ./app:/app/app
       - ./rie_ml:/app/rie_ml
@@ -118,6 +125,64 @@ services:
     networks:
       - rie_network
     command: celery -A app.tasks worker --loglevel=info
+    restart: unless-stopped
+
+  # Prometheus metrics server (Spec §10.10 Monitoring). Optional — the API
+  # exposes /metrics regardless; this just scrapes it. Disable by removing
+  # the service (or setting RIE_PROMETHEUS_ENABLED=false and skipping the
+  # `up` here) for deployments that don't want an extra container.
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rie_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus/"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - rie_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Grafana dashboards (Spec §10.10 Monitoring). Optional companion to
+  # Prometheus; points at the same datasource and ships the RIE dashboard.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rie_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - rie_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # PgAdmin (Database Management UI)

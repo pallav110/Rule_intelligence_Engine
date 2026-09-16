@@ -5,11 +5,25 @@ from app.db.models.background_job import BackgroundJob
 from app.worker import celery_app
 from app.services.feedback_service import FeedbackService
 from app.services.domain_pack_loader import DomainPackLoader
+# §10.10 Prometheus: job counters/gauges are no-ops when prometheus_client is
+# absent, so this import is always safe and never alters task behavior.
+from app.observability import note_job_active, note_job_done
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 
 REAL_TRAIN = os.getenv("RIE_ENABLE_REAL_TRAINING", "false").lower() == "true"
+
+
+def _job_start(job_type: str) -> str:
+    """Bump the active-jobs gauge and seed the outcome token (§10.10)."""
+    note_job_active(job_type, 1)
+    return "success"
+
+
+def _job_finish(job_type: str, outcome: str) -> None:
+    note_job_done(job_type, outcome)
+    note_job_active(job_type, -1)
 
 
 @celery_app.task(
@@ -26,11 +40,13 @@ def process_background_job(
     domain_pack_id: str | None = None,
 ):
     db = SessionLocal()
+    _job_start("process_background_job")
 
     try:
         job = db.get(BackgroundJob, job_id)
 
         if job is None:
+            _job_finish("process_background_job", "failure")
             return {
                 "job_id": job_id,
                 "status": "failed",
@@ -48,6 +64,7 @@ def process_background_job(
             job.completed_at = datetime.utcnow()
             db.commit()
 
+            _job_finish("process_background_job", "success")
             return {
                 "job_id": job_id,
                 "status": "completed",
@@ -72,6 +89,7 @@ def process_background_job(
         job.completed_at = datetime.utcnow()
         db.commit()
 
+        _job_finish("process_background_job", "success")
         return {
             "job_id": job_id,
             "status": "completed",
@@ -92,6 +110,7 @@ def process_background_job(
             except Exception:
                 db.rollback()
 
+        _job_finish("process_background_job", "failure")
         raise
 
     finally:
@@ -117,11 +136,13 @@ def train_model_task(self, job_id: str, dataset_version_id: str | None = None, d
     CANDIDATE ModelVersion. Requires GPU + dataset materialization.
     """
     db = SessionLocal()
+    _job_start("train_model")
 
     try:
         job = db.get(BackgroundJob, job_id)
 
         if job is None:
+            _job_finish("train_model", "failure")
             return {"job_id": job_id, "status": "failed", "error": "Job not found"}
 
         job.status = "running"
@@ -154,6 +175,7 @@ def train_model_task(self, job_id: str, dataset_version_id: str | None = None, d
             job.progress = 100
             job.completed_at = datetime.utcnow()
             db.commit()
+            _job_finish("train_model", "success")
             return {"job_id": job_id, "status": "completed", "mode": "stub", "resolved_dataset_version_id": resolved_id}
 
         # ---- Real path (RIE_ENABLE_REAL_TRAINING=true) ----
@@ -169,7 +191,7 @@ def train_model_task(self, job_id: str, dataset_version_id: str | None = None, d
         job.progress = 100
         job.completed_at = datetime.utcnow()
         db.commit()
-
+        _job_finish("train_model", "success")
         return {"job_id": job_id, "status": "completed", "mode": "real", "resolved_dataset_version_id": resolved_id}
 
     except Exception:
@@ -181,6 +203,7 @@ def train_model_task(self, job_id: str, dataset_version_id: str | None = None, d
                 db.commit()
             except Exception:
                 db.rollback()
+        _job_finish("train_model", "failure")
         raise
     finally:
         db.close()
@@ -265,11 +288,13 @@ def _run_real_training(resolved_dv, job) -> None:
 )
 def generate_dataset_task(self, job_id: str, domain_pack_id: str, num_samples: int, seed_feedback_ids: list[str] | None = None):
     db = SessionLocal()
+    _job_start("generate_dataset")
 
     try:
         job = db.get(BackgroundJob, job_id)
 
         if job is None:
+            _job_finish("generate_dataset", "failure")
             return {"job_id": job_id, "status": "failed", "error": "Job not found"}
 
         job.status = "running"
@@ -344,6 +369,7 @@ def generate_dataset_task(self, job_id: str, domain_pack_id: str, num_samples: i
         job.completed_at = datetime.utcnow()
         db.commit()
 
+        _job_finish("generate_dataset", "success")
         return {"job_id": job_id, "status": "completed", "dataset_version_id": created_version_id, "path": str(output_dir)}
 
     except Exception:
@@ -355,6 +381,7 @@ def generate_dataset_task(self, job_id: str, domain_pack_id: str, num_samples: i
                 db.commit()
             except Exception:
                 db.rollback()
+        _job_finish("generate_dataset", "failure")
         raise
     finally:
         db.close()
@@ -377,11 +404,13 @@ def run_evaluation_task(self, job_id: str, model_version_id: str, dataset_versio
     and writes evaluation_metrics back onto the ModelVersion.
     """
     db = SessionLocal()
+    _job_start("run_evaluation")
 
     try:
         job = db.get(BackgroundJob, job_id)
 
         if job is None:
+            _job_finish("run_evaluation", "failure")
             return {"job_id": job_id, "status": "failed", "error": "Job not found"}
 
         job.status = "running"
@@ -404,6 +433,7 @@ def run_evaluation_task(self, job_id: str, model_version_id: str, dataset_versio
             job.progress = 100
             job.completed_at = datetime.utcnow()
             db.commit()
+            _job_finish("run_evaluation", "success")
             return {"job_id": job_id, "status": "completed", "mode": "stub"}
 
         job.progress = 30
@@ -415,7 +445,7 @@ def run_evaluation_task(self, job_id: str, model_version_id: str, dataset_versio
         job.progress = 100
         job.completed_at = datetime.utcnow()
         db.commit()
-
+        _job_finish("run_evaluation", "success")
         return {"job_id": job_id, "status": "completed", "mode": "real"}
 
     except Exception:
@@ -427,6 +457,7 @@ def run_evaluation_task(self, job_id: str, model_version_id: str, dataset_versio
                 db.commit()
             except Exception:
                 db.rollback()
+        _job_finish("run_evaluation", "failure")
         raise
     finally:
         db.close()
@@ -481,11 +512,13 @@ def _run_real_evaluation(job, mv, dv) -> None:
 )
 def update_embedding_index_task(self, job_id: str, domain_pack_id: str, rule_ids: list[str] | None = None):
     db = SessionLocal()
+    _job_start("update_embedding_index")
 
     try:
         job = db.get(BackgroundJob, job_id)
 
         if job is None:
+            _job_finish("update_embedding_index", "failure")
             return {"job_id": job_id, "status": "failed", "error": "Job not found"}
 
         job.status = "running"
@@ -571,6 +604,7 @@ def update_embedding_index_task(self, job_id: str, domain_pack_id: str, rule_ids
         job.completed_at = datetime.utcnow()
         db.commit()
 
+        _job_finish("update_embedding_index", "success")
         return {"job_id": job_id, "status": "completed", "updated": updated}
 
     except Exception:
@@ -582,6 +616,7 @@ def update_embedding_index_task(self, job_id: str, domain_pack_id: str, rule_ids
                 db.commit()
             except Exception:
                 db.rollback()
+        _job_finish("update_embedding_index", "failure")
         raise
     finally:
         db.close()

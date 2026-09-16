@@ -1,0 +1,14 @@
+# Grafana datasource provisioning (Spec §10.10 Monitoring).
+# Points at the Prometheus container inside the same docker-compose network.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      queryTimeout: 10s

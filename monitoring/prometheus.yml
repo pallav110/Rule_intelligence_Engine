@@ -1,0 +1,41 @@
+# Prometheus scrape configuration for the Rule Intelligence Engine (Spec §10.10).
+#
+# The API exposes /metrics regardless of whether this container is running —
+# this file only configures Prometheus to *collect* it. The scrape interval is
+# deliberately low (15s) so dashboards and alerts feel live; tune via
+# RIE_PROMETHEUS_SCRAPE_INTERVAL if you need it faster/slower.
+#
+# Targets are resolved against the docker-compose network service names, so
+# this config only works inside the `rie_network` stack. For an external
+# deployment, replace the targets with your own endpoints.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "rie_api"
+    static_configs:
+      - targets: ["api:8000"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 5s
+    params:
+      format: ["proto"]
+
+  - job_name: "rie_celery_worker"
+    static_configs:
+      - targets: ["celery_worker:8000"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 5s
+    # NOTE: the worker does not currently expose /metrics; this target is a
+    # placeholder so the job shows up in the UI as "down" rather than being
+    # silently absent. Remove it once the worker gains an exporter.
+
+  # Node/host metrics — only present if node_exporter is added to the stack.
+  - job_name: "node"
+    static_configs:
+      - targets: ["node_exporter:9100"]
+    scrape_interval: 30s
+    scrape_timeout: 5s
