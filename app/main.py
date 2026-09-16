@@ -29,10 +29,37 @@ from app.schemas.feedback import (
     PreprocessingResponse,
 )
 
-# Setup logging
+# Setup logging + observability (Spec §10.10: Prometheus/Grafana + Sentry + structured logging)
 from app.logging_config import setup_logging, input_validation_logger
 from app.services.pii_masking import mask_feedback_text
 logger = setup_logging()
+try:
+    from app.observability import (  # type: ignore
+        _install_json_handler_if_requested,
+        init_sentry,
+        metrics_content_type,
+        metrics_payload,
+        REQUEST_COUNTER,
+        REQUEST_DURATION,
+        AUTH_FAILURES,
+        FEEDBACK_ANALYSES,
+        DB_ERRORS,
+        capture_exception,
+    )
+    _install_json_handler_if_requested()
+    init_sentry()
+    _OBSERVABILITY = True
+except Exception as _obs_e:  # dep missing or misconfigured — keep API usable
+    import logging as _obs_logging
+    _obs_logging.getLogger("rie.observability").warning("Observability init skipped: %s", _obs_e)
+    _OBSERVABILITY = False
+    REQUEST_COUNTER = REQUEST_DURATION = AUTH_FAILURES = FEEDBACK_ANALYSES = DB_ERRORS = None  # type: ignore
+    def capture_exception(*_a, **_kw):  # type: ignore[no-redef]
+        pass
+    def metrics_content_type():  # type: ignore[no-redef]
+        return "text/plain; version=0.0.4"
+    def metrics_payload():  # type: ignore[no-redef]
+        return b"# observability unavailable\n"
 
 from app.schemas.suggestion import (
     SuggestionCreateRequest,
@@ -106,6 +133,73 @@ app = FastAPI(title="Rule Intelligence Engine API", version="1.0.0")
 
 
 @app.middleware("http")
+async def _metrics_middleware(request: Request, call_next):
+    """Prometheus request counter + latency histogram (no-op when dep absent)."""
+    if not _OBSERVABILITY or REQUEST_COUNTER is None:
+        return await call_next(request)
+    import time as _t
+
+    method = request.method
+    # Use the matched route pattern when available (low cardinality); fall back to path otherwise.
+    route = getattr(getattr(request.scope.get("route"), "path", None), "__str__", lambda: request.url.path)()
+    if not isinstance(route, str) or not route:
+        route = request.url.path
+    # Avoid capturing high-cardinality ids in label: normalize UUID-like segments
+    t0 = _t.perf_counter()
+    response = await call_next(request)
+    elapsed = _t.perf_counter() - t0
+    # Re-read the matched route post-routing if the router resolved it now
+    try:
+        ep = request.scope.get("route")
+        if ep is not None and getattr(ep, "path", None):
+            route = str(ep.path)
+    except Exception:
+        pass
+    status_label = str(response.status_code)
+    try:
+        REQUEST_COUNTER.labels(method=method, route=route, status=status_label).inc()  # type: ignore[union-attr]
+        REQUEST_DURATION.labels(method=method, route=route).observe(elapsed)  # type: ignore[union-attr]
+    except Exception:
+        pass
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics_endpoint():
+    """Prometheus scrape target — exposes rie_* counters/histograms."""
+    from fastapi.responses import Response as _Resp
+
+    return _Resp(content=metrics_payload(), media_type=metrics_content_type())
+
+
+@app.exception_handler(Exception)
+async def _sentry_exception_handler(request: Request, exc: Exception):
+    """Spec §10.10 Error Tracking: forward unhandled exceptions to Sentry.
+
+    Never alters the HTTP contract — the caller still gets the standard 500.
+    """
+    try:
+        if _OBSERVABILITY:
+            capture_exception(exc, route=request.url.path, method=request.method)
+    except Exception:
+        pass
+    return _JSON_500(request, exc)
+
+
+def _JSON_500(request: Request, exc: Exception):  # type: ignore[no-untyped-def]
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "route": request.url.path,
+            "error": type(exc).__name__,
+        },
+    )
+
+
+@app.middleware("http")
 async def audit_authorization_failures(request: Request, call_next):
     """Record every rejected API access in `audit_history` (Spec §6.6 / §10.11).
 
@@ -116,6 +210,12 @@ async def audit_authorization_failures(request: Request, call_next):
     """
     response = await call_next(request)
     if response.status_code in (401, 403):
+        # §10.10 Prometheus: count auth/authorization denials (best-effort)
+        try:
+            if _OBSERVABILITY and AUTH_FAILURES is not None:
+                AUTH_FAILURES.labels(reason="http_" + str(response.status_code)).inc()  # type: ignore[union-attr]
+        except Exception:
+            pass
         try:
             auth = request.headers.get("authorization")
             actor, workspace = None, None
@@ -167,7 +267,12 @@ def login_route(payload: LoginRequest, db=Depends(get_db), _: None = Depends(lim
     """
     ctx = authenticate_credentials(db, payload.email, payload.password, payload.workspace_id)
     if ctx is None:
-        # §6.6 / §10.11: failed authentication is a security-relevant event.
+        # §10.10 observability + §6.6 / §10.11 audit
+        try:
+            if _OBSERVABILITY and AUTH_FAILURES is not None:
+                AUTH_FAILURES.labels(reason="invalid_credentials").inc()  # type: ignore[union-attr]
+        except Exception:
+            pass
         write_audit(
             db,
             workspace_id=payload.workspace_id,
@@ -2172,6 +2277,14 @@ def analyze_feedback(
         model_version=extraction_result.get("model_version"),
         registry_status=extraction_result.get("registry_status"),
     )
+
+    # §10.10 Prometheus: count completed analyses per domain/mode (best-effort)
+    try:
+        if _OBSERVABILITY and FEEDBACK_ANALYSES is not None:
+            _domain = classification_result_dict.get("domain") or domain_pack_id or "unknown"
+            FEEDBACK_ANALYSES.labels(domain=_domain, mode=model).inc()  # type: ignore[union-attr]
+    except Exception:
+        pass
 
     return FeedbackAnalysisResponse(
         feedback_id=feedback_id,

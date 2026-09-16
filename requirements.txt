@@ -32,6 +32,10 @@ jsonschema>=4.21.0
 pytest==9.1.1
 httpx
 
+# Observability (Spec §10.10 — Prometheus/Grafana + Sentry + structured logging)
+prometheus-client>=0.19
+sentry-sdk[fastapi]>=2.0
+
 # Utilities
 annotated-doc==0.0.5
 annotated-types==0.8.0

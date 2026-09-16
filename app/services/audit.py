@@ -55,6 +55,14 @@ def write_audit(
             db.commit()
         return row.audit_id
     except Exception as e:  # never let auditing break the operation
+        # §10.10 Prometheus: count DB errors (best-effort, never alters behavior)
+        try:
+            from app.observability import DB_ERRORS  # type: ignore
+
+            if DB_ERRORS is not None:
+                DB_ERRORS.labels(operation="audit.write").inc()  # type: ignore[union-attr]
+        except Exception:
+            pass
         # A failed login may name a workspace that does not exist -> FK violation.
         # Such an event is exactly what we must record, so retry tenant-less.
         try:
