@@ -101,6 +101,7 @@ services:
       DATABASE_URL: postgresql://rie_user:rie_password@db:5432/rule_intelligence_engine
       REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1
+      RIE_ENABLE_REAL_TRAINING: ${RIE_ENABLE_REAL_TRAINING:-false}
     volumes:
       - ./app:/app/app
       - ./rie_ml:/app/rie_ml
