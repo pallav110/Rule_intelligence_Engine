@@ -3444,14 +3444,23 @@ def _admin_db_collections_info(db):
     return info
 
 
+_ADMIN_DB_GLOBAL_TABLES = {"dataset_versions", "model_versions", "evaluation_runs", "evaluation_metrics"}
+
 def _admin_db_row_count(db, table: str, info_item=None, workspace_id: Optional[str] = None) -> int:
     # `table` is allowlisted above (never raw client input), so f-string is safe.
     # Workspace-scoped tables count only the caller's rows so the sidebar matches
     # what the browser can actually display (§10.2 isolation, not global totals).
+    # Exception: shared reference tables (dataset_versions etc.) include NULL
+    # workspace_id ("global") rows so legacy/seed data stays visible — otherwise
+    # a new workspace_id column would hide every existing row.
     where = params = ""
     if info_item and info_item.get("workspace_scoped") and workspace_id:
-        where = " WHERE workspace_id = :ws"
-        params = {"ws": workspace_id}
+        if table in _ADMIN_DB_GLOBAL_TABLES:
+            where = " WHERE (workspace_id = :ws OR workspace_id IS NULL)"
+            params = {"ws": workspace_id}
+        else:
+            where = " WHERE workspace_id = :ws"
+            params = {"ws": workspace_id}
     return db.execute(text(f'SELECT count(*) FROM "{table}"{where}'), params if params else None).scalar() or 0
 
 
@@ -3492,7 +3501,11 @@ def _friendly_pg_type(raw: str) -> str:
 
 
 def _admin_db_rows(db, table: str, workspace_id: Optional[str], limit: int = _ADMIN_DB_DEFAULT, offset: int = 0):
-    """SELECT * for a collection, workspace-scoped when the table carries workspace_id."""
+    """SELECT * for a collection, workspace-scoped when the table carries workspace_id.
+
+    Shared reference tables also expose NULL-workspace rows (global seeds)
+    alongside the caller's own rows — see _admin_db_row_count for rationale.
+    """
     from fastapi.encoders import jsonable_encoder
 
     meta, _ = _admin_db_reflect(db, table)  # reflection also gives us columns/types
@@ -3503,8 +3516,12 @@ def _admin_db_rows(db, table: str, workspace_id: Optional[str], limit: int = _AD
     params: Dict[str, Any] = {"lim": limit, "off": offset}
     where = ""
     if meta["workspace_scoped"]:
-        where = "WHERE workspace_id = :ws"
-        params["ws"] = workspace_id
+        if table in _ADMIN_DB_GLOBAL_TABLES:
+            where = "WHERE (workspace_id = :ws OR workspace_id IS NULL)"
+            params["ws"] = workspace_id
+        else:
+            where = "WHERE workspace_id = :ws"
+            params["ws"] = workspace_id
     sql = f'SELECT * FROM "{table}" {where} ORDER BY "{order}" LIMIT :lim OFFSET :off'
     rows = db.execute(text(sql), params).fetchall()
     return {
