@@ -283,7 +283,7 @@ class RealClarificationService:
                     analysis_run_id=analysis_run_id,
                     clarification_question=questions[0] if questions else "Please clarify the requested rule.",
                     questions=questions,
-                    reason="; ".join(clarification_data["ambiguity_reasons"]),
+                    reason="; ".join(clarification_data["ambiguity_reasons"] + clarification_data["extraction_gaps"]),
                     processing_status="pending",
                     clarification_response=None,
                     created_at=datetime.now(timezone.utc) if hasattr(datetime, 'now') else datetime.utcnow(),
