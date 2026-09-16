@@ -1880,6 +1880,35 @@ def analyze_feedback(
     db.add(rule_suggestion)
     db.flush()  # Flush to ensure suggestion is persisted before FK references
 
+    # Persist ExtractedRules (audit trail of individual rules from extraction step)
+    try:
+        from app.db.models.extracted_rule import ExtractedRule
+        for idx, rule in enumerate(extracted_rules):
+            er = ExtractedRule(
+                extracted_rule_id=str(uuid4()),
+                workspace_id=payload.workspace_id,
+                feedback_id=feedback_id,
+                analysis_run_id=analysis_run_id,
+                suggestion_id=suggestion_id,
+                rule_family_id=rule.get("rule_family_id") or (f"{classification_result_dict.get('rule_category', '').lower()}_{idx}" if classification_result_dict.get('rule_category') else None),
+                business_term=rule.get("business_term"),
+                operation=rule.get("operation"),
+                conditions=rule.get("conditions"),
+                scope=rule.get("scope"),
+                time_window=rule.get("time_window"),
+                affected_tables=rule.get("affected_tables") or rule.get("affected_entities"),
+                affected_columns=rule.get("affected_columns"),
+                extraction_confidence=extraction_result.get("extraction_confidence"),
+                schema_validation_status=schema_validation["status"],
+                rule_data=rule,
+                created_at=datetime.utcnow(),
+            )
+            db.add(er)
+        db.flush()
+    except Exception:
+        # swallow persistence errors but continue
+        pass
+
     # Record schema validation timestamp
     analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
 
