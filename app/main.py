@@ -2052,6 +2052,24 @@ def analyze_feedback(
     if clarification_required:
         from uuid import uuid4
         clarification_id = str(uuid4())
+        # Persist clarification to database
+        try:
+            from app.services.clarification_service import RealClarificationService
+            service = RealClarificationService()
+            service.generate_clarification(
+                feedback_id=feedback_id,
+                feedback_text=payload.feedback_text,
+                classification=classification_result_dict,
+                extraction=extraction_result,
+                workspace_id=payload.workspace_id,
+                domain_id=domain_pack_id or "ecommerce",
+                suggestion_id=suggestion_id,
+                analysis_run_id=analysis_run_id,
+                db=db,
+            )
+        except Exception:
+            # swallow persistence errors but continue
+            pass
 
     # Update suggestion with clarification and routing results
     rule_suggestion.clarification_required = clarification_required

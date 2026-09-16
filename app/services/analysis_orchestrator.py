@@ -249,6 +249,26 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
         # swallow persistence errors but continue
         pass
 
+    # Persist Clarification (if required)
+    if clarification_required:
+        try:
+            from app.services.clarification_service import RealClarificationService
+            service = RealClarificationService()
+            service.generate_clarification(
+                feedback_id=feedback_id,
+                feedback_text=feedback_text,
+                classification=classification_result,
+                extraction=extraction_result,
+                workspace_id=workspace_id,
+                domain_id=domain_pack_id or "ecommerce",
+                suggestion_id=suggestion_id,
+                analysis_run_id=analysis_run_id,
+                db=db,
+            )
+        except Exception:
+            # swallow persistence errors but continue
+            pass
+
     # Persist ExtractedRules (audit trail of individual rules from extraction step)
     try:
         from app.db.models.extracted_rule import ExtractedRule
