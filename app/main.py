@@ -1108,14 +1108,20 @@ def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict
         rule_id = f"RULE_{str(uuid4())[:8].upper()}"
         suggested_rule = suggestion.suggested_rule or {}
 
+        # Generate a human-readable rule name from business_term and operation
+        business_term = suggested_rule.get("business_term", "unknown")
+        operation = suggested_rule.get("operation", "unknown")
+        rule_name = f"{operation.capitalize()} {business_term.replace('_', ' ')}".strip()
+
         rule = Rule(
             rule_id=rule_id,
             workspace_id=suggestion.workspace_id,
             domain_id="ecommerce",  # TODO: Get from suggestion
             suggestion_id=suggestion_id,
-            business_term=suggested_rule.get("business_term", ""),
+            rule_name=rule_name,
+            business_term=business_term,
             rule_category=suggestion.rule_category or "unknown",
-            operation=suggested_rule.get("operation", ""),
+            operation=operation,
             conditions=suggested_rule.get("conditions", []),
             scope=suggested_rule.get("scope", "global"),
             affected_entities=suggested_rule.get("affected_entities", {}),
