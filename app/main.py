@@ -3587,7 +3587,13 @@ def admin_db_collection_row(
     params: Dict[str, Any] = {"rid": row_id}
     where = f'"{pk}"::text = :rid'
     if meta["workspace_scoped"]:
-        where += " AND workspace_id = :ws"
+        # Global reference tables expose NULL-workspace seed rows to every
+        # workspace for visibility (see _admin_db_row_count / _admin_db_rows);
+        # the detail pane must use the same predicate or every global row 404s.
+        if collection in _ADMIN_DB_GLOBAL_TABLES:
+            where += " AND (workspace_id = :ws OR workspace_id IS NULL)"
+        else:
+            where += " AND workspace_id = :ws"
         params["ws"] = _ctx.workspace_id
     sql = f'SELECT * FROM "{collection}" WHERE {where}'
     row = db.execute(text(sql), params).fetchone()
