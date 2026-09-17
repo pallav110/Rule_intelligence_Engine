@@ -1223,10 +1223,19 @@ def create_rule_from_suggestion(suggestion_id: str, created_by: str, db) -> Dict
         if not rule_name or rule_name.lower() == "rule general":
             rule_name = f"Rule {rule_id[-8:]}" 
 
+        # Get domain from the associated analysis run
+        from app.db.models.analysis_run import AnalysisRun
+        analysis_run = db.query(AnalysisRun).filter_by(analysis_run_id=suggestion.analysis_run_id).first()
+        domain_id = analysis_run.domain_pack_id if analysis_run and analysis_run.domain_pack_id else "ecommerce"
+        # Fallback: try to get domain from workspace or suggestion context if needed
+        if not domain_id or domain_id == "ecommerce":
+            # Try to infer from classification result or other sources if available
+            domain_id = getattr(suggestion, 'domain_pack_id', None) or "ecommerce"
+
         rule = Rule(
             rule_id=rule_id,
             workspace_id=suggestion.workspace_id,
-            domain_id="ecommerce",  # TODO: Get from suggestion
+            domain_id=domain_id,
             suggestion_id=suggestion_id,
             rule_name=rule_name,
             business_term=business_term,
