@@ -1941,6 +1941,9 @@ def analyze_feedback(
         extraction_result["extraction"]["extracted_rules"] = extracted_rules
         extraction_result["extraction"]["rules"] = extracted_rules[:1] if extracted_rules else []
 
+    # Set primary rule for use in duplicate/conflict detection and persistence
+    primary_rule = extracted_rules[0] if extracted_rules else {}
+
     # STEP 4: Schema Validation
     # domain_schema was already loaded + injected into full_schema_context
     # before STEP 3 (extraction needs it too); reuse it here.
@@ -1974,56 +1977,6 @@ def analyze_feedback(
             "mandatory_fields_valid": all(v["mandatory_fields_valid"] for v in schema_validation_results),
             "validation_errors": [e for v in schema_validation_results for e in v["validation_errors"]],
         }
-
-    # STEP 4: Persist Suggestion (BEFORE clarification/routing to satisfy FK constraints)
-    primary_rule = extracted_rules[0] if extracted_rules else {}
-    rule_suggestion = RuleSuggestion(
-        suggestion_id=suggestion_id,
-        workspace_id=payload.workspace_id,
-        feedback_id=feedback_id,
-        analysis_run_id=analysis_run_id,
-        feedback_type=classification_result_dict.get("feedback_type"),
-        rule_category=classification_result_dict.get("rule_category"),
-        classification_result=classification_result_dict,
-        extraction_result="completed",
-        clarification_required=False,  # Will update after clarification check
-        review_status="pending_review",  # Will update after routing
-        suggested_rule=primary_rule,
-        preprocessing_result=preprocessing_result,
-        schema_validation_status=schema_validation["status"],
-        created_at=datetime.utcnow(),
-    )
-    db.add(rule_suggestion)
-    db.flush()  # Flush to ensure suggestion is persisted before FK references
-
-    # Persist ExtractedRules (audit trail of individual rules from extraction step)
-    try:
-        from app.db.models.extracted_rule import ExtractedRule
-        for idx, rule in enumerate(extracted_rules):
-            er = ExtractedRule(
-                extracted_rule_id=str(uuid4()),
-                workspace_id=payload.workspace_id,
-                feedback_id=feedback_id,
-                analysis_run_id=analysis_run_id,
-                suggestion_id=suggestion_id,
-                rule_family_id=rule.get("rule_family_id") or (f"{classification_result_dict.get('rule_category', '').lower()}_{idx}" if classification_result_dict.get('rule_category') else None),
-                business_term=rule.get("business_term"),
-                operation=rule.get("operation"),
-                conditions=rule.get("conditions"),
-                scope=rule.get("scope"),
-                time_window=rule.get("time_window"),
-                affected_tables=rule.get("affected_tables") or rule.get("affected_entities"),
-                affected_columns=rule.get("affected_columns"),
-                extraction_confidence=extraction_result.get("extraction_confidence"),
-                schema_validation_status=schema_validation["status"],
-                rule_data=rule,
-                created_at=datetime.utcnow(),
-            )
-            db.add(er)
-        db.flush()
-    except Exception:
-        # swallow persistence errors but continue
-        pass
 
     # Record schema validation timestamp
     analysis_run.execution_timestamps["schema_validation_completed"] = datetime.utcnow().isoformat()
@@ -2087,6 +2040,57 @@ def analyze_feedback(
     # Record duplicate and conflict detection timestamps
     analysis_run.execution_timestamps["duplicate_detection_completed"] = datetime.utcnow().isoformat()
     analysis_run.execution_timestamps["conflict_detection_completed"] = datetime.utcnow().isoformat()
+
+    # STEP 4: Persist Suggestion (BEFORE clarification/routing to satisfy FK constraints)
+    rule_suggestion = RuleSuggestion(
+        suggestion_id=suggestion_id,
+        workspace_id=payload.workspace_id,
+        feedback_id=feedback_id,
+        analysis_run_id=analysis_run_id,
+        feedback_type=classification_result_dict.get("feedback_type"),
+        rule_category=classification_result_dict.get("rule_category"),
+        classification_result=classification_result_dict,
+        extraction_result="completed",
+        clarification_required=False,  # Will update after clarification check
+        review_status="pending_review",  # Will update after routing
+        suggested_rule=primary_rule,
+        preprocessing_result=preprocessing_result,
+        schema_validation_status=schema_validation["status"],
+        duplicate_status=duplicate_check.get('relationship'),
+        conflict_status=conflict_check.get('conflict_type'),
+        created_at=datetime.utcnow(),
+    )
+    db.add(rule_suggestion)
+    db.flush()  # Flush to ensure suggestion is persisted before FK references
+
+    # Persist ExtractedRules (audit trail of individual rules from extraction step)
+    try:
+        from app.db.models.extracted_rule import ExtractedRule
+        for idx, rule in enumerate(extracted_rules):
+            er = ExtractedRule(
+                extracted_rule_id=str(uuid4()),
+                workspace_id=payload.workspace_id,
+                feedback_id=feedback_id,
+                analysis_run_id=analysis_run_id,
+                suggestion_id=suggestion_id,
+                rule_family_id=rule.get("rule_family_id") or (f"{classification_result_dict.get('rule_category', '').lower()}_{idx}" if classification_result_dict.get('rule_category') else None),
+                business_term=rule.get("business_term"),
+                operation=rule.get("operation"),
+                conditions=rule.get("conditions"),
+                scope=rule.get("scope"),
+                time_window=rule.get("time_window"),
+                affected_tables=rule.get("affected_tables") or rule.get("affected_entities"),
+                affected_columns=rule.get("affected_columns"),
+                extraction_confidence=extraction_result.get("extraction_confidence"),
+                schema_validation_status=schema_validation["status"],
+                rule_data=rule,
+                created_at=datetime.utcnow(),
+            )
+            db.add(er)
+        db.flush()
+    except Exception:
+        # swallow persistence errors but continue
+        pass
 
     # STEP 7: Clarification Generation (V4 Baseline - Completeness Check)
     completeness_checker = CompletenessChecker()

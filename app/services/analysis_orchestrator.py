@@ -13,6 +13,7 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
 
     Returns a dict with keys: analysis_run_id, suggestion_id, routing_decision, clarification_required, result (full response dict)
     """
+    print("DEBUG: run_analysis called with feedback_text:", feedback_text[:50])
     from app.db.models.analysis_run import AnalysisRun
     from app.db.models.rule_suggestion import RuleSuggestion
     from app.db.models.feedback import Feedback
@@ -140,13 +141,17 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
     try:
         duplicate_service = BaselineDuplicateDetectionService()
         duplicate_check = duplicate_service.check_duplicate(primary_rule, workspace_id, domain_pack_id, db)
-    except Exception:
+        print(f"DEBUG: duplicate_check result: {duplicate_check}")
+    except Exception as e:
+        print(f"DEBUG: duplicate_service error: {e}")
         duplicate_check = {"status": "none", "is_duplicate": False}
 
     try:
         conflict_service = BaselineConflictDetectionService()
         conflict_check = conflict_service.check_conflict(primary_rule, workspace_id, domain_pack_id, db)
-    except Exception:
+        print(f"DEBUG: conflict_check result: {conflict_check}")
+    except Exception as e:
+        print(f"DEBUG: conflict_service error: {e}")
         conflict_check = {"has_conflict": False, "conflict_type": "no_conflict"}
 
     # Completeness & Ambiguity
@@ -227,6 +232,7 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
         # merge clarification payload into preprocessing_result for persistence
         persisted_preprocessing = {**(preprocessing_result or {}), **({"clarification_requests": clarification_payload} if clarification_payload else {})}
 
+        print(f"DEBUG: duplicate_check={duplicate_check}, conflict_check={conflict_check}")
         rs = RuleSuggestion(
             suggestion_id=suggestion_id,
             workspace_id=workspace_id,
@@ -241,6 +247,8 @@ def run_analysis(db, workspace_id: str, feedback_text: str, feedback_id: str | N
             review_status=routing_decision.get("review_status", "pending_review"),
             suggested_rule=primary_rule,
             schema_validation_status=schema_validation_status,
+            duplicate_status=duplicate_check.get('relationship'),
+            conflict_status=conflict_check.get('conflict_type'),
             created_at=datetime.utcnow(),
         )
         db.add(rs)
