@@ -360,12 +360,30 @@ class RealReviewRoutingService:
                         "reason": reason,
                     }
                 elif action == "reviewer_verification":
+                    # Generate full reasoning similar to regular router
+                    confidence = classification.get("confidence", 0.0)
+                    impact = self.router._estimate_impact(suggestion, classification)
+                    complexity = self.router._calculate_complexity(suggestion)
+                    risk_score = self.router._calculate_risk(conflict_check.get("has_conflict", False), duplicate_check.get("is_duplicate", False), complexity)
+                    reasoning_factors = self.router._generate_reasoning_factors(confidence, impact, risk_score, complexity, conflict_check.get("has_conflict", False), duplicate_check.get("is_duplicate", False))
                     routing_decision = {
                         "review_status": "reviewer_verification",
                         "priority": ReviewPriority.HIGH.value,
                         "suggested_reviewer_type": ReviewerType.QA.value,
                         "suggested_reviewer_id": self.router._select_reviewer(ReviewerType.QA, domain_id),
                         "reason": reason,
+                        "reasoning": {
+                            "confidence_score": round(min(1.0, confidence), 3),
+                            "impact_score": round(impact, 3),
+                            "complexity_score": round(complexity, 3),
+                            "risk_score": round(risk_score, 3),
+                            "factors": reasoning_factors,
+                        },
+                        "auto_approval_eligible": False,
+                        "escalation_reasons": ["Potential duplicate of existing rule"],
+                        "recommended_actions": self.router._generate_recommended_actions(
+                            "reviewer_verification", ReviewPriority.HIGH, conflict_check.get("has_conflict", False), duplicate_check.get("is_duplicate", False), confidence
+                        ),
                     }
                 elif action == "senior_review":
                     routing_decision = {
