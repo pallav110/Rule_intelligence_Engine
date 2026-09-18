@@ -352,7 +352,9 @@ class MLModelService:
 
             # Enrich with domain info if available
             if schema_context and result.get("extraction", {}).get("extracted_rules"):
-                domain_id = schema_context.get("domain_pack_id", "ecommerce")
+                domain_id = schema_context.get("domain_pack_id")
+                if domain_id is None:
+                    domain_id = "ecommerce"
                 from app.services.domain_pack_matcher import DomainPackMatcher
                 try:
                     matcher = DomainPackMatcher()

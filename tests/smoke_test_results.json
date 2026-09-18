@@ -1,14 +1,14 @@
 {
   "meta": {
     "total": 45,
-    "time": "2026-09-18 17:23:27"
+    "time": "2026-09-18 18:01:50"
   },
   "cases": [
     {
       "id": 1,
       "feedback": "Revenue should exclude cancelled orders.",
       "production": {
-        "time_s": 0.388,
+        "time_s": 0.345,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -83,7 +83,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.067,
+        "time_s": 0.053,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -162,7 +162,7 @@
       "id": 2,
       "feedback": "Revenue must include completed payments only.",
       "production": {
-        "time_s": 0.314,
+        "time_s": 0.308,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -227,7 +227,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.058,
+        "time_s": 0.043,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -297,7 +297,7 @@
       "id": 3,
       "feedback": "Refunds should be excluded from the total revenue.",
       "production": {
-        "time_s": 0.34,
+        "time_s": 0.295,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -352,7 +352,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.053,
+        "time_s": 0.047,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -373,15 +373,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -418,7 +418,7 @@
       "id": 4,
       "feedback": "Orders with status pending should not be counted in revenue.",
       "production": {
-        "time_s": 0.468,
+        "time_s": 0.367,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -483,7 +483,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.07,
+        "time_s": 0.05,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -504,15 +504,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -549,7 +549,7 @@
       "id": 5,
       "feedback": "Only successful payments should contribute to total revenue.",
       "production": {
-        "time_s": 0.341,
+        "time_s": 0.306,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -614,7 +614,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.062,
+        "time_s": 0.046,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -644,15 +644,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -689,7 +689,7 @@
       "id": 6,
       "feedback": "Customer lifetime value should include all completed purchases.",
       "production": {
-        "time_s": 0.303,
+        "time_s": 0.286,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -765,7 +765,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.054,
+        "time_s": 0.05,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -831,7 +831,7 @@
       "id": 7,
       "feedback": "Returned products must be excluded from sales calculations.",
       "production": {
-        "time_s": 0.326,
+        "time_s": 0.332,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -904,7 +904,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.079,
+        "time_s": 0.103,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -938,10 +938,10 @@
               "order_items"
             ],
             "affected_columns": [
-              "products.product_id",
               "products.category",
               "products.name",
-              "products.is_active"
+              "products.is_active",
+              "products.product_id"
             ]
           }
         ],
@@ -978,7 +978,7 @@
       "id": 8,
       "feedback": "Revenue should include orders created in the current month.",
       "production": {
-        "time_s": 0.338,
+        "time_s": 0.422,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1042,7 +1042,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.068,
+        "time_s": 0.077,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1072,15 +1072,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1117,7 +1117,7 @@
       "id": 9,
       "feedback": "Do not consider cancelled orders when calculating revenue.",
       "production": {
-        "time_s": 0.346,
+        "time_s": 0.376,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1192,7 +1192,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.057,
+        "time_s": 0.051,
         "classification": {
           "feedback_type": "question",
           "rule_category": "metric_definition",
@@ -1222,15 +1222,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1267,7 +1267,7 @@
       "id": 10,
       "feedback": "Cancelled purchases shouldn't contribute to revenue.",
       "production": {
-        "time_s": 0.413,
+        "time_s": 0.37,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1342,7 +1342,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.059,
+        "time_s": 0.056,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1372,15 +1372,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1417,7 +1417,7 @@
       "id": 11,
       "feedback": "When computing revenue, ignore orders that were cancelled.",
       "production": {
-        "time_s": 0.502,
+        "time_s": 0.334,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1481,7 +1481,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.063,
+        "time_s": 0.068,
         "classification": {
           "feedback_type": "question",
           "rule_category": "metric_definition",
@@ -1511,15 +1511,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1556,7 +1556,7 @@
       "id": 12,
       "feedback": "Revenue calculations need to leave out cancelled transactions.",
       "production": {
-        "time_s": 0.442,
+        "time_s": 0.389,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -1621,7 +1621,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.052,
+        "time_s": 0.055,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1642,15 +1642,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1687,7 +1687,7 @@
       "id": 13,
       "feedback": "Only orders that successfully went through should be counted toward revenue.",
       "production": {
-        "time_s": 0.403,
+        "time_s": 0.532,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1752,7 +1752,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.08,
+        "time_s": 0.115,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1773,15 +1773,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1818,7 +1818,7 @@
       "id": 14,
       "feedback": "Revenue must not account for refunded purchases.",
       "production": {
-        "time_s": 0.323,
+        "time_s": 0.501,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1883,7 +1883,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.052,
+        "time_s": 0.091,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -1913,15 +1913,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -1958,7 +1958,7 @@
       "id": 15,
       "feedback": "Revenue should exclude cancelled orders from the US.",
       "production": {
-        "time_s": 0.319,
+        "time_s": 0.553,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2033,7 +2033,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.046,
+        "time_s": 0.08,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2112,7 +2112,7 @@
       "id": 16,
       "feedback": "Revenue should exclude cancelled orders created in the current month.",
       "production": {
-        "time_s": 0.365,
+        "time_s": 0.579,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2187,7 +2187,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.108,
+        "time_s": 0.091,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2267,7 +2267,7 @@
       "id": 17,
       "feedback": "Only completed orders from premium customers should contribute to revenue.",
       "production": {
-        "time_s": 0.332,
+        "time_s": 0.52,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -2341,7 +2341,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.055,
+        "time_s": 0.094,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2371,15 +2371,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -2416,7 +2416,7 @@
       "id": 18,
       "feedback": "Exclude refunded orders where the payment method is cash.",
       "production": {
-        "time_s": 0.349,
+        "time_s": 0.628,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "data_quality_rule",
@@ -2488,7 +2488,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.058,
+        "time_s": 0.09,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2556,7 +2556,7 @@
       "id": 19,
       "feedback": "Revenue should include completed orders but exclude refunded orders.",
       "production": {
-        "time_s": 0.355,
+        "time_s": 0.571,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2621,7 +2621,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.058,
+        "time_s": 0.085,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2691,7 +2691,7 @@
       "id": 20,
       "feedback": "Do not count cancelled orders or failed payments when calculating revenue.",
       "production": {
-        "time_s": 0.313,
+        "time_s": 0.56,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -2765,7 +2765,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.058,
+        "time_s": 0.084,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2803,15 +2803,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -2848,7 +2848,7 @@
       "id": 21,
       "feedback": "Order count should exclude cancelled orders.",
       "production": {
-        "time_s": 0.393,
+        "time_s": 0.533,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -2924,7 +2924,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.118,
+        "time_s": 0.079,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3005,7 +3005,7 @@
       "id": 22,
       "feedback": "Average order value should include completed purchases only.",
       "production": {
-        "time_s": 0.385,
+        "time_s": 0.562,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3081,7 +3081,7 @@
         "_routing_status": "auto_approved"
       },
       "baseline": {
-        "time_s": 0.063,
+        "time_s": 0.077,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3163,7 +3163,7 @@
       "id": 23,
       "feedback": "Refund amount should include all successfully processed refunds.",
       "production": {
-        "time_s": 0.326,
+        "time_s": 0.541,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3228,7 +3228,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.121,
+        "time_s": 0.164,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3261,9 +3261,9 @@
               "refunds"
             ],
             "affected_columns": [
-              "refunds.status",
               "refunds.refund_date",
-              "refunds.amount"
+              "refunds.amount",
+              "refunds.status"
             ]
           }
         ],
@@ -3300,7 +3300,7 @@
       "id": 24,
       "feedback": "Customer revenue should exclude refunded transactions.",
       "production": {
-        "time_s": 0.403,
+        "time_s": 0.601,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "filter_rule",
@@ -3356,7 +3356,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.06,
+        "time_s": 0.073,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3377,15 +3377,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -3424,7 +3424,7 @@
       "id": 25,
       "feedback": "Revenue should exclude cancelled orders.",
       "production": {
-        "time_s": 0.342,
+        "time_s": 0.56,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3499,7 +3499,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.049,
+        "time_s": 0.065,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3578,7 +3578,7 @@
       "id": 26,
       "feedback": "Cancelled orders should not be included in revenue.",
       "production": {
-        "time_s": 0.327,
+        "time_s": 0.603,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3643,7 +3643,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.063,
+        "time_s": 0.082,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3673,15 +3673,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -3718,7 +3718,7 @@
       "id": 27,
       "feedback": "When calculating revenue, ignore cancelled orders.",
       "production": {
-        "time_s": 0.368,
+        "time_s": 0.594,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3793,7 +3793,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.057,
+        "time_s": 0.078,
         "classification": {
           "feedback_type": "question",
           "rule_category": "metric_definition",
@@ -3823,15 +3823,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -3868,7 +3868,7 @@
       "id": 28,
       "feedback": "Revenue should exclude cancelled purchases.",
       "production": {
-        "time_s": 0.34,
+        "time_s": 0.529,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -3943,7 +3943,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.051,
+        "time_s": 0.062,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4010,7 +4010,7 @@
       "id": 29,
       "feedback": "Revenue should include cancelled orders.",
       "production": {
-        "time_s": 0.312,
+        "time_s": 0.53,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4075,7 +4075,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.057,
+        "time_s": 0.072,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4145,7 +4145,7 @@
       "id": 30,
       "feedback": "Cancelled orders must contribute to revenue.",
       "production": {
-        "time_s": 0.374,
+        "time_s": 0.594,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4220,7 +4220,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.05,
+        "time_s": 0.084,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4250,15 +4250,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -4295,7 +4295,7 @@
       "id": 31,
       "feedback": "Revenue should exclude completed orders.",
       "production": {
-        "time_s": 0.334,
+        "time_s": 0.496,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4360,7 +4360,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.043,
+        "time_s": 0.079,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4430,7 +4430,7 @@
       "id": 32,
       "feedback": "Revenue should exclude returned orders.",
       "production": {
-        "time_s": 0.443,
+        "time_s": 0.537,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4495,7 +4495,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.059,
+        "time_s": 0.078,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4516,15 +4516,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -4561,7 +4561,7 @@
       "id": 33,
       "feedback": "Exclude cancelled orders from revenue globally.",
       "production": {
-        "time_s": 0.378,
+        "time_s": 0.516,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4636,7 +4636,7 @@
         "_routing_status": "reviewer_verification"
       },
       "baseline": {
-        "time_s": 0.042,
+        "time_s": 0.072,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4715,7 +4715,7 @@
       "id": 34,
       "feedback": "For this month, revenue should exclude refunded orders.",
       "production": {
-        "time_s": 0.341,
+        "time_s": 0.524,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4780,7 +4780,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.077,
+        "time_s": 0.085,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4810,15 +4810,15 @@
             ],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -4855,7 +4855,7 @@
       "id": 35,
       "feedback": "For the last 30 days, only completed payments should contribute to revenue.",
       "production": {
-        "time_s": 0.37,
+        "time_s": 0.563,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4920,7 +4920,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.073,
+        "time_s": 0.112,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -4950,15 +4950,15 @@
             ],
             "time_window": "last_30_days",
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -4995,7 +4995,7 @@
       "id": 36,
       "feedback": "Revenue needs fixing.",
       "production": {
-        "time_s": 0.37,
+        "time_s": 0.432,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5048,7 +5048,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.041,
+        "time_s": 0.042,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5096,7 +5096,7 @@
       "id": 37,
       "feedback": "Revenue shouldn't count some orders.",
       "production": {
-        "time_s": 0.325,
+        "time_s": 0.639,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5151,7 +5151,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.053,
+        "time_s": 0.085,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5172,15 +5172,15 @@
             "conditions": [],
             "time_window": null,
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -5219,7 +5219,7 @@
       "id": 38,
       "feedback": "The cafeteria food is terrible today.",
       "production": {
-        "time_s": 0.267,
+        "time_s": 0.483,
         "classification": {
           "feedback_type": "issue_report",
           "rule_category": "none",
@@ -5263,7 +5263,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.028,
+        "time_s": 0.049,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5311,7 +5311,7 @@
       "id": 39,
       "feedback": "BUY NOW BUY NOW BUY NOW BUY NOW CLICK HERE!!! FREE FREE FREE!!!",
       "production": {
-        "time_s": 0.164,
+        "time_s": 0.249,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "none",
@@ -5364,7 +5364,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.037,
+        "time_s": 0.051,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5412,7 +5412,7 @@
       "id": 40,
       "feedback": "xj29 revenue zzz qqq cancelled blahhh 9281 asdfgh",
       "production": {
-        "time_s": 0.222,
+        "time_s": 0.243,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "none",
@@ -5474,7 +5474,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.036,
+        "time_s": 0.053,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "unknown",
@@ -5522,7 +5522,7 @@
       "id": 41,
       "feedback": "",
       "production": {
-        "time_s": 0.007,
+        "time_s": 0.008,
         "error": "HTTP 422: {\"detail\":[{\"type\":\"string_too_short\",\"loc\":[\"body\",\"feedback_text\"],\"msg\":\"String should have at least 1 character\",\"input\":\"\",\"ctx\":{\"min_length\":1}}]}"
       },
       "baseline": {
@@ -5534,7 +5534,7 @@
       "id": 42,
       "feedback": "Revenue",
       "production": {
-        "time_s": 0.153,
+        "time_s": 0.241,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "none",
@@ -5587,7 +5587,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.023,
+        "time_s": 0.042,
         "classification": {
           "feedback_type": "irrelevant_spam",
           "rule_category": "unknown",
@@ -5635,7 +5635,7 @@
       "id": 43,
       "feedback": "Why is revenue excluding cancelled orders?",
       "production": {
-        "time_s": 0.2,
+        "time_s": 0.352,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5700,7 +5700,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.048,
+        "time_s": 0.076,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5768,7 +5768,7 @@
       "id": 44,
       "feedback": "Revenue should include cancelled orders and exclude cancelled orders.",
       "production": {
-        "time_s": 0.32,
+        "time_s": 0.539,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5833,7 +5833,7 @@
         "_routing_status": "senior_review_required"
       },
       "baseline": {
-        "time_s": 0.048,
+        "time_s": 0.075,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -5920,7 +5920,7 @@
       "id": 45,
       "feedback": "I read an article about revenue and cancelled orders yesterday.",
       "production": {
-        "time_s": 0.349,
+        "time_s": 0.508,
         "classification": {
           "feedback_type": "question",
           "rule_category": "none",
@@ -5985,7 +5985,7 @@
         "_routing_status": "clarification_required"
       },
       "baseline": {
-        "time_s": 0.061,
+        "time_s": 0.091,
         "classification": {
           "feedback_type": "business_rule",
           "rule_category": "metric_definition",
@@ -6015,15 +6015,15 @@
             ],
             "time_window": "yesterday",
             "affected_tables": [
-              "orders",
-              "payments"
+              "payments",
+              "orders"
             ],
             "affected_columns": [
-              "payments.status",
               "orders.total_amount",
               "orders.status",
+              "orders.is_test",
               "payments.amount",
-              "orders.is_test"
+              "payments.status"
             ]
           }
         ],
@@ -6073,7 +6073,7 @@
       "?": 1
     },
     "has_errors": 1,
-    "avg_time_prod": 0.343,
-    "avg_time_base": 0.059
+    "avg_time_prod": 0.467,
+    "avg_time_base": 0.074
   }
 }

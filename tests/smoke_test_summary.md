@@ -1,4 +1,4 @@
-# Smoke Test — 45 Cases (2026-09-18 17:23:27)
+# Smoke Test — 45 Cases (2026-09-18 18:01:50)
 
 ## Validation (Production)
   PASS: 36 | PARTIAL: 0 | FAIL: 0 | ERR: 1
@@ -20,6 +20,6 @@
   Prod: 10 | Base: 19
 
 ## Performance
-  Prod avg: 0.343s | Base avg: 0.059s
+  Prod avg: 0.467s | Base avg: 0.074s
   Errors: 1
 

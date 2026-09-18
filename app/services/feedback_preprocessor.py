@@ -77,6 +77,8 @@ class FeedbackPreprocessor:
 
         Results are cached per domain_pack_id so repeated requests are free.
         """
+        if not domain_pack_id:
+            return set()
         if domain_pack_id in _domain_vocab_cache:
             return _domain_vocab_cache[domain_pack_id]
 

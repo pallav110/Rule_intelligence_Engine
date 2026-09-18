@@ -651,6 +651,8 @@ class ConflictDetectionService:
 
     @staticmethod
     def _load_domain_pack_rules(domain_id: str) -> List[Dict[str, Any]]:
+        if not domain_id:
+            return []
         rules: List[Dict[str, Any]] = []
         try:
             active_rules_path = (

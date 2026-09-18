@@ -17,6 +17,8 @@ class DomainPackMatcher:
 
     def _load_active_rules(self, domain_pack_id: str) -> List[Dict[str, Any]]:
         """Load active_rules.json for domain pack."""
+        if not domain_pack_id:
+            return []
         if domain_pack_id in self.active_rules_cache:
             return self.active_rules_cache[domain_pack_id]
 

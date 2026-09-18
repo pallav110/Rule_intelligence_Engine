@@ -26,6 +26,8 @@ class ConflictingRulesService:
             }
         ]
         """
+        if not domain_id:
+            return []
         try:
             rules_path = (
                 Path(__file__).parent.parent.parent /
