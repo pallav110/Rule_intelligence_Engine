@@ -83,3 +83,5 @@ coverage.xml
 
 # Jupyter
 .ipynb_checkpoints/
+
+usage.md

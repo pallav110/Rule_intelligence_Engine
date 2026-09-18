@@ -146,7 +146,8 @@ if __name__ == "__main__":
         test_database_connection,
         test_celery_configuration,
         test_api_routes_exist,
-        test_health_endpoint_exists
+        test_health_endpoint_exists,
+        test_prometheus_metrics
     ]
 
     passed = 0
